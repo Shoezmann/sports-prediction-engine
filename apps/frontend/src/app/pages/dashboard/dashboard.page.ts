@@ -4,10 +4,10 @@ import { AccuracyChartComponent } from '../../components/accuracy-chart/accuracy
 import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate } from '../../services/api.service';
 
 @Component({
-    selector: 'sp-dashboard-page',
-    standalone: true,
-    imports: [StatCardComponent, AccuracyChartComponent],
-    template: `
+  selector: 'sp-dashboard-page',
+  standalone: true,
+  imports: [StatCardComponent, AccuracyChartComponent],
+  template: `
     <div class="dashboard">
       <!-- Hero Section -->
       <section class="hero animate-in">
@@ -83,7 +83,7 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
         <section class="log animate-in">
           <h3 class="log__title">Pipeline Log</h3>
           <div class="log__entries">
-            @for (entry of log(); track entry.time) {
+            @for (entry of log(); track $index) {
               <div class="log__entry">
                 <span class="log__time">{{ entry.time }}</span>
                 <span class="log__message">{{ entry.message }}</span>
@@ -94,7 +94,7 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       }
     </div>
   `,
-    styles: [`
+  styles: [`
     .dashboard {
       max-width: 1280px;
       margin: 0 auto;
@@ -282,110 +282,110 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
   `],
 })
 export class DashboardPage implements OnInit {
-    accuracy = signal<AccuracyData | null>(null);
-    isRunning = signal(false);
-    statusMessage = signal('');
-    statusError = signal(false);
-    log = signal<{ time: string; message: string }[]>([]);
+  accuracy = signal<AccuracyData | null>(null);
+  isRunning = signal(false);
+  statusMessage = signal('');
+  statusError = signal(false);
+  log = signal<{ time: string; message: string }[]>([]);
 
-    constructor(private api: ApiService) { }
+  constructor(private api: ApiService) { }
 
-    ngOnInit() {
+  ngOnInit() {
+    this.loadAccuracy();
+  }
+
+  loadAccuracy() {
+    this.api.getAccuracy().subscribe({
+      next: (data) => this.accuracy.set(data),
+      error: () => { },
+    });
+  }
+
+  syncSports() {
+    this.isRunning.set(true);
+    this.addLog('Syncing sports from The Odds API...');
+
+    this.api.syncSports().subscribe({
+      next: (r) => {
+        this.addLog(`Found ${r.total} sports (${r.active} active, ${r.new} new)`);
+        this.showStatus(`Sports synced: ${r.total} total, ${r.active} active`);
+        this.isRunning.set(false);
+      },
+      error: (e) => {
+        this.showStatus('Failed to sync sports. Is the API key set?', true);
+        this.isRunning.set(false);
+      },
+    });
+  }
+
+  updateResults() {
+    this.isRunning.set(true);
+    this.addLog('Fetching game results...');
+
+    this.api.updateResults().subscribe({
+      next: (r) => {
+        this.addLog(`Updated ${r.updated} games, ${r.predictionsResolved} predictions resolved, ${r.eloUpdated} ELO updates`);
+        this.showStatus(`Results updated: ${r.predictionsResolved} predictions resolved`);
         this.loadAccuracy();
+        this.isRunning.set(false);
+      },
+      error: () => {
+        this.showStatus('Failed to update results', true);
+        this.isRunning.set(false);
+      },
+    });
+  }
+
+  async runFullPipeline() {
+    this.isRunning.set(true);
+    this.log.set([]);
+
+    try {
+      // Step 1: Sync sports
+      this.addLog('Step 1/4: Syncing sports...');
+      const sports = await this.promisify(this.api.syncSports());
+      this.addLog(`Found ${sports.total} sports (${sports.active} active)`);
+
+      // Step 2: Sync games
+      this.addLog('Step 2/4: Syncing upcoming games...');
+      const games = await this.promisify(this.api.syncGames());
+      this.addLog(`Synced ${games.synced} new games across ${games.sports} sports`);
+
+      // Step 3: Generate predictions
+      this.addLog('Step 3/4: Generating predictions...');
+      const predictions = await this.promisify(this.api.generatePredictions());
+      this.addLog(`Generated ${predictions.generated} predictions (${predictions.skipped} skipped)`);
+
+      // Step 4: Update results
+      this.addLog('Step 4/4: Updating results...');
+      const results = await this.promisify(this.api.updateResults());
+      this.addLog(`Resolved ${results.predictionsResolved} predictions, updated ${results.eloUpdated} ELO ratings`);
+
+      this.addLog('✅ Full pipeline complete');
+      this.showStatus('Pipeline complete. Dashboard updated.');
+      this.loadAccuracy();
+    } catch (e) {
+      this.addLog('❌ Pipeline failed');
+      this.showStatus('Pipeline failed. Check API key and connectivity.', true);
+    } finally {
+      this.isRunning.set(false);
     }
+  }
 
-    loadAccuracy() {
-        this.api.getAccuracy().subscribe({
-            next: (data) => this.accuracy.set(data),
-            error: () => { },
-        });
-    }
+  private promisify<T>(obs: import('rxjs').Observable<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      obs.subscribe({ next: resolve, error: reject });
+    });
+  }
 
-    syncSports() {
-        this.isRunning.set(true);
-        this.addLog('Syncing sports from The Odds API...');
+  private addLog(message: string) {
+    const time = new Date().toLocaleTimeString();
+    this.log.update((prev) => [...prev, { time, message }]);
+  }
 
-        this.api.syncSports().subscribe({
-            next: (r) => {
-                this.addLog(`Found ${r.total} sports (${r.active} active, ${r.new} new)`);
-                this.showStatus(`Sports synced: ${r.total} total, ${r.active} active`);
-                this.isRunning.set(false);
-            },
-            error: (e) => {
-                this.showStatus('Failed to sync sports. Is the API key set?', true);
-                this.isRunning.set(false);
-            },
-        });
-    }
-
-    updateResults() {
-        this.isRunning.set(true);
-        this.addLog('Fetching game results...');
-
-        this.api.updateResults().subscribe({
-            next: (r) => {
-                this.addLog(`Updated ${r.updated} games, ${r.predictionsResolved} predictions resolved, ${r.eloUpdated} ELO updates`);
-                this.showStatus(`Results updated: ${r.predictionsResolved} predictions resolved`);
-                this.loadAccuracy();
-                this.isRunning.set(false);
-            },
-            error: () => {
-                this.showStatus('Failed to update results', true);
-                this.isRunning.set(false);
-            },
-        });
-    }
-
-    async runFullPipeline() {
-        this.isRunning.set(true);
-        this.log.set([]);
-
-        try {
-            // Step 1: Sync sports
-            this.addLog('Step 1/4: Syncing sports...');
-            const sports = await this.promisify(this.api.syncSports());
-            this.addLog(`Found ${sports.total} sports (${sports.active} active)`);
-
-            // Step 2: Sync games
-            this.addLog('Step 2/4: Syncing upcoming games...');
-            const games = await this.promisify(this.api.syncGames());
-            this.addLog(`Synced ${games.synced} new games across ${games.sports} sports`);
-
-            // Step 3: Generate predictions
-            this.addLog('Step 3/4: Generating predictions...');
-            const predictions = await this.promisify(this.api.generatePredictions());
-            this.addLog(`Generated ${predictions.generated} predictions (${predictions.skipped} skipped)`);
-
-            // Step 4: Update results
-            this.addLog('Step 4/4: Updating results...');
-            const results = await this.promisify(this.api.updateResults());
-            this.addLog(`Resolved ${results.predictionsResolved} predictions, updated ${results.eloUpdated} ELO ratings`);
-
-            this.addLog('✅ Full pipeline complete');
-            this.showStatus('Pipeline complete. Dashboard updated.');
-            this.loadAccuracy();
-        } catch (e) {
-            this.addLog('❌ Pipeline failed');
-            this.showStatus('Pipeline failed. Check API key and connectivity.', true);
-        } finally {
-            this.isRunning.set(false);
-        }
-    }
-
-    private promisify<T>(obs: import('rxjs').Observable<T>): Promise<T> {
-        return new Promise((resolve, reject) => {
-            obs.subscribe({ next: resolve, error: reject });
-        });
-    }
-
-    private addLog(message: string) {
-        const time = new Date().toLocaleTimeString();
-        this.log.update((prev) => [...prev, { time, message }]);
-    }
-
-    private showStatus(message: string, isError = false) {
-        this.statusMessage.set(message);
-        this.statusError.set(isError);
-        setTimeout(() => this.statusMessage.set(''), 5000);
-    }
+  private showStatus(message: string, isError = false) {
+    this.statusMessage.set(message);
+    this.statusError.set(isError);
+    setTimeout(() => this.statusMessage.set(''), 5000);
+  }
 }
