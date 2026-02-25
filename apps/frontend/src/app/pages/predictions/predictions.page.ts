@@ -2,9 +2,9 @@ import { Component, signal, OnInit } from '@angular/core';
 import { ApiService, AccuracyData } from '../../services/api.service';
 
 @Component({
-    selector: 'sp-predictions-page',
-    standalone: true,
-    template: `
+  selector: 'sp-predictions-page',
+  standalone: true,
+  template: `
     <div class="predictions-page">
       <header class="page-header animate-in">
         <div>
@@ -81,7 +81,7 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       }
     </div>
   `,
-    styles: [`
+  styles: [`
     .predictions-page {
       max-width: 1280px;
       margin: 0 auto;
@@ -337,65 +337,154 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       color: var(--color-text-muted);
     }
 
+    // ─── Tablet ─────────────────────────────────────────────
     @media (max-width: 768px) {
+      .predictions-page {
+        padding: var(--spacing-md);
+      }
+
       .page-header {
         flex-direction: column;
         gap: var(--spacing-md);
       }
-      .overview { flex-direction: column; }
+
+      .generate-btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+      }
+
+      .overview {
+        flex-direction: column;
+      }
+
+      .model-grid {
+        min-width: unset;
+      }
+
+      .sport-cards {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      }
+    }
+
+    // ─── Mobile ─────────────────────────────────────────────
+    @media (max-width: 480px) {
+      .predictions-page {
+        padding: var(--spacing-sm);
+      }
+
+      .page-title {
+        font-size: 1.5rem;
+      }
+
+      .page-subtitle {
+        font-size: 0.8125rem;
+      }
+
+      .overview-card {
+        flex-direction: column;
+        text-align: center;
+        padding: var(--spacing-md);
+      }
+
+      .overview-card__ring {
+        width: 64px;
+        height: 64px;
+      }
+
+      .overview-card__info {
+        align-items: center;
+      }
+
+      .model-card {
+        grid-template-columns: 80px 1fr 48px;
+        gap: var(--spacing-sm);
+      }
+
+      .model-card__name {
+        font-size: 0.75rem;
+      }
+
+      .sport-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .sport-card {
+        padding: var(--spacing-md);
+      }
+
+      .sport-card:hover {
+        transform: none;
+      }
+
+      .empty-state {
+        padding: var(--spacing-xl) var(--spacing-md);
+      }
+
+      .empty-state__icon {
+        font-size: 2.5rem;
+      }
+
+      .empty-state__title {
+        font-size: 1.25rem;
+      }
+
+      .empty-state__message {
+        font-size: 0.875rem;
+      }
     }
   `],
 })
 export class PredictionsPage implements OnInit {
-    accuracy = signal<AccuracyData | null>(null);
-    isGenerating = signal(false);
-    sportCount = signal(0);
+  accuracy = signal<AccuracyData | null>(null);
+  isGenerating = signal(false);
+  sportCount = signal(0);
 
-    constructor(private api: ApiService) { }
+  constructor(private api: ApiService) { }
 
-    ngOnInit() {
-        this.api.getAccuracy().subscribe({
-            next: (data) => {
-                this.accuracy.set(data);
-                this.sportCount.set(Object.keys(data.bySport).length);
-            },
-        });
-    }
+  ngOnInit() {
+    this.api.getAccuracy().subscribe({
+      next: (data) => {
+        this.accuracy.set(data);
+        this.sportCount.set(Object.keys(data.bySport).length);
+      },
+    });
+  }
 
-    models() {
-        const d = this.accuracy();
-        if (!d) return [];
-        return [
-            { name: 'Ensemble', accuracy: d.byModel.ensemble, color: 'var(--gradient-hero)' },
-            { name: 'Odds Implied', accuracy: d.byModel.oddsImplied, color: '#3b82f6' },
-            { name: 'ELO', accuracy: d.byModel.elo, color: '#8b5cf6' },
-            { name: 'Form', accuracy: d.byModel.form, color: '#f59e0b' },
-        ];
-    }
+  models() {
+    const d = this.accuracy();
+    if (!d) return [];
+    return [
+      { name: 'Ensemble', accuracy: d.byModel.ensemble, color: 'var(--gradient-hero)' },
+      { name: 'Odds Implied', accuracy: d.byModel.oddsImplied, color: '#3b82f6' },
+      { name: 'ELO', accuracy: d.byModel.elo, color: '#8b5cf6' },
+      { name: 'Form', accuracy: d.byModel.form, color: '#f59e0b' },
+    ];
+  }
 
-    sportBreakdown() {
-        const d = this.accuracy();
-        if (!d) return [];
-        return Object.entries(d.bySport).map(([key, bucket]) => ({
-            key,
-            ...bucket,
-        }));
-    }
+  sportBreakdown() {
+    const d = this.accuracy();
+    if (!d) return [];
+    return Object.entries(d.bySport).map(([key, bucket]) => ({
+      key,
+      ...bucket,
+    }));
+  }
 
-    getAccuracyClass(accuracy: number): string {
-        if (accuracy >= 0.7) return 'accuracy-high';
-        if (accuracy >= 0.55) return 'accuracy-medium';
-        return 'accuracy-low';
-    }
+  getAccuracyClass(accuracy: number): string {
+    if (accuracy >= 0.7) return 'accuracy-high';
+    if (accuracy >= 0.55) return 'accuracy-medium';
+    return 'accuracy-low';
+  }
 
-    generatePredictions() {
-        this.isGenerating.set(true);
-        this.api.generatePredictions().subscribe({
-            next: () => {
-                this.isGenerating.set(false);
-                this.ngOnInit();
-            },
-            error: () => this.isGenerating.set(false),
-        });
-    }
+  generatePredictions() {
+    this.isGenerating.set(true);
+    this.api.generatePredictions().subscribe({
+      next: () => {
+        this.isGenerating.set(false);
+        this.ngOnInit();
+      },
+      error: () => this.isGenerating.set(false),
+    });
+  }
 }

@@ -1,9 +1,9 @@
 import { Component, input } from '@angular/core';
 
 @Component({
-    selector: 'sp-stat-card',
-    standalone: true,
-    template: `
+  selector: 'sp-stat-card',
+  standalone: true,
+  template: `
     <div class="stat-card" [class]="'stat-card stat-card--' + variant()">
       <div class="stat-card__header">
         <span class="stat-card__label">{{ label() }}</span>
@@ -19,7 +19,7 @@ import { Component, input } from '@angular/core';
       }
     </div>
   `,
-    styles: [`
+  styles: [`
     .stat-card {
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
@@ -104,14 +104,36 @@ import { Component, input } from '@angular/core';
       font-size: 0.8125rem;
       color: var(--color-text-muted);
     }
+
+    @media (max-width: 480px) {
+      .stat-card {
+        padding: var(--spacing-md);
+      }
+
+      .stat-card__label {
+        font-size: 0.6875rem;
+      }
+
+      .stat-card__value {
+        font-size: 1.5rem;
+      }
+
+      .stat-card__subtitle {
+        font-size: 0.6875rem;
+      }
+
+      .stat-card:hover {
+        transform: none;
+      }
+    }
   `],
 })
 export class StatCardComponent {
-    label = input.required<string>();
-    value = input.required<string>();
-    subtitle = input<string>();
-    trend = input<number>();
-    variant = input<'default' | 'accent'>('default');
+  label = input.required<string>();
+  value = input.required<string>();
+  subtitle = input<string>();
+  trend = input<number>();
+  variant = input<'default' | 'accent'>('default');
 
-    protected readonly Math = Math;
+  protected readonly Math = Math;
 }

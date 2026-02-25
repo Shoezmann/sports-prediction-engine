@@ -3,10 +3,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 
 @Component({
-    selector: 'sp-header',
-    standalone: true,
-    imports: [RouterLink, RouterLinkActive],
-    template: `
+  selector: 'sp-header',
+  standalone: true,
+  imports: [RouterLink, RouterLinkActive],
+  template: `
     <header class="header">
       <div class="header__inner">
         <a routerLink="/" class="header__brand">
@@ -25,25 +25,37 @@ import { ApiService } from '../../services/api.service';
           <span class="header__title">Predict<span class="header__title-accent">Engine</span></span>
         </a>
 
-        <nav class="header__nav">
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="header__link">
+        <nav class="header__nav" [class.header__nav--open]="menuOpen()">
+          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
+             class="header__link" (click)="closeMenu()">
             Dashboard
           </a>
-          <a routerLink="/predictions" routerLinkActive="active" class="header__link">
+          <a routerLink="/predictions" routerLinkActive="active"
+             class="header__link" (click)="closeMenu()">
             Predictions
           </a>
         </nav>
 
-        <div class="header__actions">
+        <div class="header__right">
           <div class="header__status" [class.header__status--connected]="isConnected()">
             <span class="header__status-dot"></span>
-            {{ isConnected() ? 'Connected' : 'Checking...' }}
+            <span class="header__status-text">{{ isConnected() ? 'Connected' : 'Offline' }}</span>
           </div>
+
+          <button class="header__hamburger" (click)="toggleMenu()" [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'">
+            <span class="header__hamburger-line" [class.open]="menuOpen()"></span>
+            <span class="header__hamburger-line" [class.open]="menuOpen()"></span>
+            <span class="header__hamburger-line" [class.open]="menuOpen()"></span>
+          </button>
         </div>
       </div>
     </header>
+
+    @if (menuOpen()) {
+      <div class="header__backdrop" (click)="closeMenu()"></div>
+    }
   `,
-    styles: [`
+  styles: [`
     .header {
       position: sticky;
       top: 0;
@@ -69,6 +81,7 @@ import { ApiService } from '../../services/api.service';
       gap: var(--spacing-sm);
       text-decoration: none;
       color: var(--color-text-primary);
+      flex-shrink: 0;
     }
 
     .header__logo {
@@ -115,10 +128,11 @@ import { ApiService } from '../../services/api.service';
       }
     }
 
-    .header__actions {
+    .header__right {
       margin-left: auto;
       display: flex;
       align-items: center;
+      gap: var(--spacing-md);
     }
 
     .header__status {
@@ -147,19 +161,118 @@ import { ApiService } from '../../services/api.service';
     .header__status--connected {
       color: var(--color-success);
     }
+
+    // Hamburger — hidden on desktop
+    .header__hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .header__hamburger-line {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: var(--color-text-secondary);
+      border-radius: 2px;
+      transition: all var(--transition-base);
+    }
+
+    .header__hamburger-line.open:nth-child(1) {
+      transform: translateY(7px) rotate(45deg);
+    }
+    .header__hamburger-line.open:nth-child(2) {
+      opacity: 0;
+    }
+    .header__hamburger-line.open:nth-child(3) {
+      transform: translateY(-7px) rotate(-45deg);
+    }
+
+    .header__backdrop {
+      display: none;
+    }
+
+    // ─── Mobile ─────────────────────────────────────────────
+    @media (max-width: 640px) {
+      .header__inner {
+        padding: 0 var(--spacing-md);
+        height: 56px;
+      }
+
+      .header__hamburger {
+        display: flex;
+      }
+
+      .header__status-text {
+        display: none;
+      }
+
+      .header__nav {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        right: 0;
+        background: rgba(10, 14, 26, 0.97);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--color-border);
+        padding: var(--spacing-md);
+        flex-direction: column;
+        gap: var(--spacing-xs);
+        margin-left: 0;
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+        transition: all var(--transition-base);
+        z-index: 99;
+      }
+
+      .header__nav--open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .header__link {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+      }
+
+      .header__backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        top: 56px;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 98;
+      }
+    }
   `],
 })
 export class HeaderComponent {
-    isConnected = signal(false);
+  isConnected = signal(false);
+  menuOpen = signal(false);
 
-    constructor(private api: ApiService) {
-        this.checkConnection();
-    }
+  constructor(private api: ApiService) {
+    this.checkConnection();
+  }
 
-    private checkConnection() {
-        this.api.getHealth().subscribe({
-            next: () => this.isConnected.set(true),
-            error: () => this.isConnected.set(false),
-        });
-    }
+  toggleMenu() {
+    this.menuOpen.update((v) => !v);
+  }
+
+  closeMenu() {
+    this.menuOpen.set(false);
+  }
+
+  private checkConnection() {
+    this.api.getHealth().subscribe({
+      next: () => this.isConnected.set(true),
+      error: () => this.isConnected.set(false),
+    });
+  }
 }

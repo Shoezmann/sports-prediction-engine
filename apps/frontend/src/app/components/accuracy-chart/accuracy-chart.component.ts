@@ -2,9 +2,9 @@ import { Component, input, computed } from '@angular/core';
 import type { AccuracyData } from '../../services/api.service';
 
 @Component({
-    selector: 'sp-accuracy-chart',
-    standalone: true,
-    template: `
+  selector: 'sp-accuracy-chart',
+  standalone: true,
+  template: `
     <div class="chart">
       <h3 class="chart__title">Model Accuracy Breakdown</h3>
       <div class="chart__bars">
@@ -40,7 +40,7 @@ import type { AccuracyData } from '../../services/api.service';
       </div>
     </div>
   `,
-    styles: [`
+  styles: [`
     .chart {
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
@@ -162,29 +162,70 @@ import type { AccuracyData } from '../../services/api.service';
       font-size: 0.6875rem;
       color: var(--color-text-muted);
     }
+
+    @media (max-width: 640px) {
+      .chart {
+        padding: var(--spacing-md);
+      }
+
+      .chart__bar-row {
+        grid-template-columns: 80px 1fr 50px;
+        gap: var(--spacing-sm);
+      }
+
+      .chart__bar-label {
+        font-size: 0.75rem;
+      }
+
+      .chart__bar-value {
+        font-size: 0.75rem;
+      }
+
+      .chart__confidence-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--spacing-sm);
+      }
+
+      .chart__bucket-ring {
+        width: 56px;
+        height: 56px;
+      }
+
+      .chart__bucket-pct {
+        font-size: 0.75rem;
+      }
+
+      .chart__bucket-label {
+        font-size: 0.625rem;
+      }
+
+      .chart__bucket-count {
+        font-size: 0.5625rem;
+      }
+    }
   `],
 })
 export class AccuracyChartComponent {
-    data = input<AccuracyData | null>(null);
+  data = input<AccuracyData | null>(null);
 
-    bars = computed(() => {
-        const d = this.data();
-        if (!d) return [];
-        return [
-            { label: 'Ensemble', value: d.byModel.ensemble, color: 'var(--gradient-hero)' },
-            { label: 'Odds Implied', value: d.byModel.oddsImplied, color: '#3b82f6' },
-            { label: 'ELO Model', value: d.byModel.elo, color: '#8b5cf6' },
-            { label: 'Form Model', value: d.byModel.form, color: '#f59e0b' },
-        ];
-    });
+  bars = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    return [
+      { label: 'Ensemble', value: d.byModel.ensemble, color: 'var(--gradient-hero)' },
+      { label: 'Odds Implied', value: d.byModel.oddsImplied, color: '#3b82f6' },
+      { label: 'ELO Model', value: d.byModel.elo, color: '#8b5cf6' },
+      { label: 'Form Model', value: d.byModel.form, color: '#f59e0b' },
+    ];
+  });
 
-    confidenceBuckets = computed(() => {
-        const d = this.data();
-        if (!d) return [];
-        return [
-            { label: 'High', ...d.byConfidenceLevel.high, color: 'var(--color-confidence-high)' },
-            { label: 'Medium', ...d.byConfidenceLevel.medium, color: 'var(--color-confidence-medium)' },
-            { label: 'Low', ...d.byConfidenceLevel.low, color: 'var(--color-confidence-low)' },
-        ];
-    });
+  confidenceBuckets = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    return [
+      { label: 'High', ...d.byConfidenceLevel.high, color: 'var(--color-confidence-high)' },
+      { label: 'Medium', ...d.byConfidenceLevel.medium, color: 'var(--color-confidence-medium)' },
+      { label: 'Low', ...d.byConfidenceLevel.low, color: 'var(--color-confidence-low)' },
+    ];
+  });
 }

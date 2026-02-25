@@ -172,10 +172,15 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       transition: all var(--transition-fast);
       background: var(--gradient-hero);
       color: white;
+      min-height: 44px; // Touch target
 
       &:hover:not(:disabled) {
         transform: translateY(-1px);
         box-shadow: var(--shadow-glow);
+      }
+
+      &:active:not(:disabled) {
+        transform: translateY(0);
       }
 
       &:disabled {
@@ -270,13 +275,80 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       color: var(--color-text-secondary);
     }
 
+    // ─── Tablet ─────────────────────────────────────────────
     @media (max-width: 768px) {
+      .dashboard {
+        padding: var(--spacing-md);
+      }
+
+      .hero {
+        padding: var(--spacing-xl) 0;
+      }
+
       .hero__title {
         font-size: 2rem;
       }
-      .hero__orb { display: none; }
+
+      .hero__subtitle {
+        font-size: 1rem;
+      }
+
+      .hero__orb {
+        display: none;
+      }
+
       .stats {
         grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    // ─── Mobile ─────────────────────────────────────────────
+    @media (max-width: 480px) {
+      .dashboard {
+        padding: var(--spacing-sm);
+      }
+
+      .hero {
+        padding: var(--spacing-lg) 0;
+      }
+
+      .hero__title {
+        font-size: 1.625rem;
+      }
+
+      .hero__subtitle {
+        font-size: 0.875rem;
+        margin-top: var(--spacing-sm);
+      }
+
+      .actions {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+      }
+
+      .action-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+      }
+
+      .stats {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-sm);
+      }
+
+      .log {
+        padding: var(--spacing-md);
+      }
+
+      .log__entry {
+        flex-direction: column;
+        gap: 2px;
+        font-size: 0.75rem;
+      }
+
+      .log__time {
+        font-size: 0.6875rem;
       }
     }
   `],

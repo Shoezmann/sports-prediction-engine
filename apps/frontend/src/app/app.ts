@@ -16,6 +16,12 @@ import { HeaderComponent } from './components/header/header.component';
     main {
       min-height: calc(100vh - 64px);
     }
+
+    @media (max-width: 640px) {
+      main {
+        min-height: calc(100vh - 56px);
+      }
+    }
   `],
 })
 export class AppComponent { }
