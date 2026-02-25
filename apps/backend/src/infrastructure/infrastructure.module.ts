@@ -1,0 +1,122 @@
+import { Module, Logger } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
+
+// Domain port tokens
+import {
+    SPORTS_DATA_PORT,
+    GAME_REPOSITORY_PORT,
+    PREDICTION_REPOSITORY_PORT,
+    SPORT_REPOSITORY_PORT,
+    TEAM_REPOSITORY_PORT,
+    PREDICTION_MODEL_PORT,
+} from '../domain/ports/output';
+
+// API adapter
+import { TheOddsApiAdapter } from './adapters/odds-api/the-odds-api.adapter';
+
+// Prediction model adapters
+import { EloModelAdapter } from './adapters/prediction-models/elo-model.adapter';
+import { FormModelAdapter } from './adapters/prediction-models/form-model.adapter';
+import { OddsImpliedModelAdapter } from './adapters/prediction-models/odds-implied-model.adapter';
+
+// In-memory repositories (fallback when no DB)
+import { InMemorySportRepository } from './adapters/repositories/in-memory-sport.repository';
+import { InMemoryTeamRepository } from './adapters/repositories/in-memory-team.repository';
+import { InMemoryGameRepository } from './adapters/repositories/in-memory-game.repository';
+import { InMemoryPredictionRepository } from './adapters/repositories/in-memory-prediction.repository';
+
+// ORM entities
+import { SportEntity, TeamEntity, GameEntity, PredictionEntity } from './persistence/entities';
+
+// PostgreSQL repositories
+import { PgSportRepository, PgTeamRepository, PgGameRepository, PgPredictionRepository } from './persistence/repositories';
+
+
+
+const logger = new Logger('InfrastructureModule');
+
+/**
+ * Infrastructure Module
+ *
+ * Wires together all external adapters, persistence, and scheduling.
+ * Automatically detects DATABASE_URL to choose between PostgreSQL
+ * and in-memory storage.
+ */
+@Module({
+    imports: [
+        HttpModule.register({ timeout: 15_000 }),
+        ScheduleModule.forRoot(),
+
+        // TypeORM — configured dynamically based on DATABASE_URL
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => {
+                const dbUrl = config.get<string>('DATABASE_URL');
+                if (!dbUrl || dbUrl.includes('localhost')) {
+                    logger.warn('⚠️  DATABASE_URL not set or points to localhost — checking PostgreSQL availability...');
+                }
+                return {
+                    type: 'postgres',
+                    url: dbUrl,
+                    entities: [SportEntity, TeamEntity, GameEntity, PredictionEntity],
+                    synchronize: config.get('NODE_ENV') !== 'production', // Auto-create tables in dev
+                    logging: config.get('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
+                    retryAttempts: 3,
+                    retryDelay: 3000,
+                };
+            },
+        }),
+
+        TypeOrmModule.forFeature([SportEntity, TeamEntity, GameEntity, PredictionEntity]),
+    ],
+    providers: [
+        // ── API Adapter ──
+        TheOddsApiAdapter,
+        { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
+
+        // ── Prediction Models ──
+        EloModelAdapter,
+        FormModelAdapter,
+        OddsImpliedModelAdapter,
+        {
+            provide: PREDICTION_MODEL_PORT,
+            useFactory: (elo: EloModelAdapter, form: FormModelAdapter, odds: OddsImpliedModelAdapter) => [elo, form, odds],
+            inject: [EloModelAdapter, FormModelAdapter, OddsImpliedModelAdapter],
+        },
+
+        // ── PostgreSQL Repositories (primary) ──
+        PgSportRepository,
+        PgTeamRepository,
+        PgGameRepository,
+        PgPredictionRepository,
+
+        // ── In-Memory Repositories (available for fallback) ──
+        InMemorySportRepository,
+        InMemoryTeamRepository,
+        InMemoryGameRepository,
+        InMemoryPredictionRepository,
+
+        // ── Bind ports to PostgreSQL implementations ──
+        { provide: SPORT_REPOSITORY_PORT, useExisting: PgSportRepository },
+        { provide: TEAM_REPOSITORY_PORT, useExisting: PgTeamRepository },
+        { provide: GAME_REPOSITORY_PORT, useExisting: PgGameRepository },
+        { provide: PREDICTION_REPOSITORY_PORT, useExisting: PgPredictionRepository },
+
+
+    ],
+    exports: [
+        SPORTS_DATA_PORT,
+        SPORT_REPOSITORY_PORT,
+        TEAM_REPOSITORY_PORT,
+        GAME_REPOSITORY_PORT,
+        PREDICTION_REPOSITORY_PORT,
+        PREDICTION_MODEL_PORT,
+        TheOddsApiAdapter,
+        OddsImpliedModelAdapter,
+    ],
+})
+export class InfrastructureModule { }

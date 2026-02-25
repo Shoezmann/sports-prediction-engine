@@ -40,3 +40,12 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
+
+.angular
+
+__screenshots__/
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.*.local
