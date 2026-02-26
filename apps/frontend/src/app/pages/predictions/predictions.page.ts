@@ -1,6 +1,9 @@
-import { Component, signal, computed, OnInit } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { ApiService, AccuracyData } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
+import { BetsService } from '../../services/bets.service';
 
 @Component({
   selector: 'sp-predictions-page',
@@ -147,6 +150,22 @@ import { ApiService, AccuracyData } from '../../services/api.service';
                                      [class.bg-low]="prediction.confidenceLevel === 'low'"
                                      [style.width.%]="prediction.confidenceScore * 100"></div>
                               </div>
+                              
+                              <!-- Place Bet Action -->
+                              <div class="upcoming-card__actions" style="margin-top: 1rem;">
+                                @if (authService.isAuthenticated) {
+                                  <button class="btn-primary" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"
+                                          [disabled]="placingBetFor() === prediction.id"
+                                          (click)="placeBet(prediction)">
+                                    <span class="material-symbols-rounded" style="font-size: 18px;">payments</span>
+                                    {{ placingBetFor() === prediction.id ? 'Placing Bet...' : 'Place $10 Bet' }}
+                                  </button>
+                                } @else {
+                                  <button class="btn-secondary" style="width: 100%; text-align: center; padding: 0.875rem;" (click)="goToLogin()">
+                                    Login to Place Bets
+                                  </button>
+                                }
+                              </div>
                             </div>
                           }
                           </div>
@@ -168,6 +187,7 @@ import { ApiService, AccuracyData } from '../../services/api.service';
                           <th>EV</th>
                           <th>Stake</th>
                           <th>Odds</th>
+                          <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -208,6 +228,19 @@ import { ApiService, AccuracyData } from '../../services/api.service';
                               }
                             </td>
                             <td>{{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}</td>
+                            <td>
+                              @if (authService.isAuthenticated) {
+                                <button class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" 
+                                        [disabled]="placingBetFor() === prediction.id"
+                                        (click)="placeBet(prediction)">
+                                  {{ placingBetFor() === prediction.id ? '...' : 'Bet $10' }}
+                                </button>
+                              } @else {
+                                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" (click)="goToLogin()">
+                                  Login
+                                </button>
+                              }
+                            </td>
                           </tr>
                         }
                         @if (flatPredictionsForSport().length === 0) {
@@ -1005,6 +1038,11 @@ export class PredictionsPage implements OnInit {
   viewMode = signal<'grid' | 'table'>('grid');
   isGenerating = signal(false);
   sportCount = signal(0);
+  placingBetFor = signal<string | null>(null);
+
+  authService = inject(AuthService);
+  private betsService = inject(BetsService);
+  private router = inject(Router);
 
   constructor(private api: ApiService) { }
 
@@ -1147,6 +1185,38 @@ export class PredictionsPage implements OnInit {
         this.fetchData();
       },
       error: () => this.isGenerating.set(false),
+    });
+  }
+
+  goToLogin() {
+    this.router.navigate(['/login']);
+  }
+
+  placeBet(prediction: any) {
+    if (!this.authService.isAuthenticated) {
+      this.goToLogin();
+      return;
+    }
+
+    const user = this.authService.currentUser();
+    if (!user) return;
+
+    this.placingBetFor.set(prediction.id);
+
+    // Hardcode $10 stake for simple demo
+    this.betsService.placeBet(user.id, {
+      predictionId: prediction.id,
+      stake: 10,
+      customOdds: prediction.odds
+    }).subscribe({
+      next: () => {
+        this.placingBetFor.set(null);
+        alert('Bet placed successfully! Track it in My Bets.');
+      },
+      error: (err) => {
+        this.placingBetFor.set(null);
+        alert(err.error?.message || 'Failed to place bet. Please try again.');
+      }
     });
   }
 }
