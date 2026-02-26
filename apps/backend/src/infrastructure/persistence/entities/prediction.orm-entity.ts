@@ -43,6 +43,16 @@ export class PredictionEntity {
     @Column({ name: 'model_breakdown', type: 'jsonb', nullable: true })
     modelBreakdown!: Record<string, unknown> | null;
 
+    // Value Betting metrics
+    @Column({ name: 'expected_value', type: 'float', nullable: true })
+    expectedValue!: number | null;
+
+    @Column({ name: 'recommended_stake', type: 'float', nullable: true })
+    recommendedStake!: number | null;
+
+    @Column({ name: 'odds', type: 'float', nullable: true })
+    odds!: number | null;
+
     // Actual result
     @Column({ name: 'actual_outcome', type: 'varchar', length: 32, nullable: true })
     actualOutcome!: string | null;

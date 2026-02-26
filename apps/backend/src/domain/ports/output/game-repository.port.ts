@@ -15,6 +15,7 @@ export interface GameRepositoryPort {
     findCompleted(sportKey?: string, limit?: number): Promise<Game[]>;
     findByDateRange(from: Date, to: Date, sportKey?: string): Promise<Game[]>;
     findUnresolved(): Promise<Game[]>;
+    findRecentByTeam(teamId: string, limit?: number): Promise<Game[]>;
 }
 
 export const GAME_REPOSITORY_PORT = Symbol('GameRepositoryPort');

@@ -16,8 +16,8 @@ import { ApiService } from '../../services/api.service';
               <path d="M8 14L12 18L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
               <defs>
                 <linearGradient id="logo-gradient" x1="0" y1="0" x2="28" y2="28">
-                  <stop stop-color="#6366f1"/>
-                  <stop offset="1" stop-color="#a855f7"/>
+                  <stop stop-color="#059669"/>
+                  <stop offset="1" stop-color="#10b981"/>
                 </linearGradient>
               </defs>
             </svg>
@@ -60,7 +60,7 @@ import { ApiService } from '../../services/api.service';
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(10, 14, 26, 0.85);
+      background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(16px) saturate(180%);
       border-bottom: 1px solid var(--color-border);
     }
@@ -90,16 +90,22 @@ import { ApiService } from '../../services/api.service';
     }
 
     .header__title {
-      font-size: 1.125rem;
-      font-weight: 700;
+      font-size: 1.35rem;
+      font-weight: 800;
       letter-spacing: -0.02em;
     }
 
     .header__title-accent {
-      background: var(--gradient-hero);
+      background: linear-gradient(135deg, #10b981, #34d399, #10b981);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      padding-bottom: 0.1em;
+      margin-left: 2px;
+      display: inline-block;
+      font-style: italic;
+      font-weight: 900;
+      filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.6));
     }
 
     .header__nav {
@@ -217,7 +223,7 @@ import { ApiService } from '../../services/api.service';
         top: 56px;
         left: 0;
         right: 0;
-        background: rgba(10, 14, 26, 0.97);
+        background: rgba(0, 0, 0, 0.97);
         backdrop-filter: blur(20px);
         border-bottom: 1px solid var(--color-border);
         padding: var(--spacing-md);

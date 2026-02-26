@@ -29,6 +29,7 @@ export class EnsemblePredictor {
     async predict(
         game: Game,
         category: SportCategory,
+        customWeights?: Record<string, number>
     ): Promise<{ probabilities: ProbabilitySet; breakdown: ModelBreakdown }> {
         // Filter models that support this sport category
         const supportedModels = this.models.filter((m) =>
@@ -48,9 +49,11 @@ export class EnsemblePredictor {
             modelResults.set(model.getName(), result);
         }
 
+        const activeWeights = customWeights ?? this.weights;
+
         // Calculate normalized weights for available models
         const totalWeight = supportedModels.reduce(
-            (sum, m) => sum + (this.weights[m.getName()] ?? 0),
+            (sum, m) => sum + (activeWeights[m.getName()] ?? 0),
             0,
         );
 
@@ -62,7 +65,7 @@ export class EnsemblePredictor {
         for (const model of supportedModels) {
             const name = model.getName();
             const result = modelResults.get(name)!;
-            const normalizedWeight = (this.weights[name] ?? 0) / totalWeight;
+            const normalizedWeight = (activeWeights[name] ?? 0) / totalWeight;
 
             homeWin += result.homeWin.value * normalizedWeight;
             awayWin += result.awayWin.value * normalizedWeight;

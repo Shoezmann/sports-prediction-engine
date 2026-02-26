@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as stringSimilarity from 'string-similarity';
 import { SportCategory } from '@sports-prediction-engine/shared-types';
 import type { PredictionModelPort, RawOddsData } from '../../../domain/ports/output';
 import { ProbabilitySet } from '../../../domain/value-objects';
@@ -86,17 +87,40 @@ export class OddsImpliedModelAdapter implements PredictionModelPort {
             const h2hMarket = bookmaker.markets.find((m) => m.key === 'h2h');
             if (!h2hMarket) continue;
 
-            const homeOutcome = h2hMarket.outcomes.find(
-                (o) => o.name === homeTeamName,
+            let homeOutcome = h2hMarket.outcomes.find(
+                (o) => o.name === homeTeamName || o.name.includes(homeTeamName) || homeTeamName.includes(o.name)
             );
-            const awayOutcome = h2hMarket.outcomes.find(
-                (o) => o.name === awayTeamName,
+            let awayOutcome = h2hMarket.outcomes.find(
+                (o) => o.name === awayTeamName || o.name.includes(awayTeamName) || awayTeamName.includes(o.name)
             );
+            
+            // Fuzzy match fallback
+            if (!homeOutcome || !awayOutcome) {
+                const outcomeNames = h2hMarket.outcomes.map(o => o.name);
+                
+                if (!homeOutcome && outcomeNames.length > 0) {
+                    const bestHomeMatch = stringSimilarity.findBestMatch(homeTeamName, outcomeNames);
+                    if (bestHomeMatch.bestMatch.rating > 0.4) {
+                        homeOutcome = h2hMarket.outcomes.find(o => o.name === bestHomeMatch.bestMatch.target);
+                    }
+                }
+                
+                if (!awayOutcome && outcomeNames.length > 0) {
+                    const bestAwayMatch = stringSimilarity.findBestMatch(awayTeamName, outcomeNames);
+                    if (bestAwayMatch.bestMatch.rating > 0.4) {
+                        awayOutcome = h2hMarket.outcomes.find(o => o.name === bestAwayMatch.bestMatch.target);
+                    }
+                }
+            }
+            
             const drawOutcome = h2hMarket.outcomes.find(
-                (o) => o.name === 'Draw',
+                (o) => o.name.toLowerCase() === 'draw' || o.name.toLowerCase() === 'tie',
             );
 
-            if (!homeOutcome || !awayOutcome) continue;
+            if (!homeOutcome || !awayOutcome) {
+                 this.logger.debug(`Could not cleanly match teams for odds: ${homeTeamName} vs ${awayTeamName} against market options. Proceeding to next bookie.`);
+                 continue;
+            }
 
             // Convert decimal odds to implied probability
             totalHomeProb += 1 / homeOutcome.price;

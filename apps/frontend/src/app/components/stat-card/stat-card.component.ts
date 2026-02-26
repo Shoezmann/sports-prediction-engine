@@ -9,7 +9,10 @@ import { Component, input } from '@angular/core';
         <span class="stat-card__label">{{ label() }}</span>
         @if (trend()) {
           <span class="stat-card__trend" [class.stat-card__trend--up]="trend()! > 0" [class.stat-card__trend--down]="trend()! < 0">
-            {{ trend()! > 0 ? '↑' : '↓' }} {{ Math.abs(trend()!) }}%
+            <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: bottom;">
+              {{ trend()! > 0 ? 'arrow_upward' : 'arrow_downward' }}
+            </span>
+            {{ Math.abs(trend()!) }}%
           </span>
         }
       </div>

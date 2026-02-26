@@ -20,23 +20,22 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
             Multi-sport prediction platform powered by ELO ratings, form analysis, and market odds ensemble models.
           </p>
         </div>
-        <div class="hero__orb"></div>
       </section>
 
       <!-- Quick Actions -->
       <section class="actions animate-in" style="animation-delay: 100ms">
         <button class="action-btn" (click)="runFullPipeline()" [disabled]="isRunning()">
-          <span class="action-btn__icon">⚡</span>
+          <span class="action-btn__icon material-symbols-rounded">bolt</span>
           <span class="action-btn__text">
             {{ isRunning() ? 'Running...' : 'Run Full Pipeline' }}
           </span>
         </button>
         <button class="action-btn action-btn--outline" (click)="syncSports()" [disabled]="isRunning()">
-          <span class="action-btn__icon">🔄</span>
+          <span class="action-btn__icon material-symbols-rounded">sync</span>
           <span class="action-btn__text">Sync Sports</span>
         </button>
         <button class="action-btn action-btn--outline" (click)="updateResults()" [disabled]="isRunning()">
-          <span class="action-btn__icon">📊</span>
+          <span class="action-btn__icon material-symbols-rounded">analytics</span>
           <span class="action-btn__text">Update Results</span>
         </button>
       </section>
@@ -51,9 +50,15 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       <!-- Stats Grid -->
       <section class="stats animate-in" style="animation-delay: 200ms">
         <sp-stat-card
-          label="Total Predictions"
+          label="Resolved Predictions"
           [value]="accuracy()?.totalPredictions?.toString() ?? '—'"
           subtitle="All time"
+          variant="default"
+        />
+        <sp-stat-card
+          label="Pending Predictions"
+          [value]="accuracy()?.pendingPredictions?.toString() ?? '—'"
+          subtitle="Games not yet played"
           variant="accent"
         />
         <sp-stat-card
@@ -137,19 +142,6 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       max-width: 560px;
       line-height: 1.6;
     }
-
-    .hero__orb {
-      position: absolute;
-      top: -60px;
-      right: -80px;
-      width: 340px;
-      height: 340px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 65%);
-      filter: blur(40px);
-      pointer-events: none;
-    }
-
     // Actions
     .actions {
       display: flex;
@@ -292,11 +284,6 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       .hero__subtitle {
         font-size: 1rem;
       }
-
-      .hero__orb {
-        display: none;
-      }
-
       .stats {
         grid-template-columns: repeat(2, 1fr);
       }

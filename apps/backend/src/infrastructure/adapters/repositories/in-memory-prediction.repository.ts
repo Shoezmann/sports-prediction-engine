@@ -61,9 +61,9 @@ export class InMemoryPredictionRepository
         return resolved;
     }
 
-    async findPending(): Promise<Prediction[]> {
+    async findPending(sportKey?: string): Promise<Prediction[]> {
         return Array.from(this.predictions.values()).filter(
-            (p) => p.isPending,
+            (p) => p.isPending && (!sportKey || p.sportKey === sportKey),
         );
     }
 

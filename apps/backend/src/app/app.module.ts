@@ -8,6 +8,8 @@ import {
   ResultsController,
   AccuracyController,
   HealthController,
+  AuthController,
+  BetsController,
 } from '../api/controllers/api.controllers';
 
 @Module({
@@ -25,6 +27,8 @@ import {
     ResultsController,
     AccuracyController,
     HealthController,
+    AuthController,
+    BetsController,
   ],
 })
 export class AppModule { }

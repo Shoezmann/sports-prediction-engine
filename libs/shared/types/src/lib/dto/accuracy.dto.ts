@@ -8,6 +8,9 @@ export interface AccuracyDto {
     /** Total number of resolved predictions */
     totalPredictions: number;
 
+    /** Number of pending predictions (games not yet completed) */
+    pendingPredictions: number;
+
     /** Number of correct predictions */
     correctPredictions: number;
 

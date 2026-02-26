@@ -1,10 +1,12 @@
-import { Sport, Team, Game, Prediction } from '../../../domain/entities';
+import { Sport, Team, Game, Prediction, User, Bet } from '../../../domain/entities';
 import type { ModelBreakdown } from '../../../domain/entities';
 import { Confidence, ProbabilitySet } from '../../../domain/value-objects';
 import { SportEntity } from '../entities/sport.orm-entity';
 import { TeamEntity } from '../entities/team.orm-entity';
 import { GameEntity } from '../entities/game.orm-entity';
 import { PredictionEntity } from '../entities/prediction.orm-entity';
+import { UserEntity } from '../entities/user.orm-entity';
+import { BetEntity } from '../entities/bet.orm-entity';
 import { getSportCategory, SportCategory, PredictionOutcome } from '@sports-prediction-engine/shared-types';
 
 /**
@@ -12,6 +14,29 @@ import { getSportCategory, SportCategory, PredictionOutcome } from '@sports-pred
  * Keeps persistence concerns entirely within the infrastructure layer.
  */
 export class EntityMapper {
+    // ── User ───────────────────────────────────────────────────
+
+    static toDomainUser(orm: UserEntity): User {
+        return User.create({
+            id: orm.id,
+            email: orm.email,
+            passwordHash: orm.passwordHash,
+            firstName: orm.firstName ?? undefined,
+            favoriteSports: orm.favoriteSports ?? undefined,
+            createdAt: orm.createdAt,
+        });
+    }
+
+    static toOrmUser(domain: User): Partial<UserEntity> {
+        return {
+            id: domain.id,
+            email: domain.email,
+            passwordHash: domain.passwordHash,
+            firstName: domain.firstName ?? null,
+            favoriteSports: domain.favoriteSports ?? null,
+        };
+    }
+
     // ── Sport ──────────────────────────────────────────────────
 
     static toDomainSport(orm: SportEntity): Sport {
@@ -132,6 +157,9 @@ export class EntityMapper {
                 orm.createdAt,
                 orm.actualOutcome as PredictionOutcome,
                 orm.isCorrect ?? undefined,
+                orm.expectedValue ?? undefined,
+                orm.recommendedStake ?? undefined,
+                orm.odds ?? undefined,
             );
         }
 
@@ -142,6 +170,9 @@ export class EntityMapper {
             probabilities,
             modelBreakdown,
             createdAt: orm.createdAt,
+            expectedValue: orm.expectedValue ?? undefined,
+            recommendedStake: orm.recommendedStake ?? undefined,
+            odds: orm.odds ?? undefined,
         });
     }
 
@@ -162,6 +193,9 @@ export class EntityMapper {
             actualOutcome: domain.actualOutcome ?? null,
             isCorrect: domain.isCorrect ?? null,
             isResolved: domain.isResolved,
+            expectedValue: domain.expectedValue ?? null,
+            recommendedStake: domain.recommendedStake ?? null,
+            odds: domain.odds ?? null,
         };
     }
 
@@ -194,5 +228,33 @@ export class EntityMapper {
                     : ProbabilitySet.forCategory(category, data.homeWin, data.awayWin);
         }
         return result;
+    }
+
+    // ── Bet ───────────────────────────────────────────────────
+
+    static toDomainBet(orm: BetEntity): Bet {
+        return new Bet(
+            orm.id,
+            orm.userId,
+            orm.predictionId,
+            Number(orm.stake),
+            Number(orm.lockedOdds),
+            orm.status,
+            orm.placedAt,
+            orm.resolvedAt ?? undefined,
+        );
+    }
+
+    static toOrmBet(domain: Bet): Partial<BetEntity> {
+        return {
+            id: domain.id,
+            userId: domain.userId,
+            predictionId: domain.predictionId,
+            stake: domain.stake,
+            lockedOdds: domain.lockedOdds,
+            status: domain.status,
+            placedAt: domain.placedAt,
+            resolvedAt: domain.resolvedAt ?? null,
+        };
     }
 }

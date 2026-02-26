@@ -28,6 +28,9 @@ export class Prediction {
         public readonly createdAt: Date,
         public readonly actualOutcome?: PredictionOutcome,
         public readonly isCorrect?: boolean,
+        public readonly expectedValue?: number,
+        public readonly recommendedStake?: number,
+        public readonly odds?: number,
     ) { }
 
     static create(props: {
@@ -36,6 +39,9 @@ export class Prediction {
         probabilities: ProbabilitySet;
         modelBreakdown: ModelBreakdown;
         createdAt?: Date;
+        expectedValue?: number;
+        recommendedStake?: number;
+        odds?: number;
     }): Prediction {
         const predictedOutcome = Prediction.derivePredictedOutcome(
             props.probabilities,
@@ -50,6 +56,11 @@ export class Prediction {
             props.probabilities,
             props.modelBreakdown,
             props.createdAt ?? new Date(),
+            undefined, // actualOutcome
+            undefined, // isCorrect
+            props.expectedValue,
+            props.recommendedStake,
+            props.odds
         );
     }
 
@@ -113,6 +124,9 @@ export class Prediction {
             this.createdAt,
             actualOutcome,
             isCorrect,
+            this.expectedValue,
+            this.recommendedStake,
+            this.odds
         );
     }
 

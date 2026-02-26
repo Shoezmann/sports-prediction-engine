@@ -35,6 +35,7 @@ export interface AccuracyBucket {
 
 export interface AccuracyData {
     totalPredictions: number;
+    pendingPredictions: number;
     correctPredictions: number;
     accuracy: number;
     byConfidenceLevel: {
@@ -85,6 +86,13 @@ export class ApiService {
         return this.http.post<PredictionResult>(
             `${this.baseUrl}/predictions/generate${params}`,
             {},
+        );
+    }
+
+    getPendingPredictions(sportKey?: string): Observable<any[]> {
+        const params = sportKey ? `?sport=${sportKey}` : '';
+        return this.http.get<any[]>(
+            `${this.baseUrl}/predictions/pending${params}`,
         );
     }
 

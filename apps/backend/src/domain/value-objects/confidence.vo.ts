@@ -26,10 +26,14 @@ export class Confidence {
         return Math.round(this._value * 100);
     }
 
-    /** Derive the confidence level bucket */
+    /** 
+     * Derive the confidence level bucket 
+     * For real-world sports, >60% is highly confident, 
+     * >50% is medium confidence (an edge), and <50% is low (toss up or under).
+     */
     get level(): ConfidenceLevel {
-        if (this._value >= 0.7) return ConfidenceLevel.HIGH;
-        if (this._value >= 0.55) return ConfidenceLevel.MEDIUM;
+        if (this._value >= 0.60) return ConfidenceLevel.HIGH;
+        if (this._value >= 0.50) return ConfidenceLevel.MEDIUM;
         return ConfidenceLevel.LOW;
     }
 

@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { SportCategory } from '@sports-prediction-engine/shared-types';
-import type { PredictionModelPort } from '../../../domain/ports/output';
+import type { PredictionModelPort, GameRepositoryPort } from '../../../domain/ports/output';
+import { GAME_REPOSITORY_PORT } from '../../../domain/ports/output';
 import { ProbabilitySet } from '../../../domain/value-objects';
 import { Game } from '../../../domain/entities';
+import { PredictionOutcome } from '@sports-prediction-engine/shared-types';
 
 /**
  * Form-Based Prediction Model
@@ -19,6 +21,11 @@ export class FormModelAdapter implements PredictionModelPort {
     /** Home advantage factor (applied multiplicatively) */
     private static readonly HOME_ADVANTAGE = 1.1;
 
+    constructor(
+        @Optional() @Inject(GAME_REPOSITORY_PORT)
+        private readonly gameRepo?: GameRepositoryPort,
+    ) { }
+
     getName(): string {
         return 'form';
     }
@@ -31,14 +38,58 @@ export class FormModelAdapter implements PredictionModelPort {
         game: Game,
         category: SportCategory,
     ): Promise<ProbabilitySet> {
-        // Phase 1: Derive form from ELO rating differential + home advantage
-        // This gives a reasonable baseline until we have historical match data
-        const eloHome = game.homeTeam.eloRating.value;
-        const eloAway = game.awayTeam.eloRating.value;
+        let baseHomeStrength = 0.5;
 
-        // Normalize ELO difference to a 0–1 scale
-        const eloDiff = eloHome - eloAway;
-        const baseHomeStrength = this.sigmoid(eloDiff / 400);
+        // Phase 2: Derive form from trailing 5 matches
+        if (this.gameRepo) {
+            const numMatches = 5;
+            const homeRecentGames = await this.gameRepo.findRecentByTeam(game.homeTeam.id, numMatches);
+            const awayRecentGames = await this.gameRepo.findRecentByTeam(game.awayTeam.id, numMatches);
+
+            const calculateForm = (games: Game[], teamId: string): number | null => {
+                if (games.length === 0) return null;
+                let points = 0;
+                for (const g of games) {
+                    const outcome = g.getOutcome();
+                    if (g.homeTeam.id === teamId) {
+                        if (outcome === PredictionOutcome.HOME_WIN) points += 1;
+                        else if (outcome === PredictionOutcome.DRAW) points += 0.5;
+                    } else {
+                        if (outcome === PredictionOutcome.AWAY_WIN) points += 1;
+                        else if (outcome === PredictionOutcome.DRAW) points += 0.5;
+                    }
+                }
+                return points / games.length;
+            };
+
+            const homeForm = calculateForm(homeRecentGames, game.homeTeam.id);
+            const awayForm = calculateForm(awayRecentGames, game.awayTeam.id);
+
+            if (homeForm !== null && awayForm !== null) {
+                // Blend Form with ELO
+                const eloHome = game.homeTeam.eloRating.value;
+                const eloAway = game.awayTeam.eloRating.value;
+                const baseStrengthElo = this.sigmoid((eloHome - eloAway) / 400);
+
+                // Re-weight base strength based on pure recent match wins
+                // e.g if Home Form is 1.0 (5 wins) and Away Form is 0.0 (5 losses)
+                const formDiff = homeForm - awayForm;
+                
+                // Form diff ranges from -1 to 1. 
+                // We shift base strength up by at most 0.15 based on form.
+                baseHomeStrength = baseStrengthElo + (formDiff * 0.15);
+                baseHomeStrength = Math.max(0.01, Math.min(0.99, baseHomeStrength));
+            } else {
+                 // Fallback to Phase 1 setup
+                 const eloHome = game.homeTeam.eloRating.value;
+                 const eloAway = game.awayTeam.eloRating.value;
+                 baseHomeStrength = this.sigmoid((eloHome - eloAway) / 400);
+            }
+        } else {
+             const eloHome = game.homeTeam.eloRating.value;
+             const eloAway = game.awayTeam.eloRating.value;
+             baseHomeStrength = this.sigmoid((eloHome - eloAway) / 400);
+        }
 
         // Apply home advantage
         const adjustedHome = Math.min(

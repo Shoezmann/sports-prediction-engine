@@ -13,7 +13,7 @@ export interface PredictionRepositoryPort {
     findByGameId(gameId: string): Promise<Prediction | null>;
     findRecent(limit?: number, sportKey?: string): Promise<Prediction[]>;
     findResolved(sportKey?: string, limit?: number): Promise<Prediction[]>;
-    findPending(): Promise<Prediction[]>;
+    findPending(sportKey?: string): Promise<Prediction[]>;
     findByConfidenceLevel(level: ConfidenceLevel): Promise<Prediction[]>;
     findByDateRange(from: Date, to: Date, sportKey?: string): Promise<Prediction[]>;
     countBySport(): Promise<Record<string, number>>;

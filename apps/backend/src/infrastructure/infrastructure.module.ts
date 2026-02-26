@@ -12,10 +12,14 @@ import {
     SPORT_REPOSITORY_PORT,
     TEAM_REPOSITORY_PORT,
     PREDICTION_MODEL_PORT,
+    USER_REPOSITORY_PORT,
+    BET_REPOSITORY_PORT,
 } from '../domain/ports/output';
 
 // API adapter
 import { TheOddsApiAdapter } from './adapters/odds-api/the-odds-api.adapter';
+import { ApiFootballAdapter } from './adapters/api-football/api-football.adapter';
+import { SportApiAdapter } from './adapters/sport-api/sport-api.adapter';
 
 // Prediction model adapters
 import { EloModelAdapter } from './adapters/prediction-models/elo-model.adapter';
@@ -29,10 +33,10 @@ import { InMemoryGameRepository } from './adapters/repositories/in-memory-game.r
 import { InMemoryPredictionRepository } from './adapters/repositories/in-memory-prediction.repository';
 
 // ORM entities
-import { SportEntity, TeamEntity, GameEntity, PredictionEntity } from './persistence/entities';
+import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
 
 // PostgreSQL repositories
-import { PgSportRepository, PgTeamRepository, PgGameRepository, PgPredictionRepository } from './persistence/repositories';
+import { PgSportRepository, PgTeamRepository, PgGameRepository, PgPredictionRepository, PgUserRepository, PgBetRepository } from './persistence/repositories';
 
 
 
@@ -62,7 +66,7 @@ const logger = new Logger('InfrastructureModule');
                 return {
                     type: 'postgres',
                     url: dbUrl,
-                    entities: [SportEntity, TeamEntity, GameEntity, PredictionEntity],
+                    entities: [SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity],
                     synchronize: config.get('NODE_ENV') !== 'production', // Auto-create tables in dev
                     logging: config.get('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
                     retryAttempts: 3,
@@ -71,12 +75,14 @@ const logger = new Logger('InfrastructureModule');
             },
         }),
 
-        TypeOrmModule.forFeature([SportEntity, TeamEntity, GameEntity, PredictionEntity]),
+        TypeOrmModule.forFeature([SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity]),
     ],
     providers: [
         // ── API Adapter ──
         TheOddsApiAdapter,
-        { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
+        ApiFootballAdapter,
+        SportApiAdapter,
+        { provide: SPORTS_DATA_PORT, useExisting: SportApiAdapter },
 
         // ── Prediction Models ──
         EloModelAdapter,
@@ -93,6 +99,8 @@ const logger = new Logger('InfrastructureModule');
         PgTeamRepository,
         PgGameRepository,
         PgPredictionRepository,
+        PgUserRepository,
+        PgBetRepository,
 
         // ── In-Memory Repositories (available for fallback) ──
         InMemorySportRepository,
@@ -105,7 +113,8 @@ const logger = new Logger('InfrastructureModule');
         { provide: TEAM_REPOSITORY_PORT, useExisting: PgTeamRepository },
         { provide: GAME_REPOSITORY_PORT, useExisting: PgGameRepository },
         { provide: PREDICTION_REPOSITORY_PORT, useExisting: PgPredictionRepository },
-
+        { provide: USER_REPOSITORY_PORT, useExisting: PgUserRepository },
+        { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
     exports: [
@@ -115,7 +124,11 @@ const logger = new Logger('InfrastructureModule');
         GAME_REPOSITORY_PORT,
         PREDICTION_REPOSITORY_PORT,
         PREDICTION_MODEL_PORT,
+        USER_REPOSITORY_PORT,
+        BET_REPOSITORY_PORT,
         TheOddsApiAdapter,
+        ApiFootballAdapter,
+        SportApiAdapter,
         OddsImpliedModelAdapter,
     ],
 })

@@ -4,10 +4,11 @@ export {
     SportGroup,
     PredictionOutcome,
     ConfidenceLevel,
+    BetStatus,
 } from './lib/enums';
 
 // DTOs
-export {
+export type {
     SportDto,
     TeamDto,
     GameDto,
@@ -16,6 +17,14 @@ export {
     ModelBreakdownDto,
     AccuracyDto,
     AccuracyBucketDto,
+} from './lib/dto';
+
+export {
+    RegisterDto,
+    LoginDto,
+    AuthResponseDto,
+    BetDto,
+    PlaceBetDto,
 } from './lib/dto';
 
 // Utils

@@ -28,8 +28,10 @@ export class GetAccuracyUseCase {
 
     async execute(sportKey?: string): Promise<AccuracyDto> {
         const resolved = await this.predictionRepo.findResolved(sportKey);
+        const pending = await this.predictionRepo.findPending(sportKey);
 
         const totalPredictions = resolved.length;
+        const pendingPredictions = pending.length;
         const correctPredictions = resolved.filter(
             (p) => p.isCorrect,
         ).length;
@@ -38,6 +40,7 @@ export class GetAccuracyUseCase {
 
         return {
             totalPredictions,
+            pendingPredictions,
             correctPredictions,
             accuracy,
             byConfidenceLevel: {

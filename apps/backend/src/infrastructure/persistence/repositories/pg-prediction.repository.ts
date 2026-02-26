@@ -60,8 +60,10 @@ export class PgPredictionRepository implements PredictionRepositoryPort {
         return orms.map(EntityMapper.toDomainPrediction);
     }
 
-    async findPending(): Promise<Prediction[]> {
-        const orms = await this.repo.findBy({ isResolved: false });
+    async findPending(sportKey?: string): Promise<Prediction[]> {
+        const where: Record<string, unknown> = { isResolved: false };
+        if (sportKey) where['sportKey'] = sportKey;
+        const orms = await this.repo.findBy(where);
         return orms.map(EntityMapper.toDomainPrediction);
     }
 

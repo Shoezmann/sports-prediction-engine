@@ -1,9 +1,11 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, computed, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ApiService, AccuracyData } from '../../services/api.service';
 
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
+  imports: [CommonModule],
   template: `
     <div class="predictions-page">
       <header class="page-header animate-in">
@@ -12,7 +14,8 @@ import { ApiService, AccuracyData } from '../../services/api.service';
           <p class="page-subtitle">AI-powered predictions across {{ sportCount() }} sports</p>
         </div>
         <button class="generate-btn" (click)="generatePredictions()" [disabled]="isGenerating()">
-          {{ isGenerating() ? 'Generating...' : '⚡ Generate Predictions' }}
+          <span class="material-symbols-rounded" style="vertical-align: sub; font-size: 20px;">bolt</span>
+          {{ isGenerating() ? 'Generating...' : 'Generate Predictions' }}
         </button>
       </header>
 
@@ -45,10 +48,187 @@ import { ApiService, AccuracyData } from '../../services/api.service';
         </section>
       }
 
+      <!-- Upcoming Predictions -->
+      @if (groupedPredictions().length > 0) {
+        <section class="upcoming-predictions animate-in" style="animation-delay: 150ms">
+          <div class="upcoming-header-row">
+            <h2 class="section-title" style="margin-bottom: 0;">Upcoming Matches</h2>
+            <div class="view-toggle">
+              <button class="view-toggle__btn" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')" aria-label="Grid View">
+                <span class="material-symbols-rounded" style="font-size: 20px;">grid_view</span>
+              </button>
+              <button class="view-toggle__btn" [class.active]="viewMode() === 'table'" (click)="viewMode.set('table')" aria-label="Table View">
+                <span class="material-symbols-rounded" style="font-size: 20px;">table_rows</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="date-tabs">
+            @for (sportGroup of groupedPredictions(); track sportGroup.sport; let isFirst = $first) {
+              <button class="date-tab" 
+                      [class.active]="selectedSport() === sportGroup.sport || (selectedSport() === null && isFirst)"
+                      (click)="selectedSport.set(sportGroup.sport)">
+                {{ sportGroup.sport }}
+              </button>
+            }
+          </div>
+
+          @for (sportGroup of groupedPredictions(); track sportGroup.sport; let isFirst = $first) {
+            @if (selectedSport() === sportGroup.sport || (selectedSport() === null && isFirst)) {
+              <div class="upcoming-sport-group">
+                @if (viewMode() === 'grid') {
+                @for (countryGroup of sportGroup.countries; track countryGroup.country; let firstC = $first) {
+                  <details class="country-section" [open]="firstC">
+                    <summary class="country-heading">
+                      {{ countryGroup.country }}
+                      <span class="material-symbols-rounded chevron">expand_more</span>
+                    </summary>
+                    
+                    <div class="country-content">
+                      @for (leagueGroup of countryGroup.leagues; track leagueGroup.league; let firstL = $first) {
+                        <details class="league-section" [open]="firstL">
+                          <summary class="league-heading">
+                            {{ leagueGroup.league }}
+                            <span class="material-symbols-rounded chevron">expand_more</span>
+                          </summary>
+                          
+                          <div class="upcoming-list">
+                          @for (prediction of leagueGroup.items; track prediction.id) {
+                            <div class="upcoming-card">
+                              <div class="upcoming-card__header">
+                                <span class="upcoming-card__sport">
+                                  <span class="material-symbols-rounded" style="font-size: 16px; margin-right: 4px; vertical-align: text-bottom;">schedule</span>
+                                  {{ prediction.commenceTime | date:'MMM d, h:mm a' }}
+                                </span>
+                              </div>
+                              
+                              <div class="upcoming-card__teams">
+                                <span [class.text-muted]="prediction.predictedWinner === 'away_win'">{{ prediction.homeTeam.name }}</span>
+                                <span class="upcoming-card__vs">vs</span>
+                                <span [class.text-muted]="prediction.predictedWinner === 'home_win'">{{ prediction.awayTeam.name }}</span>
+                              </div>
+
+                              <div class="upcoming-card__prediction">
+                                <div class="upcoming-card__winner" 
+                                     [class.upcoming-card__winner--home]="prediction.predictedWinner === 'home_win'"
+                                     [class.upcoming-card__winner--away]="prediction.predictedWinner === 'away_win'"
+                                     [class.upcoming-card__winner--draw]="prediction.predictedWinner === 'draw'">
+                                  Pick: {{ prediction.predictedWinner === 'home_win' ? prediction.homeTeam.name : prediction.predictedWinner === 'away_win' ? prediction.awayTeam.name : 'Draw' }}
+                                </div>
+                                <div class="upcoming-card__confidence" 
+                                     [class.upcoming-card__confidence--high]="prediction.confidenceLevel === 'high'"
+                                     [class.upcoming-card__confidence--medium]="prediction.confidenceLevel === 'medium'"
+                                     [class.upcoming-card__confidence--low]="prediction.confidenceLevel === 'low'">
+                                  <span style="text-transform: capitalize;">{{ prediction.confidenceLevel }}</span> Edge
+                                  <span class="upcoming-card__win-prob">({{ (prediction.confidenceScore * 100).toFixed(0) }}%)</span>
+                                </div>
+                              </div>
+
+                              @if (prediction.expectedValue != null) {
+                                <div class="upcoming-card__value-bet" [class.negative-ev]="prediction.expectedValue <= 0">
+                                  <div class="value-badge" [class.negative-ev]="prediction.expectedValue <= 0">
+                                    <span class="material-symbols-rounded">monetization_on</span>
+                                    {{ prediction.expectedValue > 0 ? '+' : '' }}{{ (prediction.expectedValue * 100).toFixed(1) }}% EV
+                                  </div>
+                                  <div class="stake-badge">
+                                    Stake: {{ (prediction.recommendedStake * 100).toFixed(1) }}%
+                                  </div>
+                                  <div class="odds-badge">
+                                    Odds: {{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}
+                                  </div>
+                                </div>
+                              }
+
+                              <!-- Confidence Bar -->
+                              <div class="upcoming-card__bar-container">
+                                <div class="upcoming-card__bar" 
+                                     [class.bg-high]="prediction.confidenceLevel === 'high'"
+                                     [class.bg-medium]="prediction.confidenceLevel === 'medium'"
+                                     [class.bg-low]="prediction.confidenceLevel === 'low'"
+                                     [style.width.%]="prediction.confidenceScore * 100"></div>
+                              </div>
+                            </div>
+                          }
+                          </div>
+                        </details>
+                      }
+                    </div>
+                  </details>
+                }
+                } @else {
+                  <div class="table-container">
+                    <table class="predictions-table">
+                      <thead>
+                        <tr>
+                          <th>League</th>
+                          <th>Match</th>
+                          <th>Time</th>
+                          <th>Pick</th>
+                          <th>Edge</th>
+                          <th>EV</th>
+                          <th>Stake</th>
+                          <th>Odds</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (prediction of flatPredictionsForSport(); track prediction.id) {
+                          <tr>
+                            <td class="text-secondary">{{ prediction._parsed.league }}</td>
+                            <td>
+                              <span [class.text-muted]="prediction.predictedWinner === 'away_win'">{{ prediction.homeTeam.name }}</span>
+                              <span class="text-secondary mx-2">vs</span>
+                              <span [class.text-muted]="prediction.predictedWinner === 'home_win'">{{ prediction.awayTeam.name }}</span>
+                            </td>
+                            <td>{{ prediction.commenceTime | date:'MMM d, h:mm a' }}</td>
+                            <td style="font-weight: 600"
+                                [class.text-success]="prediction.predictedWinner === 'home_win'"
+                                [class.text-danger]="prediction.predictedWinner === 'away_win'">
+                                {{ prediction.predictedWinner === 'home_win' ? prediction.homeTeam.name : prediction.predictedWinner === 'away_win' ? prediction.awayTeam.name : 'Draw' }}
+                            </td>
+                            <td>
+                              <span class="badge" 
+                                   [class.badge--success]="prediction.confidenceLevel === 'high'"
+                                   [class.badge--warning]="prediction.confidenceLevel === 'medium'"
+                                   [class.badge--danger]="prediction.confidenceLevel === 'low'">
+                                <span style="text-transform: capitalize;">{{ prediction.confidenceLevel }}</span> ({{ (prediction.confidenceScore * 100).toFixed(0) }}%)
+                              </span>
+                            </td>
+                            <td>
+                              @if (prediction.expectedValue != null) {
+                                <span [class.text-success]="prediction.expectedValue > 0" [class.text-danger]="prediction.expectedValue <= 0">{{ prediction.expectedValue > 0 ? '+' : '' }}{{ (prediction.expectedValue * 100).toFixed(1) }}%</span>
+                              } @else {
+                                <span class="text-muted">-</span>
+                              }
+                            </td>
+                            <td>
+                              @if (prediction.recommendedStake != null) {
+                                {{ (prediction.recommendedStake * 100).toFixed(1) }}%
+                              } @else {
+                                <span class="text-muted">-</span>
+                              }
+                            </td>
+                            <td>{{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}</td>
+                          </tr>
+                        }
+                        @if (flatPredictionsForSport().length === 0) {
+                          <tr>
+                            <td colspan="8" class="text-center text-muted" style="padding: 2rem;">No upcoming matches found for this sport.</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+          }
+        </section>
+      }
+
       <!-- Empty State -->
-      @if (!accuracy() || accuracy()!.totalPredictions === 0) {
+      @if (!accuracy() || accuracy()!.totalPredictions === 0 && groupedPredictions().length === 0) {
         <div class="empty-state animate-in" style="animation-delay: 200ms">
-          <div class="empty-state__icon">🎯</div>
+          <div class="empty-state__icon material-symbols-rounded" style="font-size: 48px;">sports_esports</div>
           <h2 class="empty-state__title">No predictions yet</h2>
           <p class="empty-state__message">
             Run the full pipeline from the Dashboard to sync sports data, fetch upcoming games, and generate your first predictions.
@@ -139,6 +319,370 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       margin-bottom: var(--spacing-2xl);
       flex-wrap: wrap;
     }
+
+    /* Upcoming Predictions */
+    .date-tabs {
+      display: flex;
+      gap: var(--spacing-sm);
+      overflow-x: auto;
+      padding-bottom: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    .date-tab {
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius-full);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      &:hover {
+        background: var(--color-bg-card-hover);
+        color: var(--color-text-primary);
+      }
+
+      &.active {
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+        color: white;
+        box-shadow: var(--shadow-glow);
+      }
+    }
+
+    .upcoming-date-group {
+      animation: fadeInUp 0.3s ease-out;
+    }
+
+    .country-section {
+      margin-bottom: var(--spacing-md);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      transition: border-color var(--transition-base);
+    }
+    .country-section:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .country-heading {
+      font-size: 1.25rem;
+      font-weight: 700;
+      padding: var(--spacing-lg);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      user-select: none;
+      list-style: none; 
+    }
+    .country-heading::-webkit-details-marker {
+      display: none;
+    }
+    .country-heading::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 1.25rem;
+      background: var(--color-accent);
+      border-radius: 2px;
+    }
+    .country-heading .chevron {
+      margin-left: auto;
+      transition: transform var(--transition-base);
+      color: var(--color-text-secondary);
+    }
+    details[open] > .country-heading .chevron {
+      transform: rotate(180deg);
+    }
+
+    .country-content {
+      padding: 0 var(--spacing-lg) var(--spacing-lg);
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+
+    .league-section {
+      margin-bottom: var(--spacing-md);
+      background: var(--color-bg-elevated);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .league-section:last-child {
+      margin-bottom: 0;
+    }
+    .league-heading {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      padding: var(--spacing-md);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .league-heading::-webkit-details-marker {
+      display: none;
+    }
+    .league-heading .chevron {
+      margin-left: auto;
+      transition: transform var(--transition-base);
+      color: var(--color-text-secondary);
+    }
+    details[open] > .league-heading .chevron {
+      transform: rotate(180deg);
+    }
+
+    details[open] > .upcoming-list {
+      padding: 0 var(--spacing-md) var(--spacing-md);
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+
+    .upcoming-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .view-toggle {
+      display: flex;
+      background: var(--color-bg-input);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .view-toggle__btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      
+      &:hover {
+        color: var(--color-text-primary);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      
+      &.active {
+        background: var(--color-bg-elevated);
+        color: var(--color-accent);
+        box-shadow: var(--shadow-sm);
+      }
+    }
+
+    .table-container {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+
+    .predictions-table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      text-align: left;
+      
+      th, td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--color-border-subtle);
+        font-size: 0.875rem;
+      }
+      
+      th {
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        background: rgba(0, 0, 0, 0.2);
+        white-space: nowrap;
+      }
+      
+      td {
+        vertical-align: middle;
+      }
+      
+      tbody tr {
+        transition: background-color var(--transition-fast);
+        
+        &:hover {
+          background: var(--color-bg-card-hover);
+        }
+        
+        &:last-child td {
+          border-bottom: none;
+        }
+      }
+    }
+
+    .mx-2 {
+      margin-left: 0.5rem;
+      margin-right: 0.5rem;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .upcoming-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .upcoming-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      transition: all var(--transition-base);
+    }
+
+    .upcoming-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .upcoming-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+    }
+
+    .upcoming-card__sport {
+      font-weight: 600;
+      color: var(--color-accent);
+      display: flex;
+      align-items: center;
+    }
+
+    .upcoming-card__teams {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .upcoming-card__vs {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      margin: 0 var(--spacing-sm);
+    }
+
+    .upcoming-card__prediction {
+      background: var(--color-bg-input);
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      padding: var(--spacing-sm) var(--spacing-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+    }
+
+    .upcoming-card__winner {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .upcoming-card__winner--home { color: #3b82f6; }
+    .upcoming-card__winner--away { color: #8b5cf6; }
+    .upcoming-card__winner--draw { color: #f59e0b; }
+
+    .upcoming-card__confidence {
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .upcoming-card__win-prob {
+      font-weight: 500;
+      opacity: 0.8;
+      font-size: 0.75rem;
+    }
+
+    .upcoming-card__confidence--high { color: var(--color-confidence-high); }
+    .upcoming-card__confidence--medium { color: var(--color-confidence-medium); }
+    .upcoming-card__confidence--low { color: var(--color-confidence-low); }
+
+    .upcoming-card__value-bet {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: rgba(16, 185, 129, 0.08); /* slight green tint */
+      font-size: 0.75rem;
+      font-weight: 600;
+
+      &.negative-ev {
+        background: rgba(239, 68, 68, 0.08);
+      }
+    }
+
+    .value-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #10b981;
+
+      &.negative-ev {
+        color: #ef4444;
+      }
+    }
+
+    .value-badge .material-symbols-rounded {
+      font-size: 14px;
+    }
+
+    .stake-badge {
+      color: var(--color-text-secondary);
+    }
+
+    .odds-badge {
+      color: var(--color-accent);
+    }
+
+    .upcoming-card__bar-container {
+      height: 4px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      overflow: hidden;
+    }
+
+    .upcoming-card__bar {
+      height: 100%;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      transition: width 1s ease-out;
+    }
+
+    .bg-high { background: var(--color-confidence-high); }
+    .bg-medium { background: var(--color-confidence-medium); }
+    .bg-low { background: var(--color-confidence-low); }
 
     .overview-card {
       display: flex;
@@ -337,7 +881,7 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       color: var(--color-text-muted);
     }
 
-    // ─── Tablet ─────────────────────────────────────────────
+    // Tablet
     @media (max-width: 768px) {
       .predictions-page {
         padding: var(--spacing-md);
@@ -365,9 +909,13 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       .sport-cards {
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       }
+
+      .upcoming-list {
+        grid-template-columns: 1fr;
+      }
     }
 
-    // ─── Mobile ─────────────────────────────────────────────
+    // Mobile
     @media (max-width: 480px) {
       .predictions-page {
         padding: var(--spacing-sm);
@@ -432,24 +980,138 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       .empty-state__message {
         font-size: 0.875rem;
       }
+
+      .upcoming-card {
+        padding: var(--spacing-md);
+      }
+
+      .upcoming-card__teams {
+        font-size: 0.875rem;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+        align-items: flex-start;
+      }
+
+      .upcoming-card__vs {
+        display: none;
+      }
     }
   `],
 })
 export class PredictionsPage implements OnInit {
   accuracy = signal<AccuracyData | null>(null);
+  pendingPredictions = signal<any[]>([]);
+  selectedSport = signal<string | null>(null);
+  viewMode = signal<'grid' | 'table'>('grid');
   isGenerating = signal(false);
   sportCount = signal(0);
 
   constructor(private api: ApiService) { }
 
   ngOnInit() {
+    this.fetchData();
+  }
+
+  fetchData() {
     this.api.getAccuracy().subscribe({
       next: (data) => {
         this.accuracy.set(data);
-        this.sportCount.set(Object.keys(data.bySport).length);
+        this.updateSportCount();
       },
     });
+
+    this.api.getPendingPredictions().subscribe({
+      next: (data) => {
+        this.pendingPredictions.set(data);
+        this.updateSportCount();
+      }
+    });
   }
+
+  updateSportCount() {
+    const accuracySports = this.accuracy() ? Object.keys(this.accuracy()!.bySport) : [];
+    const pendingSports = this.pendingPredictions().map(p => p.sportKey);
+    const unique = new Set([...accuracySports, ...pendingSports]);
+    this.sportCount.set(unique.size);
+  }
+
+  parseSportKey(key: string) {
+    const defaultMap = {
+      'soccer_epl': { sport: 'Soccer', country: 'England', league: 'Premier League' },
+      'soccer_germany_bundesliga': { sport: 'Soccer', country: 'Germany', league: 'Bundesliga' },
+      'soccer_italy_serie_a': { sport: 'Soccer', country: 'Italy', league: 'Serie A' },
+      'soccer_spain_la_liga': { sport: 'Soccer', country: 'Spain', league: 'La Liga' },
+      'soccer_france_ligue_one': { sport: 'Soccer', country: 'France', league: 'Ligue 1' },
+      'soccer_usa_mls': { sport: 'Soccer', country: 'USA', league: 'MLS' },
+      'basketball_nba': { sport: 'Basketball', country: 'USA', league: 'NBA' },
+      'americanfootball_nfl': { sport: 'American Football', country: 'USA', league: 'NFL' },
+      'icehockey_nhl': { sport: 'Ice Hockey', country: 'USA/Canada', league: 'NHL' },
+      'mma_mixed_martial_arts': { sport: 'MMA', country: 'Global', league: 'UFC/MMA' },
+      'boxing_boxing': { sport: 'Boxing', country: 'Global', league: 'Pro Boxing' },
+      'tennis_atp_wimbledon': { sport: 'Tennis', country: 'UK', league: 'ATP Wimbledon' },
+      'tennis_wta_wimbledon': { sport: 'Tennis', country: 'UK', league: 'WTA Wimbledon' }
+    } as any;
+    if (defaultMap[key]) return defaultMap[key];
+
+    const parts = key.split('_');
+    const sportStr = parts[0];
+    const countryStr = parts.length > 2 ? parts[1] : 'Global';
+    const leagueStr = parts.slice(parts.length > 2 ? 2 : 1).join(' ');
+
+    return {
+      sport: sportStr.charAt(0).toUpperCase() + sportStr.slice(1),
+      country: countryStr.charAt(0).toUpperCase() + countryStr.slice(1),
+      league: leagueStr.toUpperCase()
+    };
+  }
+
+  groupedPredictions = computed(() => {
+    const list = this.pendingPredictions().filter(p => new Date(p.commenceTime) > new Date());
+
+    // Structure: Sport -> Country -> League -> Items
+    const groups: Record<string, Record<string, Record<string, any[]>>> = {};
+
+    for (const p of list) {
+      const parsed = this.parseSportKey(p.sportKey);
+
+      if (!groups[parsed.sport]) groups[parsed.sport] = {};
+      if (!groups[parsed.sport][parsed.country]) groups[parsed.sport][parsed.country] = {};
+      if (!groups[parsed.sport][parsed.country][parsed.league]) groups[parsed.sport][parsed.country][parsed.league] = [];
+
+      groups[parsed.sport][parsed.country][parsed.league].push(p);
+    }
+
+    // Convert to sorted arrays
+    return Object.keys(groups).sort().map(sport => ({
+      sport,
+      countries: Object.keys(groups[sport]).sort().map(country => ({
+        country,
+        leagues: Object.keys(groups[sport][country]).sort().map(league => ({
+          league,
+          items: groups[sport][country][league].sort((a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime())
+        }))
+      }))
+    }));
+  });
+
+  flatPredictionsForSport = computed(() => {
+    const sport = this.selectedSport();
+    const list = this.pendingPredictions().filter(p => new Date(p.commenceTime) > new Date());
+
+    // Sort array globally by time
+    const sorted = list.map(p => ({ ...p, _parsed: this.parseSportKey(p.sportKey) }))
+      .sort((a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime());
+
+    if (sport) {
+      return sorted.filter(p => p._parsed.sport === sport);
+    }
+
+    // If no sport explicitly selected, return the first alphabetized sport's games
+    if (sorted.length === 0) return [];
+
+    const firstSport = this.groupedPredictions()[0]?.sport;
+    return sorted.filter(p => p._parsed.sport === firstSport);
+  });
 
   models() {
     const d = this.accuracy();
@@ -482,7 +1144,7 @@ export class PredictionsPage implements OnInit {
     this.api.generatePredictions().subscribe({
       next: () => {
         this.isGenerating.set(false);
-        this.ngOnInit();
+        this.fetchData();
       },
       error: () => this.isGenerating.set(false),
     });

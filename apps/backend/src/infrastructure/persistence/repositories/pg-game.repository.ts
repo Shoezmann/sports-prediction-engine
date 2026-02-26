@@ -84,4 +84,16 @@ export class PgGameRepository implements GameRepositoryPort {
         });
         return orms.map(EntityMapper.toDomainGame);
     }
+
+    async findRecentByTeam(teamId: string, limit: number = 5): Promise<Game[]> {
+        const orms = await this.repo.find({
+            where: [
+                { homeTeamId: teamId, completed: true },
+                { awayTeamId: teamId, completed: true }
+            ],
+            order: { commenceTime: 'DESC' },
+            take: limit
+        });
+        return orms.map(EntityMapper.toDomainGame);
+    }
 }

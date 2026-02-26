@@ -73,4 +73,12 @@ export class InMemoryGameRepository implements GameRepositoryPort {
             (g) => !g.completed && g.commenceTime < now,
         );
     }
+
+    async findRecentByTeam(teamId: string, limit: number = 5): Promise<Game[]> {
+        const games = Array.from(this.games.values())
+            .filter(g => g.completed && (g.homeTeam.id === teamId || g.awayTeam.id === teamId))
+            .sort((a, b) => b.commenceTime.getTime() - a.commenceTime.getTime());
+        
+        return games.slice(0, limit);
+    }
 }

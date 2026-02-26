@@ -16,3 +16,9 @@ export { TEAM_REPOSITORY_PORT } from './team-repository.port';
 
 export type { PredictionModelPort } from './prediction-model.port';
 export { PREDICTION_MODEL_PORT } from './prediction-model.port';
+
+export type { UserRepositoryPort } from './user-repository.port';
+export { USER_REPOSITORY_PORT } from './user-repository.port';
+
+export type { BetRepositoryPort } from './bet-repository.port';
+export { BET_REPOSITORY_PORT } from './bet-repository.port';
