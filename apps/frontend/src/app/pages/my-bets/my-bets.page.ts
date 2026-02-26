@@ -79,32 +79,7 @@ import { BetDto } from '@sports-prediction-engine/shared-types';
       gap: 1rem;
     }
 
-    .btn-primary, .btn-secondary {
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--radius-sm);
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s;
-    }
 
-    .btn-primary {
-      background-color: var(--color-accent);
-      color: #fff;
-      
-      &:hover {
-        background-color: var(--color-accent-hover);
-      }
-    }
-
-    .btn-secondary {
-      background-color: var(--color-bg-elevated);
-      color: var(--color-text-primary);
-      border: 1px solid var(--color-border);
-      
-      &:hover {
-        background-color: var(--color-bg-card-hover);
-      }
-    }
 
     .grid-container {
       border-radius: var(--radius-lg);

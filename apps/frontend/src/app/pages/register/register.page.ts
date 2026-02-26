@@ -159,25 +159,10 @@ import { AuthService } from '../../services/auth.service';
     }
 
     .btn-primary {
-      background-color: var(--color-accent);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius-sm);
       padding: 0.875rem;
-      font-weight: 600;
       font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.2s;
       margin-top: 0.5rem;
-
-      &:hover:not(:disabled) {
-        background-color: var(--color-accent-hover);
-      }
-
-      &:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
+      width: 100%;
     }
 
     .auth-footer {
