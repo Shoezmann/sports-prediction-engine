@@ -66,7 +66,7 @@ const logger = new Logger('InfrastructureModule');
                 return {
                     type: 'postgres',
                     url: dbUrl,
-                    entities: [SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity],
+                    entities: [SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity],
                     synchronize: config.get('NODE_ENV') !== 'production', // Auto-create tables in dev
                     logging: config.get('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
                     retryAttempts: 3,
