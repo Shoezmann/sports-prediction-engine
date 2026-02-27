@@ -20,11 +20,11 @@
   --color-text-muted: #71717a;
   --color-text-inverse: #000000;
 
-  // Accent colors (Premium Bottle Green)
-  --color-accent: #059669;
-  --color-accent-hover: #047857;
-  --color-accent-subtle: rgba(5, 150, 105, 0.12);
-  --color-accent-glow: rgba(5, 150, 105, 0.25);
+  // Accent colors (Premium Heineken Green)
+  --color-accent: #008200;
+  --color-accent-hover: #006a00;
+  --color-accent-subtle: rgba(0, 130, 0, 0.12);
+  --color-accent-glow: rgba(0, 130, 0, 0.25);
 
   // Semantic colors
   --color-success: #22c55e;
@@ -42,7 +42,7 @@
   --color-confidence-low: #ef4444;
 
   // Gradients
-  --gradient-hero: linear-gradient(135deg, #022c22, #064e3b, #059669);
+  --gradient-hero: linear-gradient(135deg, #001f00, #003300, #008200);
   --gradient-card: linear-gradient(
     145deg,
     rgba(26, 32, 53, 0.8),
@@ -102,6 +102,31 @@ html {
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+}
+
+// ─── AG Grid Customizations ────────────────────────────────
+.ag-theme-quartz-dark {
+  --ag-background-color: transparent; // Use our container background
+  --ag-header-background-color: var(--color-bg-elevated);
+  --ag-border-color: var(--color-border);
+  --ag-row-border-color: var(--color-border-subtle);
+  --ag-odd-row-background-color: transparent;
+  --ag-header-column-separator-color: transparent;
+  --ag-font-family: var(--font-family);
+  --ag-font-size: 14px;
+  --ag-value-change-value-highlight-background-color: var(--color-accent-subtle);
+  --ag-row-hover-color: rgba(255, 255, 255, 0.02);
+  --ag-selected-row-background-color: var(--color-accent-subtle);
+  --ag-header-column-resize-handle-color: var(--color-accent);
+}
+
+// ─── Container For Grid ────────────────────────────────────
+.table-container {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 body {
