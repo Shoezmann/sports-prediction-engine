@@ -20,11 +20,11 @@
   --color-text-muted: #71717a;
   --color-text-inverse: #000000;
 
-  // Accent colors (Premium Heineken Green)
-  --color-accent: #008200;
-  --color-accent-hover: #006a00;
-  --color-accent-subtle: rgba(0, 130, 0, 0.12);
-  --color-accent-glow: rgba(0, 130, 0, 0.25);
+  // Accent colors (Deep Premium Bottle Green)
+  --color-accent: #006828;
+  --color-accent-hover: #004d1c;
+  --color-accent-subtle: rgba(0, 104, 40, 0.15);
+  --color-accent-glow: rgba(0, 104, 40, 0.3);
 
   // Semantic colors
   --color-success: #22c55e;
@@ -42,7 +42,7 @@
   --color-confidence-low: #ef4444;
 
   // Gradients
-  --gradient-hero: linear-gradient(135deg, #001f00, #003300, #008200);
+  --gradient-hero: linear-gradient(135deg, #001206, #00260f, #004d1c);
   --gradient-card: linear-gradient(
     145deg,
     rgba(26, 32, 53, 0.8),
