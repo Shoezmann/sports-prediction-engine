@@ -1,6 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-@import 'ag-grid-community/styles/ag-grid.css';
-@import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 // ─── Design Tokens ──────────────────────────────────────────
 :root {
@@ -42,7 +40,7 @@
   --color-confidence-low: #ef4444;
 
   // Gradients
-  --gradient-hero: linear-gradient(135deg, #001f00, #004d16, #008200);
+  --gradient-hero: linear-gradient(135deg, #0ce654, #10b943, #22c55e);
   --gradient-card: linear-gradient(
     145deg,
     rgba(26, 32, 53, 0.8),

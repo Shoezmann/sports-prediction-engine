@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -10,7 +10,7 @@ import { BetDto } from '@sports-prediction-engine/shared-types';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 @Component({
-  selector: 'app-my-bets',
+  selector: 'sp-my-bets',
   standalone: true,
   imports: [CommonModule, AgGridAngular, RouterLink],
   template: `
@@ -27,26 +27,26 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       </header>
 
       <div class="content-wrapper">
-        <div class="table-container" style="height: 600px;" *ngIf="!isLoading; else loadingState">
-          <ag-grid-angular
-            [theme]="theme"
-            style="width: 100%; height: 100%;"
-            [rowData]="rowData"
-            [columnDefs]="colDefs"
-            [pagination]="true"
-            [paginationPageSize]="10"
-            [gridOptions]="gridOptions"
-            (gridReady)="onGridReady($event)"
-          >
-          </ag-grid-angular>
-        </div>
-
-        <ng-template #loadingState>
+        @if (!isLoading()) {
+          <div class="table-container" style="height: 600px;">
+            <ag-grid-angular
+              [theme]="theme"
+              style="width: 100%; height: 100%;"
+              [rowData]="rowData()"
+              [columnDefs]="colDefs"
+              [pagination]="true"
+              [paginationPageSize]="20"
+              [gridOptions]="gridOptions"
+              (gridReady)="onGridReady($event)"
+            >
+            </ag-grid-angular>
+          </div>
+        } @else {
           <div class="loading-state">
             <div class="spinner"></div>
             <p>Loading your bets...</p>
           </div>
-        </ng-template>
+        }
       </div>
     </div>
   `,
@@ -119,8 +119,8 @@ export class MyBetsPage implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
 
-  rowData: BetDto[] = [];
-  isLoading = true;
+  rowData = signal<BetDto[]>([]);
+  isLoading = signal(true);
   theme = themeQuartz.withPart(colorSchemeDark);
 
   gridOptions = {
@@ -155,20 +155,20 @@ export class MyBetsPage implements OnInit {
   loadBets() {
     const user = this.authService.currentUser();
     if (!user) {
-      this.isLoading = false;
+      this.isLoading.set(false);
       this.router.navigate(['/login']);
       return; 
     }
 
-    this.isLoading = true;
+    this.isLoading.set(true);
     this.betsService.getUserBets(user.id).subscribe({
       next: (bets) => {
-        this.rowData = bets;
-        this.isLoading = false;
+        this.rowData.set(bets);
+        this.isLoading.set(false);
       },
       error: (err) => {
         console.error('Failed to load bets', err);
-        this.isLoading = false;
+        this.isLoading.set(false);
       }
     });
   }
