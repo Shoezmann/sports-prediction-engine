@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { ColDef, ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDark } from 'ag-grid-community';
 import { BetsService } from '../../services/bets.service';
 import { AuthService } from '../../services/auth.service';
 import { BetDto } from '@sports-prediction-engine/shared-types';
@@ -29,7 +29,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       <div class="content-wrapper">
         <div class="table-container" style="height: 600px;" *ngIf="!isLoading; else loadingState">
           <ag-grid-angular
-            class="ag-theme-quartz-dark"
+            [theme]="theme"
             style="width: 100%; height: 100%;"
             [rowData]="rowData"
             [columnDefs]="colDefs"
@@ -121,6 +121,7 @@ export class MyBetsPage implements OnInit {
 
   rowData: BetDto[] = [];
   isLoading = true;
+  theme = themeQuartz.withPart(colorSchemeDark);
 
   gridOptions = {
     rowSelection: 'single' as const,
