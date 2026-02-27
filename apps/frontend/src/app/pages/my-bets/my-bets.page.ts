@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import { BetsService } from '../../services/bets.service';
@@ -117,6 +117,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export class MyBetsPage implements OnInit {
   private betsService = inject(BetsService);
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   rowData: BetDto[] = [];
   isLoading = true;
@@ -152,7 +153,11 @@ export class MyBetsPage implements OnInit {
 
   loadBets() {
     const user = this.authService.currentUser();
-    if (!user) return; // Guard should handle redirect
+    if (!user) {
+      this.isLoading = false;
+      this.router.navigate(['/login']);
+      return; 
+    }
 
     this.isLoading = true;
     this.betsService.getUserBets(user.id).subscribe({

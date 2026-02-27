@@ -20,11 +20,11 @@
   --color-text-muted: #71717a;
   --color-text-inverse: #000000;
 
-  // Accent colors (Deep Premium Bottle Green)
-  --color-accent: #006828;
-  --color-accent-hover: #004d1c;
-  --color-accent-subtle: rgba(0, 104, 40, 0.15);
-  --color-accent-glow: rgba(0, 104, 40, 0.3);
+  // Accent colors (Heineken Bottle Green)
+  --color-accent: #008200;
+  --color-accent-hover: #006a00;
+  --color-accent-subtle: rgba(0, 130, 0, 0.15);
+  --color-accent-glow: rgba(0, 130, 0, 0.3);
 
   // Semantic colors
   --color-success: #22c55e;
@@ -42,7 +42,7 @@
   --color-confidence-low: #ef4444;
 
   // Gradients
-  --gradient-hero: linear-gradient(135deg, #001206, #00260f, #004d1c);
+  --gradient-hero: linear-gradient(135deg, #001f00, #004d16, #008200);
   --gradient-card: linear-gradient(
     145deg,
     rgba(26, 32, 53, 0.8),
@@ -262,11 +262,11 @@ a {
   @extend .btn;
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #ffffff;
-  box-shadow: 0 4px 14px 0 var(--color-accent-glow);
+  box-shadow: 0 2px 8px 0 rgba(0, 130, 0, 0.2);
   
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 130, 0, 0.25);
     filter: brightness(1.1);
   }
 

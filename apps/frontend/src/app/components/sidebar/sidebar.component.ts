@@ -85,11 +85,11 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #006828, #004d1c);
+      background: linear-gradient(135deg, #008200, #006a00);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(0, 104, 40, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 130, 0, 0.2);
     }
 
     .sidebar__title {
@@ -100,7 +100,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__title-accent {
-      background: linear-gradient(135deg, #008236, #00b34d);
+      background: linear-gradient(135deg, #00a82d, #00ff4d);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       font-style: italic;
