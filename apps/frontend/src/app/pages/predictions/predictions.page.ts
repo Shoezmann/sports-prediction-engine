@@ -165,7 +165,7 @@ import { BetsService } from '../../services/bets.service';
                                           [disabled]="placingBetFor() === prediction.id"
                                           (click)="placeBet(prediction)">
                                     <span class="material-symbols-rounded" style="font-size: 18px;">analytics</span>
-                                    {{ placingBetFor() === prediction.id ? 'Simulating...' : 'Simulate $10 Bet' }}
+                                    {{ placingBetFor() === prediction.id ? 'Simulating...' : 'Simulate Bet' }}
                                   </button>
                                 } @else {
                                   <button class="btn-secondary" style="width: 100%; text-align: center; padding: 0.875rem;" (click)="goToLogin()">
@@ -240,7 +240,7 @@ import { BetsService } from '../../services/bets.service';
                                 <button class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" 
                                         [disabled]="placingBetFor() === prediction.id"
                                         (click)="placeBet(prediction)">
-                                  {{ placingBetFor() === prediction.id ? '...' : 'Simulate $10' }}
+                                  {{ placingBetFor() === prediction.id ? '...' : 'Simulate' }}
                                 </button>
                               } @else {
                                 <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" (click)="goToLogin()">
