@@ -2,11 +2,14 @@ import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef } from 'ag-grid-community';
+import { ColDef, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import { ApiService, AccuracyData } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
 import { ActionCellComponent } from './action-cell.component';
+
+// Register all Community features
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 @Component({
   selector: 'sp-predictions-page',

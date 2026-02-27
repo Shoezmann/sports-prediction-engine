@@ -85,11 +85,11 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+      background: linear-gradient(135deg, #eee, #fff);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
     }
 
     .sidebar__title {
@@ -100,7 +100,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__title-accent {
-      background: linear-gradient(135deg, #10b981, #34d399);
+      background: linear-gradient(135deg, #aaa, #eee);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       font-style: italic;
@@ -148,8 +148,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__link.active {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--color-primary);
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
     }
 
     .sidebar__link .material-symbols-rounded {
@@ -160,7 +160,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     
     .sidebar__link.active .material-symbols-rounded {
       opacity: 1;
-      color: var(--color-primary);
+      color: white;
     }
     
     .sidebar__link:hover .material-symbols-rounded {
@@ -204,7 +204,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 
     .profile-role {
       font-size: 0.75rem;
-      color: var(--color-primary);
+      color: var(--color-text-secondary);
     }
     
     @media (max-width: 768px) {
