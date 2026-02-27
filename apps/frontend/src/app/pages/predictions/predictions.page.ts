@@ -281,10 +281,12 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       background: var(--gradient-hero);
       color: white;
       transition: all var(--transition-fast);
+      box-shadow: 0 4px 14px 0 rgba(0, 77, 28, 0.4); /* Deep subtle glow */
 
       &:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-glow);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 130, 0, 0.25);
+        filter: brightness(1.1);
       }
 
       &:disabled {

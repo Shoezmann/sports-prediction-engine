@@ -142,6 +142,7 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       color: var(--color-text-secondary);
       max-width: 560px;
       line-height: 1.6;
+      margin-bottom: var(--spacing-xl);
     }
     // Actions
     .actions {
@@ -166,10 +167,12 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       background: var(--gradient-hero);
       color: white;
       min-height: 44px; // Touch target
+      box-shadow: 0 4px 14px 0 rgba(0, 77, 28, 0.4); /* Deep subtle glow */
 
       &:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-glow);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 130, 0, 0.25);
+        filter: brightness(1.1);
       }
 
       &:active:not(:disabled) {
