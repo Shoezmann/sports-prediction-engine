@@ -129,7 +129,7 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
 
     .hero__title-gradient {
       display: block;
-      background: var(--gradient-hero);
+      background: var(--gradient-neon);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
