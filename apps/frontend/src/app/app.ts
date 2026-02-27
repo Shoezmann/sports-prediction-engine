@@ -1,25 +1,37 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { HeaderComponent } from './components/header/header.component';
+import { SidebarComponent } from './components/sidebar/sidebar.component';
 
 @Component({
   selector: 'sp-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent],
+  imports: [RouterOutlet, SidebarComponent],
   template: `
-    <sp-header />
-    <main>
-      <router-outlet />
-    </main>
+    <div class="app-layout">
+      <sp-sidebar />
+      <main class="main-content">
+        <router-outlet />
+      </main>
+    </div>
   `,
   styles: [`
-    main {
-      min-height: calc(100vh - 64px);
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      background: var(--color-background);
+    }
+    
+    .main-content {
+      flex: 1;
+      margin-left: 260px; /* Width of the sidebar */
+      width: calc(100% - 260px);
+      min-height: 100vh;
     }
 
-    @media (max-width: 640px) {
-      main {
-        min-height: calc(100vh - 56px);
+    @media (max-width: 768px) {
+      .main-content {
+        margin-left: 0;
+        width: 100%;
       }
     }
   `],

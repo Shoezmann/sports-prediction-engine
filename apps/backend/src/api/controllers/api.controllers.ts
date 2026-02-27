@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
 import {
     SyncSportsUseCase,
     SyncGamesUseCase,
@@ -160,13 +160,13 @@ export class BetsController {
     ) { }
 
     @Post()
-    async placeBet(@Query('userId') userId: string, @Body() dto: PlaceBetDto) {
+    async placeBet(@Query('userId', new ParseUUIDPipe()) userId: string, @Body() dto: PlaceBetDto) {
         // In a real app, userId would be extracted from the JWT guard
         return this.placeBetUseCase.execute(userId, dto);
     }
 
     @Get()
-    async getBets(@Query('userId') userId: string) {
+    async getBets(@Query('userId', new ParseUUIDPipe()) userId: string) {
         return this.getUserBetsUseCase.execute(userId);
     }
 }

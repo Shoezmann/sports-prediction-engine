@@ -1,14 +1,17 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { AgGridAngular } from 'ag-grid-angular';
+import { ColDef } from 'ag-grid-community';
 import { ApiService, AccuracyData } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
+import { ActionCellComponent } from './action-cell.component';
 
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AgGridAngular],
   template: `
     <div class="predictions-page">
       <header class="page-header animate-in">
@@ -182,81 +185,16 @@ import { BetsService } from '../../services/bets.service';
                   </details>
                 }
                 } @else {
-                  <div class="table-container">
-                    <table class="predictions-table">
-                      <thead>
-                        <tr>
-                          <th>League</th>
-                          <th>Match</th>
-                          <th>Time</th>
-                          <th>Pick</th>
-                          <th>Edge</th>
-                          <th>EV</th>
-                          <th>Stake</th>
-                          <th>Odds</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (prediction of flatPredictionsForSport(); track prediction.id) {
-                          <tr>
-                            <td class="text-secondary">{{ prediction._parsed.league }}</td>
-                            <td>
-                              <span [class.text-muted]="prediction.predictedWinner === 'away_win'">{{ prediction.homeTeam.name }}</span>
-                              <span class="text-secondary mx-2">vs</span>
-                              <span [class.text-muted]="prediction.predictedWinner === 'home_win'">{{ prediction.awayTeam.name }}</span>
-                            </td>
-                            <td>{{ prediction.commenceTime | date:'MMM d, h:mm a' }}</td>
-                            <td style="font-weight: 600"
-                                [class.text-success]="prediction.predictedWinner === 'home_win'"
-                                [class.text-danger]="prediction.predictedWinner === 'away_win'">
-                                {{ prediction.predictedWinner === 'home_win' ? prediction.homeTeam.name : prediction.predictedWinner === 'away_win' ? prediction.awayTeam.name : 'Draw' }}
-                            </td>
-                            <td>
-                              <span class="badge" 
-                                   [class.badge--success]="prediction.confidenceLevel === 'high'"
-                                   [class.badge--warning]="prediction.confidenceLevel === 'medium'"
-                                   [class.badge--danger]="prediction.confidenceLevel === 'low'">
-                                <span style="text-transform: capitalize;">{{ prediction.confidenceLevel }}</span> ({{ (prediction.confidenceScore * 100).toFixed(0) }}%)
-                              </span>
-                            </td>
-                            <td>
-                              @if (prediction.expectedValue !== null) {
-                                <span [class.text-success]="prediction.expectedValue > 0" [class.text-danger]="prediction.expectedValue <= 0">{{ prediction.expectedValue > 0 ? '+' : '' }}{{ (prediction.expectedValue * 100).toFixed(1) }}%</span>
-                              } @else {
-                                <span class="text-muted">-</span>
-                              }
-                            </td>
-                            <td>
-                              @if (prediction.recommendedStake !== null) {
-                                {{ (prediction.recommendedStake * 100).toFixed(1) }}%
-                              } @else {
-                                <span class="text-muted">-</span>
-                              }
-                            </td>
-                            <td>{{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}</td>
-                            <td>
-                              @if (authService.isAuthenticated) {
-                                <button class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" 
-                                        [disabled]="placingBetFor() === prediction.id"
-                                        (click)="placeBet(prediction)">
-                                  {{ placingBetFor() === prediction.id ? '...' : 'Simulate' }}
-                                </button>
-                              } @else {
-                                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" (click)="goToLogin()">
-                                  Login
-                                </button>
-                              }
-                            </td>
-                          </tr>
-                        }
-                        @if (flatPredictionsForSport().length === 0) {
-                          <tr>
-                            <td colspan="8" class="text-center text-muted" style="padding: 2rem;">No upcoming matches found for this sport.</td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
+                  <div class="table-container" style="height: 600px;">
+                    <ag-grid-angular
+                      class="ag-theme-quartz-dark"
+                      style="width: 100%; height: 100%;"
+                      [rowData]="flatPredictionsForSport()"
+                      [columnDefs]="colDefs"
+                      [context]="this"
+                      [pagination]="true"
+                      [paginationPageSize]="20">
+                    </ag-grid-angular>
                   </div>
                 }
               </div>
@@ -1046,6 +984,41 @@ export class PredictionsPage implements OnInit {
   isGenerating = signal(false);
   sportCount = signal(0);
   placingBetFor = signal<string | null>(null);
+
+  colDefs: ColDef[] = [
+    { field: '_parsed.league', headerName: 'League', sortable: true, filter: true },
+    { 
+      headerName: 'Match', 
+      valueGetter: (p) => `${p.data.homeTeam.name} vs ${p.data.awayTeam.name}`,
+    },
+    { 
+      field: 'commenceTime', 
+      headerName: 'Time',
+      valueFormatter: (p) => new Date(p.value).toLocaleString()
+    },
+    { 
+      headerName: 'Pick',
+      valueGetter: (p) => p.data.predictedWinner === 'home_win' ? p.data.homeTeam.name : p.data.predictedWinner === 'away_win' ? p.data.awayTeam.name : 'Draw'
+    },
+    {
+      headerName: 'Edge',
+      valueGetter: (p) => `${p.data.confidenceLevel.toUpperCase()} (${(p.data.confidenceScore * 100).toFixed(0)}%)`
+    },
+    {
+      headerName: 'EV',
+      valueGetter: (p) => p.data.expectedValue != null ? `${p.data.expectedValue > 0 ? '+' : ''}${(p.data.expectedValue * 100).toFixed(1)}%` : '-'
+    },
+    {
+      field: 'odds',
+      headerName: 'Odds',
+      valueFormatter: (p) => p.value ? p.value.toFixed(2) : '-'
+    },
+    {
+      headerName: 'Action',
+      cellRenderer: ActionCellComponent,
+      minWidth: 120
+    }
+  ];
 
   authService = inject(AuthService);
   private betsService = inject(BetsService);
