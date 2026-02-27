@@ -127,7 +127,7 @@ import { BetsService } from '../../services/bets.service';
                                 </div>
                               </div>
 
-                              @if (prediction.expectedValue != null) {
+                              @if (prediction.expectedValue !== null) {
                                 <div class="upcoming-card__value-bet" [class.negative-ev]="prediction.expectedValue <= 0">
                                   <div class="value-badge" [class.negative-ev]="prediction.expectedValue <= 0">
                                     <span class="material-symbols-rounded">monetization_on</span>
@@ -140,6 +140,13 @@ import { BetsService } from '../../services/bets.service';
                                     Odds: {{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}
                                   </div>
                                 </div>
+                                @if (prediction.sportKey && isBetwayCovered(prediction.sportKey)) {
+                                  <div class="upcoming-card__sportsbooks" style="margin-top: 0.5rem;">
+                                    <span class="badge" style="background: rgba(4, 120, 87, 0.1); border: 1px solid var(--color-success-subtle); color: var(--color-success); font-size: 0.65rem; padding: 2px 6px;">
+                                      <span class="material-symbols-rounded" style="font-size: 14px; margin-right: 2px; vertical-align: middle;">verified</span> Covered by Betway
+                                    </span>
+                                  </div>
+                                }
                               }
 
                               <!-- Confidence Bar -->
@@ -157,12 +164,12 @@ import { BetsService } from '../../services/bets.service';
                                   <button class="btn-primary" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"
                                           [disabled]="placingBetFor() === prediction.id"
                                           (click)="placeBet(prediction)">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">payments</span>
-                                    {{ placingBetFor() === prediction.id ? 'Placing Bet...' : 'Place $10 Bet' }}
+                                    <span class="material-symbols-rounded" style="font-size: 18px;">analytics</span>
+                                    {{ placingBetFor() === prediction.id ? 'Simulating...' : 'Simulate $10 Bet' }}
                                   </button>
                                 } @else {
                                   <button class="btn-secondary" style="width: 100%; text-align: center; padding: 0.875rem;" (click)="goToLogin()">
-                                    Login to Place Bets
+                                    Login to Simulate Bets
                                   </button>
                                 }
                               </div>
@@ -214,14 +221,14 @@ import { BetsService } from '../../services/bets.service';
                               </span>
                             </td>
                             <td>
-                              @if (prediction.expectedValue != null) {
+                              @if (prediction.expectedValue !== null) {
                                 <span [class.text-success]="prediction.expectedValue > 0" [class.text-danger]="prediction.expectedValue <= 0">{{ prediction.expectedValue > 0 ? '+' : '' }}{{ (prediction.expectedValue * 100).toFixed(1) }}%</span>
                               } @else {
                                 <span class="text-muted">-</span>
                               }
                             </td>
                             <td>
-                              @if (prediction.recommendedStake != null) {
+                              @if (prediction.recommendedStake !== null) {
                                 {{ (prediction.recommendedStake * 100).toFixed(1) }}%
                               } @else {
                                 <span class="text-muted">-</span>
@@ -233,7 +240,7 @@ import { BetsService } from '../../services/bets.service';
                                 <button class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" 
                                         [disabled]="placingBetFor() === prediction.id"
                                         (click)="placeBet(prediction)">
-                                  {{ placingBetFor() === prediction.id ? '...' : 'Bet $10' }}
+                                  {{ placingBetFor() === prediction.id ? '...' : 'Simulate $10' }}
                                 </button>
                               } @else {
                                 <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" (click)="goToLogin()">
@@ -1188,6 +1195,22 @@ export class PredictionsPage implements OnInit {
     });
   }
 
+  isBetwayCovered(sportKey: string): boolean {
+    const betwaySports = [
+      'soccer_epl',
+      'soccer_italy_serie_a',
+      'soccer_spain_la_liga',
+      'soccer_germany_bundesliga',
+      'soccer_france_ligue_one',
+      'basketball_nba',
+      'americanfootball_nfl',
+      'mma_mixed_martial_arts',
+      'tennis_atp_wimbledon',
+      'tennis_wta_wimbledon'
+    ];
+    return betwaySports.includes(sportKey);
+  }
+
   goToLogin() {
     this.router.navigate(['/login']);
   }
@@ -1211,11 +1234,11 @@ export class PredictionsPage implements OnInit {
     }).subscribe({
       next: () => {
         this.placingBetFor.set(null);
-        alert('Bet placed successfully! Track it in My Bets.');
+        alert('Simulation started! Track its success in the Tracker.');
       },
       error: (err) => {
         this.placingBetFor.set(null);
-        alert(err.error?.message || 'Failed to place bet. Please try again.');
+        alert(err.error?.message || 'Failed to simulate. Please try again.');
       }
     });
   }
