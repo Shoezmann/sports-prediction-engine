@@ -2,10 +2,12 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef } from 'ag-grid-community';
+import { ColDef, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import { BetsService } from '../../services/bets.service';
 import { AuthService } from '../../services/auth.service';
 import { BetDto } from '@sports-prediction-engine/shared-types';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 @Component({
   selector: 'app-my-bets',
@@ -25,9 +27,10 @@ import { BetDto } from '@sports-prediction-engine/shared-types';
       </header>
 
       <div class="content-wrapper">
-        <div class="ag-theme-quartz-dark grid-container" *ngIf="!isLoading; else loadingState">
+        <div class="table-container" style="height: 600px;" *ngIf="!isLoading; else loadingState">
           <ag-grid-angular
-            style="width: 100%; height: 600px;"
+            class="ag-theme-quartz-dark"
+            style="width: 100%; height: 100%;"
             [rowData]="rowData"
             [columnDefs]="colDefs"
             [pagination]="true"
