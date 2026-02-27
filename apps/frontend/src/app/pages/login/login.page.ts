@@ -155,6 +155,14 @@ import { AuthService } from '../../services/auth.service';
       font-size: 1rem;
       margin-top: 0.5rem;
       width: 100%;
+      background: linear-gradient(135deg, #eeeeee, #ffffff);
+      color: #000000;
+      box-shadow: 0 4px 14px 0 rgba(255, 255, 255, 0.15);
+      
+      &:hover:not(:disabled) {
+        box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
+        color: #000000;
+      }
     }
 
     .auth-footer {

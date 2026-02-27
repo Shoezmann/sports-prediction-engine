@@ -85,11 +85,11 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #eee, #fff);
+      background: linear-gradient(135deg, #059669, #047857);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
     }
 
     .sidebar__title {
@@ -100,7 +100,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__title-accent {
-      background: linear-gradient(135deg, #aaa, #eee);
+      background: linear-gradient(135deg, #059669, #34d399);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       font-style: italic;
@@ -148,8 +148,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__link.active {
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      background: rgba(5, 150, 105, 0.1);
+      color: var(--color-accent);
     }
 
     .sidebar__link .material-symbols-rounded {
@@ -160,7 +160,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     
     .sidebar__link.active .material-symbols-rounded {
       opacity: 1;
-      color: white;
+      color: var(--color-accent);
     }
     
     .sidebar__link:hover .material-symbols-rounded {
