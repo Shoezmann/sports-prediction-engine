@@ -133,6 +133,7 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      padding-bottom: 0.2em; /* Prevents text descenders like 'g' from clipping */
     }
 
     .hero__subtitle {
