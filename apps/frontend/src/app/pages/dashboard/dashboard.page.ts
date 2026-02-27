@@ -128,16 +128,17 @@ import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate }
     }
 
     .hero__title-gradient {
-      display: block;
+      display: inline-block;
       background: var(--gradient-neon);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      padding-bottom: 0.2em; /* Prevents text descenders like 'g' from clipping */
+      padding-bottom: 0.1em;
+      margin-bottom: -0.1em;
     }
 
     .hero__subtitle {
-      margin-top: var(--spacing-md);
+      margin-top: var(--spacing-sm);
       font-size: 1.125rem;
       color: var(--color-text-secondary);
       max-width: 560px;
