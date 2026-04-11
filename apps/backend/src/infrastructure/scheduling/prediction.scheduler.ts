@@ -1,11 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron, CronExpression, Interval } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { SyncSportsUseCase } from '../../application/use-cases/sync-sports.use-case';
 import { SyncGamesUseCase } from '../../application/use-cases/sync-games.use-case';
 import { GeneratePredictionsUseCase } from '../../application/use-cases/generate-predictions.use-case';
 import { UpdateResultsUseCase } from '../../application/use-cases/update-results.use-case';
 import { HistoricalBackfillUseCase } from '../../application/use-cases/historical-backfill.use-case';
+import { GetPendingPredictionsUseCase } from '../../application/use-cases/get-pending-predictions.use-case';
+import { GetAccuracyUseCase } from '../../application/use-cases/get-accuracy.use-case';
+import { PredictionStreamService } from '../sse/prediction-stream.service';
 
 /**
  * Production-ready Prediction Pipeline Scheduler
@@ -36,6 +39,9 @@ export class PredictionScheduler {
         private readonly generatePredictions: GeneratePredictionsUseCase,
         private readonly updateResults: UpdateResultsUseCase,
         private readonly historicalBackfill: HistoricalBackfillUseCase,
+        private readonly getPendingPredictions: GetPendingPredictionsUseCase,
+        private readonly getAccuracy: GetAccuracyUseCase,
+        private readonly streamService: PredictionStreamService,
         private readonly configService: ConfigService,
     ) {
         this.isProd = this.configService.get<string>('NODE_ENV') === 'production';
@@ -117,6 +123,32 @@ export class PredictionScheduler {
             );
         } catch (error) {
             this.logger.error('[CRON SUN 04:00] Weekly backfill failed', error);
+        }
+    }
+
+    // ─── Real-Time: Broadcast Live Updates Every 60s ─────────
+    // Fetches fresh predictions and broadcasts to all SSE clients.
+    // This gives clients real-time updates without page refresh.
+    @Interval('live-broadcast', 60_000)
+    async handleLiveBroadcast() {
+        if (this.streamService.getClientCount() === 0) return;
+
+        try {
+            const predictions = await this.getPendingPredictions.execute();
+            const accuracy = await this.getAccuracy.execute();
+
+            this.streamService.broadcast('predictions', {
+                count: predictions.length,
+                liveCount: predictions.filter(p => {
+                    const diff = new Date(p.game.commenceTime).getTime() - Date.now();
+                    const mins = Math.floor(-diff / 60000);
+                    return mins > 0 && mins < 120;
+                }).length,
+                predictions,
+                accuracy,
+            });
+        } catch (error) {
+            this.logger.error('[SSE] Failed to broadcast predictions', error);
         }
     }
 }

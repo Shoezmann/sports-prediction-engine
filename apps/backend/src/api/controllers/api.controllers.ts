@@ -192,3 +192,5 @@ export class BetsController {
         return this.getUserBetsUseCase.execute(userId);
     }
 }
+
+export { StreamController } from './stream.controller';

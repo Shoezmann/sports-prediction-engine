@@ -37,6 +37,9 @@ import { InMemoryPredictionRepository } from './adapters/repositories/in-memory-
 // Auth
 import { JwtStrategy } from './auth/jwt.strategy';
 
+// SSE
+import { PredictionStreamService } from './sse/prediction-stream.service';
+
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
 
@@ -95,6 +98,9 @@ const logger = new Logger('InfrastructureModule');
         // ── Auth ──
         JwtStrategy,
 
+        // ── SSE ──
+        PredictionStreamService,
+
         // ── API Adapter ──
         TheOddsApiAdapter,
         ApiFootballAdapter,
@@ -150,6 +156,7 @@ const logger = new Logger('InfrastructureModule');
         JwtStrategy,
         PassportModule,
         JwtModule,
+        PredictionStreamService,
     ],
 })
 export class InfrastructureModule { }

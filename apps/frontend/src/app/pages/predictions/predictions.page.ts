@@ -45,9 +45,12 @@ interface MatchRow {
           </div>
         </div>
         <div class="header__right">
+          <span class="live-badge" [class.live-badge--connected]="isLiveConnected()" [class.live-badge--disconnected]="!isLiveConnected()">
+            <span class="live-badge__dot"></span>
+            {{ isLiveConnected() ? 'LIVE' : 'OFFLINE' }}
+          </span>
           @if (lastRefresh()) {
             <span class="refresh-info">
-              <span class="refresh-dot"></span>
               Updated {{ lastRefresh() }}
             </span>
           }
@@ -280,24 +283,50 @@ interface MatchRow {
     .header__right {
       display: flex;
       align-items: center;
+      gap: 12px;
     }
 
-    .refresh-info {
+    .live-badge {
       display: flex;
       align-items: center;
       gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
       font-family: var(--font-mono);
       font-size: 0.6875rem;
-      color: var(--color-text-muted);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border: 1px solid var(--color-border);
+
+      &--connected {
+        background: var(--color-success-bg);
+        border-color: var(--color-success-border);
+        color: var(--color-success);
+      }
+
+      &--disconnected {
+        background: var(--color-danger-bg);
+        border-color: var(--color-danger-border);
+        color: var(--color-danger);
+      }
     }
 
-    .refresh-dot {
+    .live-badge__dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--color-success);
-      box-shadow: 0 0 6px var(--color-success);
+      background: currentColor;
+    }
+
+    .live-badge--connected .live-badge__dot {
+      box-shadow: 0 0 6px currentColor;
       animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    .refresh-info {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      color: var(--color-text-muted);
     }
 
     // ─── Sport Tabs ──────────────────────────────
@@ -669,7 +698,8 @@ export class PredictionsPage implements OnInit, OnDestroy {
   selectedRegion = signal<string | null>(null);
   selectedLeague = signal<string | null>(null);
   lastRefresh = signal<string>('');
-  private pollInterval: any = null;
+  isLiveConnected = signal(false);
+  private eventSource: EventSource | null = null;
 
   private api = inject(ApiService);
   public authService = inject(AuthService);
@@ -678,12 +708,64 @@ export class PredictionsPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.fetchData();
-    // Poll every 30 seconds for real-time updates
-    this.pollInterval = setInterval(() => this.fetchData(), 30_000);
+    this.connectSSE();
   }
 
   ngOnDestroy() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    this.disconnectSSE();
+  }
+
+  connectSSE() {
+    this.disconnectSSE();
+
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    const url = `${protocol}//${host}/api/stream/predictions`;
+
+    this.eventSource = new EventSource(url);
+
+    this.eventSource.onopen = () => {
+      this.isLiveConnected.set(true);
+    };
+
+    this.eventSource.addEventListener('predictions', (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.data?.predictions) {
+          this.pendingPredictions.set(data.data.predictions);
+          if (data.data.accuracy) {
+            this.accuracy.set(data.data.accuracy);
+          }
+          this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    });
+
+    this.eventSource.addEventListener('heartbeat', () => {
+      // Connection is alive
+      this.isLiveConnected.set(true);
+    });
+
+    this.eventSource.onerror = () => {
+      this.isLiveConnected.set(false);
+      // Auto-reconnect is handled by EventSource natively
+      // Retry with exponential backoff after 3 failed attempts
+      setTimeout(() => {
+        if (!this.isLiveConnected()) {
+          this.connectSSE();
+        }
+      }, 5000);
+    };
+  }
+
+  disconnectSSE() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+      this.isLiveConnected.set(false);
+    }
   }
 
   fetchData() {
