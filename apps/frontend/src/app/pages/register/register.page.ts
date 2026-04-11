@@ -432,7 +432,7 @@ export class RegisterPage {
   registerForm = this.fb.group({
     firstName: [''],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
   isLoading = false;
@@ -449,13 +449,13 @@ export class RegisterPage {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.authService.register(this.registerForm.value as RegisterDto).subscribe({
+    const formVal = this.registerForm.value; this.authService.register({ ...formVal, firstName: formVal.firstName || undefined } as RegisterDto).subscribe({
       next: () => {
         this.router.navigate(['/']);
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err.error?.message || 'Registration failed. Please try again.';
+        const msg = err.error?.message; this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Registration failed. Please try again.');
       }
     });
   }

@@ -444,7 +444,7 @@ export class LoginPage {
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err.error?.message || 'Invalid credentials. Please try again.';
+        const msg = err.error?.message; this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Invalid credentials. Please try again.');
       }
     });
   }

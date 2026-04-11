@@ -40,6 +40,9 @@ import { JwtStrategy } from './auth/jwt.strategy';
 // SSE
 import { PredictionStreamService } from './sse/prediction-stream.service';
 
+// Email
+import { EmailService } from './email/email.service';
+
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
 
@@ -101,6 +104,9 @@ const logger = new Logger('InfrastructureModule');
         // ── SSE ──
         PredictionStreamService,
 
+        // ── Email ──
+        EmailService,
+
         // ── API Adapter ──
         TheOddsApiAdapter,
         ApiFootballAdapter,
@@ -157,6 +163,7 @@ const logger = new Logger('InfrastructureModule');
         PassportModule,
         JwtModule,
         PredictionStreamService,
+        EmailService,
     ],
 })
 export class InfrastructureModule { }

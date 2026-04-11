@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
 import { InfrastructureModule } from '../infrastructure/infrastructure.module';
 import {
     SyncSportsUseCase,
@@ -22,19 +20,10 @@ import { PredictionScheduler } from '../infrastructure/scheduling/prediction.sch
  *
  * Registers all use cases, imports infrastructure adapters,
  * and schedules automated pipeline runs.
+ * Note: JwtModule is registered in InfrastructureModule — not duplicated here.
  */
 @Module({
-    imports: [
-        InfrastructureModule,
-        JwtModule.registerAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: (config: ConfigService) => ({
-                secret: config.get<string>('JWT_SECRET', 'super-secret-fallback-key-for-dev'),
-                signOptions: { expiresIn: '7d' },
-            }),
-        }),
-    ],
+    imports: [InfrastructureModule],
     providers: [
         SyncSportsUseCase,
         SyncGamesUseCase,
