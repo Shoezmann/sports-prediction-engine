@@ -1,5 +1,7 @@
-import { Component, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'sp-sidebar',
@@ -7,47 +9,71 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   imports: [RouterLink, RouterLinkActive],
   template: `
     <aside class="sidebar">
-      <div class="sidebar__brand">
-        <a routerLink="/" class="sidebar__logo-link">
+      <div class="sidebar__header">
+        <a routerLink="/" class="sidebar__logo">
           <div class="sidebar__logo-icon">
-            <span class="material-symbols-rounded" style="color: white; font-size: 24px;">analytics</span>
+            <span class="material-symbols-rounded">analytics</span>
           </div>
-          <span class="sidebar__title">Predict<span class="sidebar__title-accent">Engine</span></span>
+          <span class="sidebar__brand">
+            <span class="sidebar__brand-text">Predict</span>
+            <span class="sidebar__brand-accent">Engine</span>
+          </span>
         </a>
       </div>
 
       <nav class="sidebar__nav">
-        <div class="nav-section">
-          <div class="nav-section-title">MAIN</div>
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="sidebar__link">
-            <span class="material-symbols-rounded">dashboard</span>
-            Dashboard
+        <div class="nav-group">
+          <span class="nav-label">Navigation</span>
+          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-item">
+            <span class="material-symbols-rounded">space_dashboard</span>
+            <span>Dashboard</span>
           </a>
-          <a routerLink="/predictions" routerLinkActive="active" class="sidebar__link">
-            <span class="material-symbols-rounded">online_prediction</span>
-            Predictions
+          <a routerLink="/predictions" routerLinkActive="active" class="nav-item">
+            <span class="material-symbols-rounded">auto_awesome</span>
+            <span>Predictions</span>
           </a>
         </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">TRACKING</div>
-          <a routerLink="/my-bets" routerLinkActive="active" class="sidebar__link">
+
+        <div class="nav-group">
+          <span class="nav-label">Activity</span>
+          <a routerLink="/my-bets" routerLinkActive="active" class="nav-item">
             <span class="material-symbols-rounded">receipt_long</span>
-            My Tracker
+            <span>My Tracker</span>
           </a>
         </div>
       </nav>
-      
+
       <div class="sidebar__footer">
-        <div class="sidebar__profile">
-          <div class="avatar">
-            <span class="material-symbols-rounded">person</span>
+        @if (authService.isAuthenticated) {
+          <div class="user-card">
+            <div class="user-avatar">
+              <span class="material-symbols-rounded">person</span>
+            </div>
+            <div class="user-info">
+              <span class="user-name">{{ userName() }}</span>
+              <span class="user-status">Active</span>
+            </div>
           </div>
-          <div class="profile-info">
-            <span class="profile-name">User Account</span>
-            <span class="profile-role">Pro Analyst</span>
+          <button class="btn-logout" (click)="logout()">
+            <span class="material-symbols-rounded">logout</span>
+          </button>
+        } @else {
+          <div class="auth-actions">
+            <a routerLink="/login" class="btn-auth btn-auth--primary">
+              <span class="material-symbols-rounded">login</span>
+              Sign in
+            </a>
           </div>
-        </div>
+        }
+
+        <button class="theme-toggle" (click)="themeService.toggle()" [attr.aria-label]="themeService.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+          @if (themeService.isDark()) {
+            <span class="material-symbols-rounded">light_mode</span>
+          } @else {
+            <span class="material-symbols-rounded">dark_mode</span>
+          }
+          <span class="theme-toggle__label">{{ themeService.isDark() ? 'Dark' : 'Light' }}</span>
+        </button>
       </div>
     </aside>
   `,
@@ -58,23 +84,23 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       left: 0;
       bottom: 0;
       width: 260px;
-      background: rgba(10, 10, 10, 0.95);
+      background: var(--color-surface);
       border-right: 1px solid var(--color-border);
       display: flex;
       flex-direction: column;
       z-index: 100;
-      backdrop-filter: blur(20px);
+      transition: background var(--transition-base), border-color var(--transition-base);
     }
 
-    .sidebar__brand {
-      height: 72px;
+    .sidebar__header {
+      height: 64px;
       display: flex;
       align-items: center;
-      padding: 0 var(--spacing-lg);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 0 20px;
+      border-bottom: 1px solid var(--color-border);
     }
 
-    .sidebar__logo-link {
+    .sidebar__logo {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -82,25 +108,33 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .sidebar__logo-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #008200, #006a00);
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--gradient-hero);
+      display: grid;
+      place-items: center;
+      box-shadow: var(--shadow-glow);
+
+      .material-symbols-rounded {
+        font-size: 18px;
+        color: white;
+      }
+    }
+
+    .sidebar__brand {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 8px rgba(0, 130, 0, 0.2);
+      font-size: 1.125rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
     }
 
-    .sidebar__title {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -0.02em;
+    .sidebar__brand-text {
+      color: var(--color-text-primary);
     }
 
-    .sidebar__title-accent {
-      background: linear-gradient(135deg, #00a82d, #00ff4d);
+    .sidebar__brand-accent {
+      background: var(--gradient-neon);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       font-style: italic;
@@ -108,105 +142,221 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 
     .sidebar__nav {
       flex: 1;
-      padding: var(--spacing-lg) var(--spacing-md);
+      padding: 16px 12px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-lg);
+      gap: 24px;
     }
 
-    .nav-section {
+    .nav-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
-    .nav-section-title {
-      font-size: 0.7rem;
-      font-weight: 700;
+    .nav-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: var(--color-text-muted);
-      letter-spacing: 0.1em;
-      padding: 0 var(--spacing-sm) 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0 12px 8px;
     }
 
-    .sidebar__link {
+    .nav-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: 8px;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
       color: var(--color-text-secondary);
       text-decoration: none;
       font-weight: 500;
-      font-size: 0.95rem;
-      transition: all 0.2s ease;
-    }
+      font-size: 0.875rem;
+      transition: all var(--transition-fast);
+      position: relative;
 
-    .sidebar__link:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: white;
-    }
+      &:hover {
+        background: var(--color-accent-subtle);
+        color: var(--color-text-primary);
+      }
 
-    .sidebar__link.active {
-      background: var(--color-accent-subtle);
-      color: var(--color-accent);
-    }
+      .material-symbols-rounded {
+        font-size: 18px;
+        opacity: 0.7;
+        transition: all var(--transition-fast);
+      }
 
-    .sidebar__link .material-symbols-rounded {
-      font-size: 20px;
-      opacity: 0.8;
-      transition: transform 0.2s ease;
-    }
-    
-    .sidebar__link.active .material-symbols-rounded {
-      opacity: 1;
-      color: var(--color-accent);
-    }
-    
-    .sidebar__link:hover .material-symbols-rounded {
-      transform: translateX(2px);
+      &:hover .material-symbols-rounded {
+        opacity: 1;
+      }
+
+      &.active {
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 3px;
+          height: 16px;
+          background: var(--color-accent);
+          border-radius: 0 2px 2px 0;
+        }
+
+        .material-symbols-rounded {
+          opacity: 1;
+          color: var(--color-accent);
+        }
+      }
     }
 
     .sidebar__footer {
-      padding: var(--spacing-lg);
-      border-top: 1px solid rgba(255,255,255,0.05);
-      background: rgba(0,0,0,0.2);
-    }
-
-    .sidebar__profile {
+      padding: 16px;
+      border-top: 1px solid var(--color-border);
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 12px;
     }
 
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
+    .user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
       background: var(--color-surface-elevated);
       border: 1px solid var(--color-border);
+      display: grid;
+      place-items: center;
+      color: var(--color-text-secondary);
+
+      .material-symbols-rounded {
+        font-size: 16px;
+      }
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-status {
+      font-size: 0.6875rem;
+      color: var(--color-success);
+    }
+
+    .btn-logout {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      &:hover {
+        background: var(--color-danger-bg);
+        color: var(--color-danger);
+        border-color: var(--color-danger-border);
+      }
+
+      .material-symbols-rounded {
+        font-size: 18px;
+      }
+    }
+
+    .auth-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-auth {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--color-text-secondary);
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+
+      .material-symbols-rounded {
+        font-size: 16px;
+      }
+
+      &--primary {
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+        border: 1px solid var(--color-accent-border);
+
+        &:hover {
+          background: var(--color-accent);
+          color: white;
+        }
+      }
     }
 
-    .profile-info {
+    .theme-toggle {
       display: flex;
-      flex-direction: column;
-    }
-
-    .profile-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: white;
-    }
-
-    .profile-role {
-      font-size: 0.75rem;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
       color: var(--color-text-secondary);
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+      font-family: var(--font-family);
+
+      &:hover {
+        background: var(--color-bg-card-hover);
+        border-color: var(--color-border-strong);
+        color: var(--color-text-primary);
+      }
+
+      .material-symbols-rounded {
+        font-size: 16px;
+      }
     }
-    
+
+    .theme-toggle__label {
+      flex: 1;
+      text-align: right;
+    }
+
     @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
@@ -214,4 +364,18 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
   `]
 })
-export class SidebarComponent {}
+export class SidebarComponent {
+  authService = inject(AuthService);
+  themeService = inject(ThemeService);
+  private router = inject(Router);
+
+  userName() {
+    const user = this.authService.currentUser();
+    return user?.firstName || user?.email?.split('@')[0] || 'Guest';
+  }
+
+  logout() {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+}

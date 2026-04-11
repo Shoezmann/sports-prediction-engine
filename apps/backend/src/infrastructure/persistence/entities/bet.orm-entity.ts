@@ -21,8 +21,8 @@ export class BetEntity {
     @Column('uuid', { name: 'prediction_id' })
     predictionId: string;
 
-    @Column('numeric', { precision: 10, scale: 2 })
-    stake: number;
+    @Column('varchar', { length: 50, nullable: true })
+    bookmaker?: string;
 
     @Column('numeric', { precision: 10, scale: 4 })
     lockedOdds: number;

@@ -23,7 +23,7 @@ import { SidebarComponent } from './components/sidebar/sidebar.component';
     
     .main-content {
       flex: 1;
-      margin-left: 260px; /* Width of the sidebar */
+      margin-left: 260px; 
       width: calc(100% - 260px);
       min-height: 100vh;
     }

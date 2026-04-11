@@ -29,172 +29,174 @@ A full-stack application that:
 - Generates predictions using custom models (ELO, form-based, odds-implied, ML ensemble)
 - Displays predictions in a modern Angular dashboard with confidence scores
 - Tracks prediction accuracy over time per sport, league, and model
+- Allows users to create and track personalized Prediction Slips tagged by platform (Betway, 10bets, etc.)
 - Runs daily automated prediction generation via cron jobs
 - Dynamically discovers in-season sports via the API
 
 ### Target Sportsbooks
 
-| Sportsbook | Region | URL |
-|-----------|--------|-----|
-| **Betway** | Global / SA | betway.com / betway.co.za |
-| **Sportingbet** | South Africa | sportingbet.co.za |
+| Sportsbook      | Region       | URL                       |
+| --------------- | ------------ | ------------------------- |
+| **Betway**      | Global / SA  | betway.com / betway.co.za |
+| **Sportingbet** | South Africa | sportingbet.co.za         |
 
 The system covers the **union of all sports** available across both sportsbooks, mapped to The Odds API sport keys. Sports are organized into categories based on their prediction model type:
 
 #### ⚽ Team Sports (Home Win / Draw / Away Win)
 
-| Betway Sport | The Odds API Key(s) | League(s) |
-|-------------|--------------------|-----------|
-| **Soccer** | `soccer_epl` | English Premier League |
-| | `soccer_efl_champ` | EFL Championship |
-| | `soccer_germany_bundesliga` | German Bundesliga |
-| | `soccer_germany_bundesliga2` | German Bundesliga 2 |
-| | `soccer_italy_serie_a` | Italian Serie A |
-| | `soccer_italy_serie_b` | Italian Serie B |
-| | `soccer_spain_la_liga` | Spanish La Liga |
-| | `soccer_spain_segunda_division` | Spanish La Liga 2 |
-| | `soccer_france_ligue_one` | French Ligue 1 |
-| | `soccer_france_ligue_two` | French Ligue 2 |
-| | `soccer_netherlands_eredivisie` | Dutch Eredivisie |
-| | `soccer_portugal_primeira_liga` | Portuguese Primeira Liga |
-| | `soccer_belgium_first_div` | Belgian First Division |
-| | `soccer_turkey_super_league` | Turkish Süper Lig |
-| | `soccer_brazil_campeonato` | Brazilian Série A |
-| | `soccer_brazil_serie_b` | Brazilian Série B |
-| | `soccer_australia_aleague` | A-League (Australia) |
-| | `soccer_japan_j_league` | Japanese J-League |
-| | `soccer_usa_mls` | MLS (USA) |
-| | `soccer_mexico_ligamx` | Liga MX (Mexico) |
-| | `soccer_sweden_allsvenskan` | Swedish Allsvenskan |
-| | `soccer_norway_eliteserien` | Norwegian Eliteserien |
-| | `soccer_denmark_superliga` | Danish Superliga |
-| | `soccer_finland_veikkausliiga` | Finnish Veikkausliiga |
-| | `soccer_switzerland_superleague` | Swiss Super League |
-| | `soccer_austria_bundesliga` | Austrian Bundesliga |
-| | `soccer_poland_ekstraklasa` | Polish Ekstraklasa |
-| | `soccer_greece_super_league` | Greek Super League |
-| | `soccer_uefa_champs_league` | UEFA Champions League |
-| | `soccer_uefa_europa_league` | UEFA Europa League |
-| | `soccer_uefa_europa_conference_league` | UEFA Conference League |
-| | `soccer_conmebol_copa_libertadores` | Copa Libertadores |
-| | `soccer_league_of_ireland` | League of Ireland |
-| | `soccer_spl` | Scottish Premiership |
-| **Ice Hockey** | `icehockey_nhl` | NHL |
-| | `icehockey_ahl` | AHL |
-| | `icehockey_sweden_hockey_league` | SHL (Sweden) |
-| | `icehockey_sweden_allsvenskan` | HockeyAllsvenskan |
-| | `icehockey_finland_liiga` | Liiga (Finland) |
-| | `icehockey_finland_mestis` | Mestis (Finland) |
-| **Handball** | `handball_germany_bundesliga` | German Handball Bundesliga |
-| **Field Hockey** | *(limited API coverage — use odds-implied only)* | |
-| **Futsal** | *(limited API coverage — use odds-implied only)* | |
+| Betway Sport     | The Odds API Key(s)                              | League(s)                  |
+| ---------------- | ------------------------------------------------ | -------------------------- |
+| **Soccer**       | `soccer_epl`                                     | English Premier League     |
+|                  | `soccer_efl_champ`                               | EFL Championship           |
+|                  | `soccer_germany_bundesliga`                      | German Bundesliga          |
+|                  | `soccer_germany_bundesliga2`                     | German Bundesliga 2        |
+|                  | `soccer_italy_serie_a`                           | Italian Serie A            |
+|                  | `soccer_italy_serie_b`                           | Italian Serie B            |
+|                  | `soccer_spain_la_liga`                           | Spanish La Liga            |
+|                  | `soccer_spain_segunda_division`                  | Spanish La Liga 2          |
+|                  | `soccer_france_ligue_one`                        | French Ligue 1             |
+|                  | `soccer_france_ligue_two`                        | French Ligue 2             |
+|                  | `soccer_netherlands_eredivisie`                  | Dutch Eredivisie           |
+|                  | `soccer_portugal_primeira_liga`                  | Portuguese Primeira Liga   |
+|                  | `soccer_belgium_first_div`                       | Belgian First Division     |
+|                  | `soccer_turkey_super_league`                     | Turkish Süper Lig          |
+|                  | `soccer_brazil_campeonato`                       | Brazilian Série A          |
+|                  | `soccer_brazil_serie_b`                          | Brazilian Série B          |
+|                  | `soccer_australia_aleague`                       | A-League (Australia)       |
+|                  | `soccer_japan_j_league`                          | Japanese J-League          |
+|                  | `soccer_usa_mls`                                 | MLS (USA)                  |
+|                  | `soccer_mexico_ligamx`                           | Liga MX (Mexico)           |
+|                  | `soccer_sweden_allsvenskan`                      | Swedish Allsvenskan        |
+|                  | `soccer_norway_eliteserien`                      | Norwegian Eliteserien      |
+|                  | `soccer_denmark_superliga`                       | Danish Superliga           |
+|                  | `soccer_finland_veikkausliiga`                   | Finnish Veikkausliiga      |
+|                  | `soccer_switzerland_superleague`                 | Swiss Super League         |
+|                  | `soccer_austria_bundesliga`                      | Austrian Bundesliga        |
+|                  | `soccer_poland_ekstraklasa`                      | Polish Ekstraklasa         |
+|                  | `soccer_greece_super_league`                     | Greek Super League         |
+|                  | `soccer_uefa_champs_league`                      | UEFA Champions League      |
+|                  | `soccer_uefa_europa_league`                      | UEFA Europa League         |
+|                  | `soccer_uefa_europa_conference_league`           | UEFA Conference League     |
+|                  | `soccer_conmebol_copa_libertadores`              | Copa Libertadores          |
+|                  | `soccer_league_of_ireland`                       | League of Ireland          |
+|                  | `soccer_spl`                                     | Scottish Premiership       |
+| **Ice Hockey**   | `icehockey_nhl`                                  | NHL                        |
+|                  | `icehockey_ahl`                                  | AHL                        |
+|                  | `icehockey_sweden_hockey_league`                 | SHL (Sweden)               |
+|                  | `icehockey_sweden_allsvenskan`                   | HockeyAllsvenskan          |
+|                  | `icehockey_finland_liiga`                        | Liiga (Finland)            |
+|                  | `icehockey_finland_mestis`                       | Mestis (Finland)           |
+| **Handball**     | `handball_germany_bundesliga`                    | German Handball Bundesliga |
+| **Field Hockey** | _(limited API coverage — use odds-implied only)_ |                            |
+| **Futsal**       | _(limited API coverage — use odds-implied only)_ |                            |
 
 #### 🏈 Team Sports (Home Win / Away Win — No Draw)
 
-| Betway Sport | The Odds API Key(s) | League(s) |
-|-------------|--------------------|-----------|
-| **American Football** | `americanfootball_nfl` | NFL |
-| | `americanfootball_ncaaf` | NCAA Football |
-| | `americanfootball_nfl_preseason` | NFL Preseason |
-| | `americanfootball_cfl` | CFL |
-| | `americanfootball_ufl` | UFL |
-| **Basketball** | `basketball_nba` | NBA |
-| | `basketball_ncaab` | NCAA Basketball |
-| | `basketball_wnba` | WNBA |
-| | `basketball_euroleague` | EuroLeague |
-| | `basketball_nba_preseason` | NBA Preseason |
-| **Baseball** | `baseball_mlb` | MLB |
-| | `baseball_ncaa` | NCAA Baseball |
-| | `baseball_kbo` | KBO (Korea) |
-| | `baseball_npb` | NPB (Japan) |
-| **Aussie Rules** | `aussierules_afl` | AFL |
-| **Rugby League** | `rugbyleague_nrl` | NRL |
-| **Rugby Union** | `rugbyunion_world_cup` | Rugby World Cup |
-| | `rugbyunion_six_nations` | Six Nations |
-| **Volleyball** | *(limited API coverage — use odds-implied only)* | |
-| **Water Polo** | *(limited API coverage — use odds-implied only)* | |
-| **Netball** | *(limited API coverage — use odds-implied only)* | |
-| **Floorball** | *(limited API coverage — use odds-implied only)* | |
+| Betway Sport          | The Odds API Key(s)                              | League(s)       |
+| --------------------- | ------------------------------------------------ | --------------- |
+| **American Football** | `americanfootball_nfl`                           | NFL             |
+|                       | `americanfootball_ncaaf`                         | NCAA Football   |
+|                       | `americanfootball_nfl_preseason`                 | NFL Preseason   |
+|                       | `americanfootball_cfl`                           | CFL             |
+|                       | `americanfootball_ufl`                           | UFL             |
+| **Basketball**        | `basketball_nba`                                 | NBA             |
+|                       | `basketball_ncaab`                               | NCAA Basketball |
+|                       | `basketball_wnba`                                | WNBA            |
+|                       | `basketball_euroleague`                          | EuroLeague      |
+|                       | `basketball_nba_preseason`                       | NBA Preseason   |
+| **Baseball**          | `baseball_mlb`                                   | MLB             |
+|                       | `baseball_ncaa`                                  | NCAA Baseball   |
+|                       | `baseball_kbo`                                   | KBO (Korea)     |
+|                       | `baseball_npb`                                   | NPB (Japan)     |
+| **Aussie Rules**      | `aussierules_afl`                                | AFL             |
+| **Rugby League**      | `rugbyleague_nrl`                                | NRL             |
+| **Rugby Union**       | `rugbyunion_world_cup`                           | Rugby World Cup |
+|                       | `rugbyunion_six_nations`                         | Six Nations     |
+| **Volleyball**        | _(limited API coverage — use odds-implied only)_ |                 |
+| **Water Polo**        | _(limited API coverage — use odds-implied only)_ |                 |
+| **Netball**           | _(limited API coverage — use odds-implied only)_ |                 |
+| **Floorball**         | _(limited API coverage — use odds-implied only)_ |                 |
 
 #### 🥊 Individual / Combat Sports (Competitor A / Competitor B)
 
-| Betway Sport | The Odds API Key(s) | Event(s) |
-|-------------|--------------------|---------|
-| **MMA / UFC** | `mma_mixed_martial_arts` | UFC / MMA Events |
-| **Boxing** | `boxing_boxing` | Major Boxing Cards |
-| **Tennis** | `tennis_atp_australian_open` | ATP Australian Open |
-| | `tennis_atp_french_open` | ATP French Open |
-| | `tennis_atp_us_open` | ATP US Open |
-| | `tennis_atp_wimbledon` | ATP Wimbledon |
-| | `tennis_atp_canadian_open` | ATP Canadian Open |
-| | `tennis_atp_china_open` | ATP China Open |
-| | `tennis_atp_cincinnati_open` | ATP Cincinnati Open |
-| | `tennis_atp_dubai` | ATP Dubai |
-| | `tennis_atp_indian_wells` | ATP Indian Wells |
-| | `tennis_atp_italian_open` | ATP Italian Open |
-| | `tennis_atp_madrid_open` | ATP Madrid Open |
-| | `tennis_atp_miami_open` | ATP Miami Open |
-| | `tennis_atp_monte_carlo` | ATP Monte-Carlo |
-| | `tennis_atp_paris` | ATP Paris Masters |
-| | `tennis_atp_qatar_open` | ATP Qatar Open |
-| | `tennis_atp_shanghai` | ATP Shanghai Masters |
-| | `tennis_wta_australian_open` | WTA Australian Open |
-| | `tennis_wta_french_open` | WTA French Open |
-| | `tennis_wta_us_open` | WTA US Open |
-| | `tennis_wta_wimbledon` | WTA Wimbledon |
-| | `tennis_wta_canadian_open` | WTA Canadian Open |
-| | `tennis_wta_china_open` | WTA China Open |
-| | `tennis_wta_cincinnati_open` | WTA Cincinnati Open |
-| | `tennis_wta_dubai` | WTA Dubai |
-| | `tennis_wta_indian_wells` | WTA Indian Wells |
-| | `tennis_wta_italian_open` | WTA Italian Open |
-| | `tennis_wta_madrid_open` | WTA Madrid Open |
-| | `tennis_wta_miami_open` | WTA Miami Open |
-| | `tennis_wta_qatar_open` | WTA Qatar Open |
-| | `tennis_wta_wuhan_open` | WTA Wuhan Open |
-| **Table Tennis** | *(limited API coverage — use odds-implied when available)* | |
-| **Badminton** | *(limited API coverage — use odds-implied when available)* | |
-| **Squash** | *(limited API coverage — use odds-implied when available)* | |
+| Betway Sport     | The Odds API Key(s)                                        | Event(s)             |
+| ---------------- | ---------------------------------------------------------- | -------------------- |
+| **MMA / UFC**    | `mma_mixed_martial_arts`                                   | UFC / MMA Events     |
+| **Boxing**       | `boxing_boxing`                                            | Major Boxing Cards   |
+| **Tennis**       | `tennis_atp_australian_open`                               | ATP Australian Open  |
+|                  | `tennis_atp_french_open`                                   | ATP French Open      |
+|                  | `tennis_atp_us_open`                                       | ATP US Open          |
+|                  | `tennis_atp_wimbledon`                                     | ATP Wimbledon        |
+|                  | `tennis_atp_canadian_open`                                 | ATP Canadian Open    |
+|                  | `tennis_atp_china_open`                                    | ATP China Open       |
+|                  | `tennis_atp_cincinnati_open`                               | ATP Cincinnati Open  |
+|                  | `tennis_atp_dubai`                                         | ATP Dubai            |
+|                  | `tennis_atp_indian_wells`                                  | ATP Indian Wells     |
+|                  | `tennis_atp_italian_open`                                  | ATP Italian Open     |
+|                  | `tennis_atp_madrid_open`                                   | ATP Madrid Open      |
+|                  | `tennis_atp_miami_open`                                    | ATP Miami Open       |
+|                  | `tennis_atp_monte_carlo`                                   | ATP Monte-Carlo      |
+|                  | `tennis_atp_paris`                                         | ATP Paris Masters    |
+|                  | `tennis_atp_qatar_open`                                    | ATP Qatar Open       |
+|                  | `tennis_atp_shanghai`                                      | ATP Shanghai Masters |
+|                  | `tennis_wta_australian_open`                               | WTA Australian Open  |
+|                  | `tennis_wta_french_open`                                   | WTA French Open      |
+|                  | `tennis_wta_us_open`                                       | WTA US Open          |
+|                  | `tennis_wta_wimbledon`                                     | WTA Wimbledon        |
+|                  | `tennis_wta_canadian_open`                                 | WTA Canadian Open    |
+|                  | `tennis_wta_china_open`                                    | WTA China Open       |
+|                  | `tennis_wta_cincinnati_open`                               | WTA Cincinnati Open  |
+|                  | `tennis_wta_dubai`                                         | WTA Dubai            |
+|                  | `tennis_wta_indian_wells`                                  | WTA Indian Wells     |
+|                  | `tennis_wta_italian_open`                                  | WTA Italian Open     |
+|                  | `tennis_wta_madrid_open`                                   | WTA Madrid Open      |
+|                  | `tennis_wta_miami_open`                                    | WTA Miami Open       |
+|                  | `tennis_wta_qatar_open`                                    | WTA Qatar Open       |
+|                  | `tennis_wta_wuhan_open`                                    | WTA Wuhan Open       |
+| **Table Tennis** | _(limited API coverage — use odds-implied when available)_ |                      |
+| **Badminton**    | _(limited API coverage — use odds-implied when available)_ |                      |
+| **Squash**       | _(limited API coverage — use odds-implied when available)_ |                      |
 
 #### 🏆 Outright / Futures Markets
 
-| Betway Sport | The Odds API Key(s) | Market |
-|-------------|--------------------|---------|
-| **Golf** | `golf_masters_tournament_winner` | Masters Winner |
-| | `golf_pga_championship_winner` | PGA Championship Winner |
-| | `golf_the_open_championship_winner` | The Open Winner |
-| | `golf_us_open_winner` | US Open Winner |
-| **American Football** | `americanfootball_nfl_super_bowl_winner` | Super Bowl Winner |
-| **Cricket** | `cricket_ipl` | IPL |
-| | `cricket_test_match` | Test Matches |
-| | `cricket_big_bash` | Big Bash |
-| | `cricket_icc_world_cup` | ICC World Cup |
-| **Cycling** | *(no API coverage — future data source)* | |
-| **Darts** | *(no API coverage — future data source)* | |
-| **Snooker** | *(no API coverage — future data source)* | |
-| **Formula 1** | *(no API coverage — future data source)* | |
-| **Motorsport / NASCAR** | *(no API coverage — future data source)* | |
-| **Motorbikes / MotoGP** | *(no API coverage — future data source)* | |
+| Betway Sport            | The Odds API Key(s)                      | Market                  |
+| ----------------------- | ---------------------------------------- | ----------------------- |
+| **Golf**                | `golf_masters_tournament_winner`         | Masters Winner          |
+|                         | `golf_pga_championship_winner`           | PGA Championship Winner |
+|                         | `golf_the_open_championship_winner`      | The Open Winner         |
+|                         | `golf_us_open_winner`                    | US Open Winner          |
+| **American Football**   | `americanfootball_nfl_super_bowl_winner` | Super Bowl Winner       |
+| **Cricket**             | `cricket_ipl`                            | IPL                     |
+|                         | `cricket_test_match`                     | Test Matches            |
+|                         | `cricket_big_bash`                       | Big Bash                |
+|                         | `cricket_icc_world_cup`                  | ICC World Cup           |
+| **Cycling**             | _(no API coverage — future data source)_ |                         |
+| **Darts**               | _(no API coverage — future data source)_ |                         |
+| **Snooker**             | _(no API coverage — future data source)_ |                         |
+| **Formula 1**           | _(no API coverage — future data source)_ |                         |
+| **Motorsport / NASCAR** | _(no API coverage — future data source)_ |                         |
+| **Motorbikes / MotoGP** | _(no API coverage — future data source)_ |                         |
 
 #### ⚠️ Sportsbook Sports NOT Covered by The Odds API
 
-| Sport | On Betway | On Sportingbet | Status | Plan |
-|-------|:---------:|:--------------:|--------|------|
-| Greyhounds | ✅ | ❌ | No API coverage | Future: scrape or alt data source |
-| Horse Racing | ✅ | ✅ | No API coverage | Future: dedicated racing API |
-| Virtual Sports | ✅ | ❌ | N/A | Not predictable (RNG-based) |
-| Politics | ✅ | ❌ | Limited | May be seasonal |
-| Gaelic Sports | ✅ | ✅ | No API coverage | Future: alt data source |
-| Esports | ✅ | ❌ | Limited coverage | Future: dedicated esports API |
-| Alpine Skiing | ❌ | ✅ | No API coverage | Future: winter sports data source |
-| Cross Country Skiing | ❌ | ✅ | No API coverage | Future: winter sports data source |
-| Ski Jumping | ❌ | ✅ | No API coverage | Future: winter sports data source |
-| Speedway | ❌ | ✅ | No API coverage | Future: motorsport data source |
-| Chess | ❌ | ✅ | No API coverage | Future: niche sports data source |
+| Sport                | On Betway | On Sportingbet | Status           | Plan                              |
+| -------------------- | :-------: | :------------: | ---------------- | --------------------------------- |
+| Greyhounds           |    ✅     |       ❌       | No API coverage  | Future: scrape or alt data source |
+| Horse Racing         |    ✅     |       ✅       | No API coverage  | Future: dedicated racing API      |
+| Virtual Sports       |    ✅     |       ❌       | N/A              | Not predictable (RNG-based)       |
+| Politics             |    ✅     |       ❌       | Limited          | May be seasonal                   |
+| Gaelic Sports        |    ✅     |       ✅       | No API coverage  | Future: alt data source           |
+| Esports              |    ✅     |       ❌       | Limited coverage | Future: dedicated esports API     |
+| Alpine Skiing        |    ❌     |       ✅       | No API coverage  | Future: winter sports data source |
+| Cross Country Skiing |    ❌     |       ✅       | No API coverage  | Future: winter sports data source |
+| Ski Jumping          |    ❌     |       ✅       | No API coverage  | Future: winter sports data source |
+| Speedway             |    ❌     |       ✅       | No API coverage  | Future: motorsport data source    |
+| Chess                |    ❌     |       ✅       | No API coverage  | Future: niche sports data source  |
 
 ### Dynamic Sport Discovery
 
 Rather than hardcoding sport keys, the system will:
+
 1. Call `GET /v4/sports?all=true` (free, no quota cost) on startup and daily
 2. Store the returned sport list with `active` status
 3. Only fetch odds/scores for sports where `active: true`
@@ -204,12 +206,12 @@ Rather than hardcoding sport keys, the system will:
 
 The prediction engine handles three distinct match types:
 
-| Category | Outcome Options | Draw Possible | Example |
-|----------|----------------|--------------|--------|
-| `THREE_WAY` | Home / Draw / Away | ✅ Yes | Soccer, Ice Hockey (regulation) |
-| `TWO_WAY` | Home / Away | ❌ No | Basketball, American Football, Baseball |
-| `HEAD_TO_HEAD` | Competitor A / B | ❌ No | Tennis, MMA, Boxing |
-| `OUTRIGHT` | Multiple competitors | N/A | Golf winner, Super Bowl winner |
+| Category       | Outcome Options      | Draw Possible | Example                                 |
+| -------------- | -------------------- | ------------- | --------------------------------------- |
+| `THREE_WAY`    | Home / Draw / Away   | ✅ Yes        | Soccer, Ice Hockey (regulation)         |
+| `TWO_WAY`      | Home / Away          | ❌ No         | Basketball, American Football, Baseball |
+| `HEAD_TO_HEAD` | Competitor A / B     | ❌ No         | Tennis, MMA, Boxing                     |
+| `OUTRIGHT`     | Multiple competitors | N/A           | Golf winner, Super Bowl winner          |
 
 ---
 
@@ -556,23 +558,23 @@ sports-prediction-engine/
 
 #### Step 1: Scaffold Nx Workspace
 
-| Item | Detail |
-|------|--------|
-| **Tool** | `npx create-nx-workspace@latest` |
-| **Preset** | `apps` (empty workspace, we add apps manually) |
-| **Apps** | `@nx/angular:application frontend`, `@nx/nest:application backend` |
-| **Libs** | `@nx/js:library shared-types` |
-| **Package Manager** | npm |
+| Item                | Detail                                                             |
+| ------------------- | ------------------------------------------------------------------ |
+| **Tool**            | `npx create-nx-workspace@latest`                                   |
+| **Preset**          | `apps` (empty workspace, we add apps manually)                     |
+| **Apps**            | `@nx/angular:application frontend`, `@nx/nest:application backend` |
+| **Libs**            | `@nx/js:library shared-types`                                      |
+| **Package Manager** | npm                                                                |
 
 #### Step 2: Local Development Environment
 
-| Item | Detail |
-|------|--------|
-| **Docker Compose** | PostgreSQL 16 on port `5432` |
-| **Environment** | `.env` with `ODDS_API_KEY`, `DATABASE_URL`, `PORT` |
-| **Backend Port** | `3000` |
-| **Frontend Port** | `4200` |
-| **Proxy** | Angular dev server proxies `/api/*` → `localhost:3000` |
+| Item               | Detail                                                 |
+| ------------------ | ------------------------------------------------------ |
+| **Docker Compose** | PostgreSQL 16 on port `5432`                           |
+| **Environment**    | `.env` with `ODDS_API_KEY`, `DATABASE_URL`, `PORT`     |
+| **Backend Port**   | `3000`                                                 |
+| **Frontend Port**  | `4200`                                                 |
+| **Proxy**          | Angular dev server proxies `/api/*` → `localhost:3000` |
 
 #### Step 3: Shared Types Library (`libs/shared/types`)
 
@@ -585,10 +587,10 @@ sports-prediction-engine/
 // ═══════════════════════════════════════════
 
 export enum SportCategory {
-  THREE_WAY = 'three_way',       // Home / Draw / Away (soccer, hockey regulation)
-  TWO_WAY = 'two_way',           // Home / Away (basketball, american football, baseball)
+  THREE_WAY = 'three_way', // Home / Draw / Away (soccer, hockey regulation)
+  TWO_WAY = 'two_way', // Home / Away (basketball, american football, baseball)
   HEAD_TO_HEAD = 'head_to_head', // Competitor A / B (tennis, MMA, boxing)
-  OUTRIGHT = 'outright',         // Multiple competitors (golf winner, futures)
+  OUTRIGHT = 'outright', // Multiple competitors (golf winner, futures)
 }
 
 export enum SportGroup {
@@ -616,12 +618,12 @@ export enum SportGroup {
 // ═══════════════════════════════════════════
 
 export interface SportDto {
-  key: string;             // e.g. 'soccer_epl', 'basketball_nba'
-  group: SportGroup;       // e.g. 'Soccer', 'Basketball'
-  title: string;           // e.g. 'EPL', 'NBA'
-  description: string;     // e.g. 'English Premier League'
-  active: boolean;         // currently in-season
-  hasOutrights: boolean;   // supports outright/futures markets
+  key: string; // e.g. 'soccer_epl', 'basketball_nba'
+  group: SportGroup; // e.g. 'Soccer', 'Basketball'
+  title: string; // e.g. 'EPL', 'NBA'
+  description: string; // e.g. 'English Premier League'
+  active: boolean; // currently in-season
+  hasOutrights: boolean; // supports outright/futures markets
   category: SportCategory; // derived from group
 }
 
@@ -632,16 +634,16 @@ export interface SportDto {
 export enum PredictionOutcome {
   HOME_WIN = 'home_win',
   AWAY_WIN = 'away_win',
-  DRAW = 'draw',           // only for THREE_WAY sports
+  DRAW = 'draw', // only for THREE_WAY sports
   COMPETITOR_A = 'competitor_a', // for HEAD_TO_HEAD sports
   COMPETITOR_B = 'competitor_b', // for HEAD_TO_HEAD sports
   PENDING = 'pending',
 }
 
 export enum ConfidenceLevel {
-  HIGH = 'high',       // ≥ 70%
-  MEDIUM = 'medium',   // 55-69%
-  LOW = 'low',         // < 55%
+  HIGH = 'high', // ≥ 70%
+  MEDIUM = 'medium', // 55-69%
+  LOW = 'low', // < 55%
 }
 
 // ═══════════════════════════════════════════
@@ -650,13 +652,13 @@ export enum ConfidenceLevel {
 
 export interface GameDto {
   id: string;
-  sportKey: string;          // The Odds API sport key
+  sportKey: string; // The Odds API sport key
   sportGroup: SportGroup;
-  sportTitle: string;        // Human-readable league name
+  sportTitle: string; // Human-readable league name
   sportCategory: SportCategory;
-  homeTeam: TeamDto;         // or competitorA for H2H
-  awayTeam: TeamDto;         // or competitorB for H2H
-  commenceTime: string;      // ISO 8601
+  homeTeam: TeamDto; // or competitorA for H2H
+  awayTeam: TeamDto; // or competitorB for H2H
+  commenceTime: string; // ISO 8601
   completed: boolean;
   homeScore?: number;
   awayScore?: number;
@@ -667,7 +669,7 @@ export interface TeamDto {
   name: string;
   shortName?: string;
   eloRating: number;
-  sportKey: string;          // which sport/league this team belongs to
+  sportKey: string; // which sport/league this team belongs to
 }
 
 // ═══════════════════════════════════════════
@@ -678,7 +680,7 @@ export interface PredictionDto {
   id: string;
   game: GameDto;
   predictedOutcome: PredictionOutcome;
-  confidence: number;              // 0.0 – 1.0
+  confidence: number; // 0.0 – 1.0
   confidenceLevel: ConfidenceLevel;
   probabilities: ProbabilitySetDto; // full probability distribution
   modelBreakdown: ModelBreakdownDto;
@@ -695,9 +697,9 @@ export interface ModelBreakdownDto {
 
 // Flexible probability set — draw is optional based on sport category
 export interface ProbabilitySetDto {
-  homeWin: number;           // or competitorA win
-  awayWin: number;           // or competitorB win
-  draw?: number;             // only present for THREE_WAY sports
+  homeWin: number; // or competitorA win
+  awayWin: number; // or competitorB win
+  draw?: number; // only present for THREE_WAY sports
 }
 
 // ═══════════════════════════════════════════
@@ -730,23 +732,23 @@ export interface AccuracyDto {
 // ═══════════════════════════════════════════
 
 export const SPORT_GROUP_CATEGORY_MAP: Record<string, SportCategory> = {
-  'Soccer': SportCategory.THREE_WAY,
+  Soccer: SportCategory.THREE_WAY,
   'Ice Hockey': SportCategory.THREE_WAY,
   'American Football': SportCategory.TWO_WAY,
-  'Basketball': SportCategory.TWO_WAY,
-  'Baseball': SportCategory.TWO_WAY,
+  Basketball: SportCategory.TWO_WAY,
+  Baseball: SportCategory.TWO_WAY,
   'Aussie Rules': SportCategory.TWO_WAY,
   'Rugby League': SportCategory.TWO_WAY,
   'Rugby Union': SportCategory.TWO_WAY,
-  'Volleyball': SportCategory.TWO_WAY,
-  'Handball': SportCategory.TWO_WAY,
-  'Lacrosse': SportCategory.TWO_WAY,
-  'Tennis': SportCategory.HEAD_TO_HEAD,
+  Volleyball: SportCategory.TWO_WAY,
+  Handball: SportCategory.TWO_WAY,
+  Lacrosse: SportCategory.TWO_WAY,
+  Tennis: SportCategory.HEAD_TO_HEAD,
   'Mixed Martial Arts': SportCategory.HEAD_TO_HEAD,
-  'Boxing': SportCategory.HEAD_TO_HEAD,
+  Boxing: SportCategory.HEAD_TO_HEAD,
   'Table Tennis': SportCategory.HEAD_TO_HEAD,
-  'Golf': SportCategory.OUTRIGHT,
-  'Cricket': SportCategory.TWO_WAY,
+  Golf: SportCategory.OUTRIGHT,
+  Cricket: SportCategory.TWO_WAY,
 };
 ```
 
@@ -754,86 +756,87 @@ export const SPORT_GROUP_CATEGORY_MAP: Record<string, SportCategory> = {
 
 **Entities** — Rich domain objects with behavior:
 
-| Entity | Key Properties | Key Methods |
-|--------|---------------|-------------|
-| `Game` | id, sport, homeTeam, awayTeam, commenceTime, scores | `isCompleted()`, `getOutcome()`, `isToday()` |
-| `Prediction` | id, game, probabilities, confidence, outcome | `markResult()`, `isCorrect()`, `isHighConfidence()` |
-| `Team` | id, name, eloRating | `updateElo()`, `getFormRating()` |
+| Entity       | Key Properties                                      | Key Methods                                         |
+| ------------ | --------------------------------------------------- | --------------------------------------------------- |
+| `Game`       | id, sport, homeTeam, awayTeam, commenceTime, scores | `isCompleted()`, `getOutcome()`, `isToday()`        |
+| `Prediction` | id, game, probabilities, confidence, outcome        | `markResult()`, `isCorrect()`, `isHighConfidence()` |
+| `Team`       | id, name, eloRating                                 | `updateElo()`, `getFormRating()`                    |
 
 **Value Objects** — Immutable, validated:
 
-| Value Object | Validation Rule |
-|-------------|----------------|
-| `Probability` | Must be 0.0 – 1.0 |
-| `Confidence` | Must be 0.0 – 1.0, derives level (high/medium/low) |
-| `SportType` | Must be a recognized sport enum value |
-| `EloRating` | Must be positive number, default 1500 |
-| `PredictionOutcome` | HOME_WIN, AWAY_WIN, DRAW, PENDING |
+| Value Object        | Validation Rule                                    |
+| ------------------- | -------------------------------------------------- |
+| `Probability`       | Must be 0.0 – 1.0                                  |
+| `Confidence`        | Must be 0.0 – 1.0, derives level (high/medium/low) |
+| `SportType`         | Must be a recognized sport enum value              |
+| `EloRating`         | Must be positive number, default 1500              |
+| `PredictionOutcome` | HOME_WIN, AWAY_WIN, DRAW, PENDING                  |
 
 **Domain Services** — Pure business logic, no I/O:
 
-| Service | Purpose |
-|---------|---------|
-| `EloCalculatorService` | Calculate win probability from ELO ratings, update ratings after results |
-| `EnsemblePredictorService` | Combine multiple model outputs using weighted average |
-| `ConfidenceCalculatorService` | Derive confidence from probability distribution entropy |
+| Service                       | Purpose                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `EloCalculatorService`        | Calculate win probability from ELO ratings, update ratings after results |
+| `EnsemblePredictorService`    | Combine multiple model outputs using weighted average                    |
+| `ConfidenceCalculatorService` | Derive confidence from probability distribution entropy                  |
 
 **Output Ports** — Interfaces the domain needs:
 
-| Port | Methods |
-|------|---------|
-| `GameRepositoryPort` | `save()`, `findById()`, `findByDate()`, `findUpcoming()` |
-| `PredictionRepositoryPort` | `save()`, `findById()`, `findByDate()`, `findByGame()`, `findAll()` |
-| `TeamRepositoryPort` | `save()`, `findById()`, `findByName()`, `findAll()` |
-| `SportsDataPort` | `fetchSports()`, `fetchUpcomingGames(sportKey)`, `fetchScores(sportKey)`, `fetchOdds(sportKey)` |
-| `SportRepositoryPort` | `save()`, `findByKey()`, `findActive()`, `findByGroup()` |
-| `PredictionModelPort` | `predict(game, category): ProbabilitySet`, `getName(): string`, `supportsCategory(category): boolean` |
+| Port                       | Methods                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GameRepositoryPort`       | `save()`, `findById()`, `findByDate()`, `findUpcoming()`                                              |
+| `PredictionRepositoryPort` | `save()`, `findById()`, `findByDate()`, `findByGame()`, `findAll()`                                   |
+| `TeamRepositoryPort`       | `save()`, `findById()`, `findByName()`, `findAll()`                                                   |
+| `SportsDataPort`           | `fetchSports()`, `fetchUpcomingGames(sportKey)`, `fetchScores(sportKey)`, `fetchOdds(sportKey)`       |
+| `SportRepositoryPort`      | `save()`, `findByKey()`, `findActive()`, `findByGroup()`                                              |
+| `PredictionModelPort`      | `predict(game, category): ProbabilitySet`, `getName(): string`, `supportsCategory(category): boolean` |
 
 #### Step 5: Application Layer (Backend)
 
 **Use Cases / Input Ports:**
 
-| Use Case | Trigger | Flow |
-|----------|---------|------|
-| `SyncSports` | Cron (daily) or POST /api/sports/sync | Fetch `/v4/sports?all=true` → Upsert sport records → Update active flags |
+| Use Case              | Trigger                                            | Flow                                                                                                   |
+| --------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `SyncSports`          | Cron (daily) or POST /api/sports/sync              | Fetch `/v4/sports?all=true` → Upsert sport records → Update active flags                               |
 | `GeneratePredictions` | Cron (6AM daily) or POST /api/predictions/generate | For each **active sport**: fetch games → determine category → run appropriate models → ensemble → save |
-| `GetPredictions` | GET /api/predictions?date=&sport=&group= | Query repo → Filter by sport/group/date → Map to DTOs → Return |
-| `UpdateGameResults` | Cron (hourly) or POST /api/games/update-results | For each **active sport**: fetch scores → update games → mark prediction outcomes → update ELO |
-| `GetAccuracyMetrics` | GET /api/accuracy?period=&sport=&group= | Aggregate results → Calculate stats by sport/group/model → Return |
+| `SavePredictionSlip`  | User Action                                        | Group selected predictions → Tag with platform (optional) → Save for tracking                          |
+| `GetPredictions`      | GET /api/predictions?date=&sport=&group=           | Query repo → Filter by sport/group/date → Map to DTOs → Return                                         |
+| `UpdateGameResults`   | Cron (hourly) or POST /api/games/update-results    | For each **active sport**: fetch scores → update games → mark prediction outcomes → update ELO         |
+| `GetAccuracyMetrics`  | GET /api/accuracy?period=&sport=&group=            | Aggregate results → Calculate stats by sport/group/model → Return                                      |
 
 #### Step 6: Infrastructure Layer (Backend)
 
 **Output Adapters:**
 
-| Adapter | Implements Port | Technology |
-|---------|----------------|-----------|
-| `TheOddsApiAdapter` | `SportsDataPort` | HTTP (axios), The Odds API v4 |
-| `GameTypeormRepository` | `GameRepositoryPort` | TypeORM + PostgreSQL |
-| `PredictionTypeormRepository` | `PredictionRepositoryPort` | TypeORM + PostgreSQL |
-| `TeamTypeormRepository` | `TeamRepositoryPort` | TypeORM + PostgreSQL |
-| `EloModelAdapter` | `PredictionModelPort` | In-process ELO calculation |
-| `FormBasedModelAdapter` | `PredictionModelPort` | In-process (last N games) |
-| `OddsImpliedModelAdapter` | `PredictionModelPort` | Derived from bookmaker odds |
+| Adapter                       | Implements Port            | Technology                    |
+| ----------------------------- | -------------------------- | ----------------------------- |
+| `TheOddsApiAdapter`           | `SportsDataPort`           | HTTP (axios), The Odds API v4 |
+| `GameTypeormRepository`       | `GameRepositoryPort`       | TypeORM + PostgreSQL          |
+| `PredictionTypeormRepository` | `PredictionRepositoryPort` | TypeORM + PostgreSQL          |
+| `TeamTypeormRepository`       | `TeamRepositoryPort`       | TypeORM + PostgreSQL          |
+| `EloModelAdapter`             | `PredictionModelPort`      | In-process ELO calculation    |
+| `FormBasedModelAdapter`       | `PredictionModelPort`      | In-process (last N games)     |
+| `OddsImpliedModelAdapter`     | `PredictionModelPort`      | Derived from bookmaker odds   |
 
 **Input Adapters:**
 
-| Adapter | Type | Endpoints |
-|---------|------|-----------|
-| `SportsController` | REST | `GET /api/sports` (list all), `GET /api/sports/active` (in-season), `POST /api/sports/sync` |
-| `PredictionsController` | REST | `GET /api/predictions/today?sport=&group=`, `GET /api/predictions?date=&sport=&group=`, `POST /api/predictions/generate` |
-| `GamesController` | REST | `GET /api/games/today?sport=&group=`, `GET /api/games?date=&sport=`, `POST /api/games/update-results` |
-| `AccuracyController` | REST | `GET /api/accuracy?sport=&group=&period=`, `GET /api/accuracy/history?sport=` |
-| `DailyPredictionScheduler` | Cron | Runs `SyncSports` then `GeneratePredictions` for all active sports at 06:00 UTC daily |
-| `ResultUpdaterScheduler` | Cron | Runs `UpdateGameResults` for all active sports every hour |
+| Adapter                    | Type | Endpoints                                                                                                                |
+| -------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------ |
+| `SportsController`         | REST | `GET /api/sports` (list all), `GET /api/sports/active` (in-season), `POST /api/sports/sync`                              |
+| `PredictionsController`    | REST | `GET /api/predictions/today?sport=&group=`, `GET /api/predictions?date=&sport=&group=`, `POST /api/predictions/generate` |
+| `GamesController`          | REST | `GET /api/games/today?sport=&group=`, `GET /api/games?date=&sport=`, `POST /api/games/update-results`                    |
+| `AccuracyController`       | REST | `GET /api/accuracy?sport=&group=&period=`, `GET /api/accuracy/history?sport=`                                            |
+| `DailyPredictionScheduler` | Cron | Runs `SyncSports` then `GeneratePredictions` for all active sports at 06:00 UTC daily                                    |
+| `ResultUpdaterScheduler`   | Cron | Runs `UpdateGameResults` for all active sports every hour                                                                |
 
 **The Odds API v4 — Endpoints We'll Use:**
 
-| Endpoint | Purpose | Quota Cost |
-|----------|---------|-----------|
-| `GET /v4/sports` | List available sports | Free |
-| `GET /v4/sports/{sport}/odds` | Get odds for upcoming games | 1 request per call |
+| Endpoint                        | Purpose                        | Quota Cost         |
+| ------------------------------- | ------------------------------ | ------------------ |
+| `GET /v4/sports`                | List available sports          | Free               |
+| `GET /v4/sports/{sport}/odds`   | Get odds for upcoming games    | 1 request per call |
 | `GET /v4/sports/{sport}/scores` | Get scores for completed games | 1 request per call |
-| `GET /v4/sports/{sport}/events` | Get scheduled events | 1 request per call |
+| `GET /v4/sports/{sport}/events` | Get scheduled events           | 1 request per call |
 
 **Database Schema:**
 
@@ -925,25 +928,25 @@ CREATE INDEX idx_team_form_team ON team_form(team_id);
 
 **Pages:**
 
-| Page | Route | Features |
-|------|-------|----------|
-| **Dashboard** | `/` | Today's predictions, win/loss streak, overall accuracy badge |
-| **Predictions** | `/predictions` | Filterable list (by date, sport, confidence), prediction cards |
-| **Prediction Detail** | `/predictions/:id` | Full model breakdown, probability bars, game info |
-| **Accuracy** | `/accuracy` | Charts (accuracy over time, by confidence level, by model) |
-| **Settings** | `/settings` | API key config (Phase 2), notification preferences |
+| Page                  | Route              | Features                                                       |
+| --------------------- | ------------------ | -------------------------------------------------------------- |
+| **Dashboard**         | `/`                | Today's predictions, win/loss streak, overall accuracy badge   |
+| **Predictions**       | `/predictions`     | Filterable list (by date, sport, confidence), prediction cards |
+| **Prediction Detail** | `/predictions/:id` | Full model breakdown, probability bars, game info              |
+| **Accuracy**          | `/accuracy`        | Charts (accuracy over time, by confidence level, by model)     |
+| **Settings**          | `/settings`        | API key config (Phase 2), notification preferences             |
 
 **Shared Components:**
 
-| Component | Purpose |
-|-----------|---------|
-| `PredictionCardComponent` | Displays a single prediction with teams, confidence badge, probability bar |
-| `ConfidenceBadgeComponent` | Color-coded badge (green/amber/red) |
-| `ProbabilityBarComponent` | Three-way horizontal bar (home/draw/away) |
-| `SportIconComponent` | SVG icon for each sport type |
-| `SkeletonLoaderComponent` | Loading placeholder with shimmer animation |
-| `NavbarComponent` | Top navigation with sport filters |
-| `EmptyStateComponent` | Friendly illustration when no data available |
+| Component                  | Purpose                                                                    |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `PredictionCardComponent`  | Displays a single prediction with teams, confidence badge, probability bar |
+| `ConfidenceBadgeComponent` | Color-coded badge (green/amber/red)                                        |
+| `ProbabilityBarComponent`  | Three-way horizontal bar (home/draw/away)                                  |
+| `SportIconComponent`       | SVG icon for each sport type                                               |
+| `SkeletonLoaderComponent`  | Loading placeholder with shimmer animation                                 |
+| `NavbarComponent`          | Top navigation with sport filters                                          |
+| `EmptyStateComponent`      | Friendly illustration when no data available                               |
 
 **Design System:**
 
@@ -966,16 +969,16 @@ CREATE INDEX idx_team_form_team ON team_form(team_id);
 
 **Goal:** Smarter predictions, user accounts, value analysis.
 
-| Feature | Detail |
-|---------|--------|
-| ML model | Train on historical data per sport (logistic regression → XGBoost) |
+| Feature               | Detail                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| ML model              | Train on historical data per sport (logistic regression → XGBoost)                               |
 | Sport-specific models | Custom models tuned per sport (e.g., surface analysis for tennis, home ice advantage for hockey) |
-| Player props | Leverage The Odds API player prop markets |
-| User authentication | JWT-based auth, save favorite sports/teams |
-| Push notifications | Notify when high-confidence predictions are generated |
-| Historical analysis | View past predictions and accuracy trends per sport |
-| Betting value finder | Compare model probability vs bookmaker implied probability |
-| Live odds tracking | Track line movements to detect sharp action |
+| Player props          | Leverage The Odds API player prop markets                                                        |
+| User authentication   | JWT-based auth, save favorite sports/teams                                                       |
+| Push notifications    | Notify when high-confidence predictions are generated                                            |
+| Historical analysis   | View past predictions and accuracy trends per sport                                              |
+| Betting value finder  | Compare model probability vs bookmaker implied probability                                       |
+| Live odds tracking    | Track line movements to detect sharp action                                                      |
 
 ---
 
@@ -983,15 +986,15 @@ CREATE INDEX idx_team_form_team ON team_form(team_id);
 
 **Goal:** Production-ready, scalable, monetizable.
 
-| Feature | Detail |
-|---------|--------|
-| WebSocket updates | Real-time prediction status and live scores |
-| Rate limiting | Protect API endpoints |
-| Caching | Redis for API responses and computed predictions |
-| Admin dashboard | Manage models, view system health |
-| Public API | Expose predictions via API for third-party use |
-| Mobile-responsive | PWA with offline support |
-| Monetization | Premium predictions (higher confidence threshold), subscription tiers |
+| Feature           | Detail                                                                |
+| ----------------- | --------------------------------------------------------------------- |
+| WebSocket updates | Real-time prediction status and live scores                           |
+| Rate limiting     | Protect API endpoints                                                 |
+| Caching           | Redis for API responses and computed predictions                      |
+| Admin dashboard   | Manage models, view system health                                     |
+| Public API        | Expose predictions via API for third-party use                        |
+| Mobile-responsive | PWA with offline support                                              |
+| Monetization      | Premium predictions (higher confidence threshold), subscription tiers |
 
 ---
 
@@ -1009,36 +1012,36 @@ CREATE INDEX idx_team_form_team ON team_form(team_id);
 
 ### API Endpoints Used
 
-| Endpoint | Purpose | Quota Cost |
-|----------|---------|-----------|
-| `GET /v4/sports?all=true` | Discover all sports + active status | **Free** |
-| `GET /v4/sports/{sport}/odds` | Get odds for upcoming games in a sport | 1 per call |
-| `GET /v4/sports/{sport}/scores` | Get scores for completed/in-progress games | 1 per call |
-| `GET /v4/sports/{sport}/events` | Get scheduled events (no odds) | 1 per call |
-| `GET /v4/sports/{sport}/events/{id}/odds` | Get odds for a specific event | 1 per call |
-| `GET /v4/sports/{sport}/participants` | Get teams/players for a sport | 1 per call |
+| Endpoint                                  | Purpose                                    | Quota Cost |
+| ----------------------------------------- | ------------------------------------------ | ---------- |
+| `GET /v4/sports?all=true`                 | Discover all sports + active status        | **Free**   |
+| `GET /v4/sports/{sport}/odds`             | Get odds for upcoming games in a sport     | 1 per call |
+| `GET /v4/sports/{sport}/scores`           | Get scores for completed/in-progress games | 1 per call |
+| `GET /v4/sports/{sport}/events`           | Get scheduled events (no odds)             | 1 per call |
+| `GET /v4/sports/{sport}/events/{id}/odds` | Get odds for a specific event              | 1 per call |
+| `GET /v4/sports/{sport}/participants`     | Get teams/players for a sport              | 1 per call |
 
 ### Data Budget — All Betway Sports
 
 With ~20–30 active sports at any given time (seasonal), here's the budget:
 
-| Operation | Per Sport | Active Sports | Daily Cost | Monthly Cost |
-|-----------|-----------|--------------|------------|-------------|
-| Fetch odds (1x/day) | 1 req | ~25 | 25 | ~750 |
-| Fetch scores (2x/day, match days ~50%) | 1 req | ~12 | 24 | ~720 |
-| Fetch events (1x/day, to discover new games) | 1 req | ~25 | 25 | ~750 |
-| Sport list sync (1x/day) | 0 req | — | 0 | 0 |
-| **Daily Total** | | | **~74** | |
-| **Monthly Total** | | | | **~2,220** |
+| Operation                                    | Per Sport | Active Sports | Daily Cost | Monthly Cost |
+| -------------------------------------------- | --------- | ------------- | ---------- | ------------ |
+| Fetch odds (1x/day)                          | 1 req     | ~25           | 25         | ~750         |
+| Fetch scores (2x/day, match days ~50%)       | 1 req     | ~12           | 24         | ~720         |
+| Fetch events (1x/day, to discover new games) | 1 req     | ~25           | 25         | ~750         |
+| Sport list sync (1x/day)                     | 0 req     | —             | 0          | 0            |
+| **Daily Total**                              |           |               | **~74**    |              |
+| **Monthly Total**                            |           |               |            | **~2,220**   |
 
 ### Recommended API Tier
 
-| Tier | Requests/Month | Price | Sufficient? |
-|------|---------------|-------|------------|
-| Free | 500 | $0 | ❌ Only enough for ~3 sports |
-| **Starter** | **10,000** | **$12/mo** | **✅ Covers all sports with headroom** |
-| Pro | 50,000 | $79/mo | ✅ Comfortable for high-frequency updates |
-| Ultra | 100,000 | $199/mo | ✅ Real-time updates, all markets |
+| Tier        | Requests/Month | Price      | Sufficient?                               |
+| ----------- | -------------- | ---------- | ----------------------------------------- |
+| Free        | 500            | $0         | ❌ Only enough for ~3 sports              |
+| **Starter** | **10,000**     | **$12/mo** | **✅ Covers all sports with headroom**    |
+| Pro         | 50,000         | $79/mo     | ✅ Comfortable for high-frequency updates |
+| Ultra       | 100,000        | $199/mo    | ✅ Real-time updates, all markets         |
 
 **Recommendation:** Start with the **Starter tier ($12/mo)** — gives 10,000 requests which is ~4.5x the estimated monthly usage, leaving plenty of room for testing, retries, and adding more frequent updates.
 
@@ -1058,13 +1061,13 @@ To stay within budget, the system implements:
 
 ### Render Configuration
 
-| Service | Type | Plan | Config |
-|---------|------|------|--------|
-| **Backend** | Web Service (Docker) | Starter ($7/mo) | Dockerfile, port 3000 |
-| **Frontend** | Static Site | Free ($0) | `nx build frontend --configuration=production` |
-| **Database** | PostgreSQL | Basic ($7/mo) | 256 MB RAM, 1 GB storage |
-| **The Odds API** | Data Provider | Starter ($12/mo) | 10,000 requests/month |
-| **Total** | | **$26/month** | |
+| Service          | Type                 | Plan             | Config                                         |
+| ---------------- | -------------------- | ---------------- | ---------------------------------------------- |
+| **Backend**      | Web Service (Docker) | Starter ($7/mo)  | Dockerfile, port 3000                          |
+| **Frontend**     | Static Site          | Free ($0)        | `nx build frontend --configuration=production` |
+| **Database**     | PostgreSQL           | Basic ($7/mo)    | 256 MB RAM, 1 GB storage                       |
+| **The Odds API** | Data Provider        | Starter ($12/mo) | 10,000 requests/month                          |
+| **Total**        |                      | **$26/month**    |                                                |
 
 ### CI/CD
 
@@ -1080,38 +1083,38 @@ To stay within budget, the system implements:
 
 ### Phase 1 — Ordered Task List
 
-| # | Task | Depends On | Estimated Time |
-|---|------|-----------|----------------|
-| 1 | Scaffold Nx workspace with Angular + NestJS + shared lib | — | 30 min |
-| 2 | Set up Docker Compose (PostgreSQL) | — | 15 min |
-| 3 | Configure environment variables and configs | 1 | 15 min |
-| 4 | Implement shared types library (DTOs, enums, sport categories) | 1 | 45 min |
-| 5 | Implement Domain Layer — entities & value objects (sport-category-aware) | 4 | 1.5 hr |
-| 6 | Implement Domain Layer — domain services (ELO, ensemble, confidence — per sport category) | 5 | 1.5 hr |
-| 7 | Implement Domain Layer — output port interfaces (incl. SportRepositoryPort) | 5 | 30 min |
-| 8 | Implement Application Layer — use case interfaces (incl. SyncSports) | 7 | 30 min |
-| 9 | Implement Application Layer — application services with multi-sport orchestration | 6, 8 | 2 hr |
-| 10 | Implement Infrastructure — TypeORM entities & mappers (incl. sports table) | 5 | 1 hr |
-| 11 | Implement Infrastructure — TypeORM repositories | 7, 10 | 1 hr |
-| 12 | Implement Infrastructure — The Odds API adapter (multi-sport, sport discovery) | 7 | 1.5 hr |
-| 13 | Implement Infrastructure — Prediction model adapters (ELO, form, odds — category-aware) | 7 | 2 hr |
-| 14 | Implement Infrastructure — REST controllers (sport filtering, /api/sports) | 8 | 1 hr |
-| 15 | Implement Infrastructure — Cron schedulers (iterates all active sports) | 8 | 45 min |
-| 16 | Implement Infrastructure — Quota manager & caching | 12 | 45 min |
-| 17 | Wire up NestJS DI modules | 9–16 | 45 min |
-| 18 | Unit tests for domain services | 6 | 1 hr |
-| 19 | Integration test: full multi-sport prediction pipeline | 17 | 1 hr |
-| 20 | Angular — Design system (SCSS variables, global styles) | 1 | 45 min |
-| 21 | Angular — Shared components (prediction card, confidence badge, sport icon, etc.) | 20 | 2.5 hr |
-| 22 | Angular — API service + proxy config (sport-aware endpoints) | 1 | 30 min |
-| 23 | Angular — Dashboard page (multi-sport, group tabs) | 21, 22 | 2.5 hr |
-| 24 | Angular — Predictions list page (filter by sport, group, date) | 21, 22 | 2 hr |
-| 25 | Angular — Accuracy page (per-sport breakdowns, charts) | 21, 22 | 2 hr |
-| 26 | Angular — Sports browser page (browse all sports, see status) | 21, 22 | 1 hr |
-| 27 | Angular — Responsive design & animations | 23–26 | 1.5 hr |
-| 28 | Docker configuration for Render deployment | 17 | 30 min |
-| 29 | Deploy to Render | 28 | 30 min |
-| | **Total Estimated** | | **~28 hours** |
+| #   | Task                                                                                      | Depends On | Estimated Time |
+| --- | ----------------------------------------------------------------------------------------- | ---------- | -------------- |
+| 1   | Scaffold Nx workspace with Angular + NestJS + shared lib                                  | —          | 30 min         |
+| 2   | Set up Docker Compose (PostgreSQL)                                                        | —          | 15 min         |
+| 3   | Configure environment variables and configs                                               | 1          | 15 min         |
+| 4   | Implement shared types library (DTOs, enums, sport categories)                            | 1          | 45 min         |
+| 5   | Implement Domain Layer — entities & value objects (sport-category-aware)                  | 4          | 1.5 hr         |
+| 6   | Implement Domain Layer — domain services (ELO, ensemble, confidence — per sport category) | 5          | 1.5 hr         |
+| 7   | Implement Domain Layer — output port interfaces (incl. SportRepositoryPort)               | 5          | 30 min         |
+| 8   | Implement Application Layer — use case interfaces (incl. SyncSports)                      | 7          | 30 min         |
+| 9   | Implement Application Layer — application services with multi-sport orchestration         | 6, 8       | 2 hr           |
+| 10  | Implement Infrastructure — TypeORM entities & mappers (incl. sports table)                | 5          | 1 hr           |
+| 11  | Implement Infrastructure — TypeORM repositories                                           | 7, 10      | 1 hr           |
+| 12  | Implement Infrastructure — The Odds API adapter (multi-sport, sport discovery)            | 7          | 1.5 hr         |
+| 13  | Implement Infrastructure — Prediction model adapters (ELO, form, odds — category-aware)   | 7          | 2 hr           |
+| 14  | Implement Infrastructure — REST controllers (sport filtering, /api/sports)                | 8          | 1 hr           |
+| 15  | Implement Infrastructure — Cron schedulers (iterates all active sports)                   | 8          | 45 min         |
+| 16  | Implement Infrastructure — Quota manager & caching                                        | 12         | 45 min         |
+| 17  | Wire up NestJS DI modules                                                                 | 9–16       | 45 min         |
+| 18  | Unit tests for domain services                                                            | 6          | 1 hr           |
+| 19  | Integration test: full multi-sport prediction pipeline                                    | 17         | 1 hr           |
+| 20  | Angular — Design system (SCSS variables, global styles)                                   | 1          | 45 min         |
+| 21  | Angular — Shared components (prediction card, confidence badge, sport icon, etc.)         | 20         | 2.5 hr         |
+| 22  | Angular — API service + proxy config (sport-aware endpoints)                              | 1          | 30 min         |
+| 23  | Angular — Dashboard page (multi-sport, group tabs)                                        | 21, 22     | 2.5 hr         |
+| 24  | Angular — Predictions list page (filter by sport, group, date)                            | 21, 22     | 2 hr           |
+| 25  | Angular — Accuracy page (per-sport breakdowns, charts)                                    | 21, 22     | 2 hr           |
+| 26  | Angular — Sports browser page (browse all sports, see status)                             | 21, 22     | 1 hr           |
+| 27  | Angular — Responsive design & animations                                                  | 23–26      | 1.5 hr         |
+| 28  | Docker configuration for Render deployment                                                | 17         | 30 min         |
+| 29  | Deploy to Render                                                                          | 28         | 30 min         |
+|     | **Total Estimated**                                                                       |            | **~28 hours**  |
 
 ---
 

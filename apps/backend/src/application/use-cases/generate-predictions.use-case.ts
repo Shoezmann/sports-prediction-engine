@@ -140,24 +140,18 @@ export class GeneratePredictionsUseCase {
                 let expectedValue: number | undefined;
                 let recommendedStake: number | undefined;
 
-                if (!bestOdds) {
-                    // Fallback purely for demonstration when API fails to match odds, rather than showing empty metrics
-                    // Simulates an edge based on confidence over randomly shifted fair odds 
-                    const fairOdds = 1.0 / predictedProb;
-                    // Adds a small random premium that allows high confidence to occasionally have positive EV
-                    bestOdds = fairOdds + (Math.random() * 0.4 - 0.1);
+                if (bestOdds && bestOdds > 1.0) {
+                    // EV = (Probability * Decimal Odds) - 1
+                    expectedValue = (predictedProb * bestOdds) - 1.0;
+
+                    // Kelly Criterion: optimal stake = (p * odds - 1) / (odds - 1)
+                    // Only recommend stake when EV is positive
+                    if (expectedValue > 0 && bestOdds > 1) {
+                        const kellyFraction = (predictedProb * bestOdds - 1) / (bestOdds - 1);
+                        // Cap at 5% of bankroll for risk management (quarter-Kelly)
+                        recommendedStake = Math.min(0.05, Math.max(0, kellyFraction * 0.25));
+                    }
                 }
-
-                const q = 1 - predictedProb;
-                const b = bestOdds - 1; // decimal odds to fractional
-
-                // EV = (Probability * Decimal Odds) - 1
-                expectedValue = (predictedProb * bestOdds) - 1.0;
-
-                // Kelly Criterion fraction (b*p - q) / b
-                const f = (b * predictedProb - q) / b;
-                // Cap max stake at 10% of bankroll for safety, floor at 0
-                recommendedStake = Math.max(0, Math.min(f, 0.10));
 
                 const prediction = Prediction.create({
                     id: predictionId,

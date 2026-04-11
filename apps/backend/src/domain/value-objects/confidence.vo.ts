@@ -18,6 +18,24 @@ export class Confidence {
         return new Confidence(Math.round(value * 10000) / 10000);
     }
 
+    /**
+     * Create confidence from a probability set, using margin-aware scoring.
+     * This produces more meaningful confidence than just using max probability.
+     * 
+     * A 51%/49% split should be LOW confidence even though max=51%.
+     * A 75%/15%/10% split should be HIGH confidence.
+     * 
+     * Formula: blend of max probability (60%) and margin over second-best (40%).
+     */
+    static fromProbabilities(maxProb: number, secondProb: number): Confidence {
+        const margin = maxProb - secondProb;
+        // Margin ranges from 0 (dead heat) to ~1 (total dominance)
+        // Blend: 60% raw max + 40% margin-boosted score
+        const marginScore = Math.min(1, 0.5 + margin); // 0.5 base + margin
+        const blended = (maxProb * 0.6) + (marginScore * 0.4);
+        return Confidence.create(Math.min(1, Math.max(0, blended)));
+    }
+
     get value(): number {
         return this._value;
     }

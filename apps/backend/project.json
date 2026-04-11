@@ -39,6 +39,13 @@
         "production": {}
       }
     },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "configFile": "apps/backend/vite.config.ts",
+        "passWithNoTests": true
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint"
     }

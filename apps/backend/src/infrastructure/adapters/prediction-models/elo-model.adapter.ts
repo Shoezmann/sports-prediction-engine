@@ -18,6 +18,11 @@ export class EloModelAdapter implements PredictionModelPort {
     private static readonly DRAW_RATES: Record<string, number> = {
         Soccer: 0.26,
         'Ice Hockey': 0.23,
+        Basketball: 0,           // No draws in Basketball
+        'American Football': 0.005, // NFL draws are extremely rare (~0.5%)
+        MMA: 0.02,              // Rare draws via split decision
+        Boxing: 0.05,           // Draw by judges' decision
+        Tennis: 0,              // No draws in Tennis
     };
 
     getName(): string {

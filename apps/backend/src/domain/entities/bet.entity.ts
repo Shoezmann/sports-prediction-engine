@@ -1,20 +1,20 @@
 import { BetStatus } from '@sports-prediction-engine/shared-types';
+import { Prediction } from './prediction.entity';
 
 export class Bet {
     constructor(
         public readonly id: string,
         public readonly userId: string,
         public readonly predictionId: string,
-        public readonly stake: number,
+        public readonly bookmaker: string | undefined,
         public readonly lockedOdds: number,
         public readonly status: BetStatus,
         public readonly placedAt: Date,
         public readonly resolvedAt?: Date,
+        public readonly prediction?: Prediction,
     ) {}
 
-    get potentialPayout(): number {
-        return this.stake * this.lockedOdds;
-    }
+    // Removing potentialPayout as stakes are removed
 
     isResolved(): boolean {
         return this.status !== BetStatus.PENDING;
@@ -28,11 +28,12 @@ export class Bet {
             this.id,
             this.userId,
             this.predictionId,
-            this.stake,
+            this.bookmaker,
             this.lockedOdds,
             won ? BetStatus.WON : BetStatus.LOST,
             this.placedAt,
             new Date(),
+            this.prediction,
         );
     }
 }

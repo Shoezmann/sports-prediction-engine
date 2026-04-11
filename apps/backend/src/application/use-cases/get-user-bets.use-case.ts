@@ -19,13 +19,24 @@ export class GetUserBetsUseCase {
                 id: bet.id,
                 userId: bet.userId,
                 predictionId: bet.predictionId,
-                stake: bet.stake,
+                bookmaker: bet.bookmaker,
                 lockedOdds: bet.lockedOdds,
                 status: bet.status,
-                potentialPayout: bet.potentialPayout,
                 placedAt: bet.placedAt,
                 resolvedAt: bet.resolvedAt,
-            };
+                prediction: bet.prediction ? {
+                    id: bet.prediction.id,
+                    gameId: bet.prediction.game.id,
+                    sportKey: bet.prediction.sportKey,
+                    commenceTime: bet.prediction.game.commenceTime.toISOString(),
+                    homeTeam: bet.prediction.game.homeTeam as any,
+                    awayTeam: bet.prediction.game.awayTeam as any,
+                    predictedWinner: bet.prediction.predictedOutcome,
+                    confidenceScore: bet.prediction.confidence.value,
+                    confidenceLevel: bet.prediction.confidence.level,
+                    odds: bet.prediction.odds,
+                } : undefined
+            } as any;
         });
     }
 }

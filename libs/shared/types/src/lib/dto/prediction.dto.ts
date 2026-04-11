@@ -47,8 +47,17 @@ export interface PredictionDto {
     /** Full probability distribution from the ensemble model */
     probabilities: ProbabilitySetDto;
 
-    /** Individual model predictions */
+    /** Individual model probability breakdown */
     modelBreakdown: ModelBreakdownDto;
+
+    /** Expected value based on best available odds (positive = value bet) */
+    expectedValue?: number;
+
+    /** Recommended stake as fraction of bankroll (Kelly Criterion, quarter-Kelly capped at 5%) */
+    recommendedStake?: number;
+
+    /** Best available decimal odds at time of prediction */
+    odds?: number;
 
     /** Actual outcome after the game completes */
     actualOutcome?: PredictionOutcome;

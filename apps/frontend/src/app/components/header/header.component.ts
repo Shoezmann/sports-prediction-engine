@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 
@@ -168,7 +168,7 @@ import { ApiService } from '../../services/api.service';
       color: var(--color-success);
     }
 
-    // Hamburger — hidden on desktop
+    // Hamburger - hidden on desktop
     .header__hamburger {
       display: none;
       flex-direction: column;
@@ -260,10 +260,11 @@ import { ApiService } from '../../services/api.service';
   `],
 })
 export class HeaderComponent {
+  private api = inject(ApiService);
   isConnected = signal(false);
   menuOpen = signal(false);
-
-  constructor(private api: ApiService) {
+  
+  constructor() {
     this.checkConnection();
   }
 

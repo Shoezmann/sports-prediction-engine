@@ -25,26 +25,26 @@ A full-stack sports prediction engine powered by ELO ratings, form analysis, and
 PredictEngine follows a **4-step pipeline** that runs automatically or on-demand:
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌──────────────┐    ┌────────────────┐
-│  1. SYNC    │ →  │  2. FETCH   │ →  │ 3. PREDICT   │ →  │  4. VERIFY     │
-│   Sports    │    │   Games     │    │  Outcomes     │    │   Results      │
-│             │    │             │    │              │    │                │
-│ Discover    │    │ Get upcoming│    │ 3 models     │    │ Fetch scores   │
-│ all leagues │    │ matches     │    │ combine into │    │ Mark correct/  │
-│ from API    │    │ from API    │    │ ensemble     │    │ incorrect      │
-│ (FREE)      │    │ (1 req/sport)│   │ prediction   │    │ Update ELO     │
-└─────────────┘    └─────────────┘    └──────────────┘    └────────────────┘
+┌─────────────┐    ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
+│  1. SYNC    │ →  │  2. FETCH   │ →  │ 3. PREDICT   │ →  │  4. TRACK       │
+│   Sports    │    │   Games     │    │  Outcomes     │    │   Performance   │
+│             │    │             │    │              │    │                 │
+│ Discover    │    │ Get upcoming│    │ 3 models     │    │ Users create    │
+│ all leagues │    │ matches     │    │ combine into │    │ slips, tag      │
+│ from API    │    │ from API    │    │ ensemble     │    │ bookmakers, and │
+│ (FREE)      │    │ (1 req/sport)│   │ prediction   │    │ track accuracy  │
+└─────────────┘    └─────────────┘    └──────────────┘    └─────────────────┘
 ```
 
 ### The Prediction Flow (Step 3 in detail)
 
 For each upcoming game, three models independently predict the outcome:
 
-| Model | How it works | Weight |
-|-------|-------------|--------|
-| **ELO Rating** | Teams have ratings (start at 1500). Win → rating goes up, lose → goes down. Higher-rated teams are predicted to win. | 30% |
-| **Form Model** | Like ELO but adds home advantage bonus (+50 ELO for home team). Uses sigmoid curve for smoother probabilities. | 30% |
-| **Odds Implied** | Converts real bookmaker odds into fair probabilities. Averages across multiple bookmakers and removes their profit margin (overround). | 40% |
+| Model            | How it works                                                                                                                           | Weight |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **ELO Rating**   | Teams have ratings (start at 1500). Win → rating goes up, lose → goes down. Higher-rated teams are predicted to win.                   | 30%    |
+| **Form Model**   | Like ELO but adds home advantage bonus (+50 ELO for home team). Uses sigmoid curve for smoother probabilities.                         | 30%    |
+| **Odds Implied** | Converts real bookmaker odds into fair probabilities. Averages across multiple bookmakers and removes their profit margin (overround). | 40%    |
 
 The **Ensemble Predictor** combines all three with weighted averaging to produce final probabilities (e.g., 51.1% home, 21.9% draw, 27.0% away). The highest probability becomes the predicted outcome, and the confidence level is determined by how dominant that probability is.
 
@@ -97,6 +97,7 @@ When you first open the dashboard, everything will show 0s. You need to run the 
 #### Option A: One-Click (Recommended)
 
 Click the **⚡ Run Full Pipeline** button on the dashboard. This automatically:
+
 1. Syncs all available sports (158 sports, 80+ active)
 2. Fetches upcoming games for all active sports
 3. Generates predictions using the ensemble model
@@ -105,11 +106,11 @@ Click the **⚡ Run Full Pipeline** button on the dashboard. This automatically:
 
 Use the individual buttons to control each step:
 
-| Button | What it does | API Cost |
-|--------|-------------|----------|
-| **🌐 Sync Sports** | Discovers all available sports/leagues | FREE (0 requests) |
-| **⚡ Run Full Pipeline** | Sync → Fetch games → Generate predictions | ~2 requests per sport |
-| **📊 Update Results** | Fetches final scores and grades predictions | ~1 request per sport |
+| Button                   | What it does                                | API Cost              |
+| ------------------------ | ------------------------------------------- | --------------------- |
+| **🌐 Sync Sports**       | Discovers all available sports/leagues      | FREE (0 requests)     |
+| **⚡ Run Full Pipeline** | Sync → Fetch games → Generate predictions   | ~2 requests per sport |
+| **📊 Update Results**    | Fetches final scores and grades predictions | ~1 request per sport  |
 
 ### Dashboard Sections
 
@@ -126,9 +127,16 @@ Use the individual buttons to control each step:
 ### Predictions Page
 
 Click **Predictions** in the nav bar to see:
+
 - **Overall accuracy ring** — Conic gradient showing hit rate
 - **Per-model comparison** — Which model is performing best
 - **Per-sport breakdown** — Cards showing accuracy for each sport/league
+- **Prediction Slip** — Build personalized slips (single or multi), tag your preferred platforms (Betway, 10bets, Sportingbet), and save them to track performance without needing to track absolute monetary stakes.
+
+### Tracking Progress (My Slips)
+
+- Easily view your tagged predictions grouped by platform/bookmaker.
+- Track success rates based on actual outcomes securely resolved from the API.
 
 ---
 
@@ -199,6 +207,7 @@ curl -X POST http://localhost:3000/api/results/update
 ```
 
 Run this **after games have been played**. It:
+
 - Fetches final scores from the API
 - Marks each prediction as ✅ correct or ❌ incorrect
 - Updates ELO ratings based on actual results
@@ -217,9 +226,9 @@ Returns a comprehensive breakdown:
   "correctPredictions": 12,
   "accuracy": 0.6,
   "byConfidenceLevel": {
-    "high":   { "total": 3, "correct": 3, "accuracy": 1.0 },
+    "high": { "total": 3, "correct": 3, "accuracy": 1.0 },
     "medium": { "total": 8, "correct": 5, "accuracy": 0.625 },
-    "low":    { "total": 9, "correct": 4, "accuracy": 0.444 }
+    "low": { "total": 9, "correct": 4, "accuracy": 0.444 }
   },
   "byModel": {
     "ensemble": 0.6,
@@ -279,23 +288,27 @@ curl http://localhost:3000/api/accuracy
 ## 🤖 Prediction Models
 
 ### ELO Rating Model (30% weight)
+
 - Every team starts with a **1500 ELO rating**
 - Winning raises your rating, losing lowers it
 - K-factor = 32 (how much each game moves ratings)
 - For soccer: distributes draw probability based on how evenly matched teams are (default draw rate: 26%)
 
 ### Form Model (30% weight)
+
 - Uses ELO ratings + **home advantage bonus** (+50 ELO for home team)
 - Applies a **sigmoid function** to convert ELO difference to probability
 - More gradual predictions (avoids extreme values)
 
 ### Odds Implied Model (40% weight — highest)
+
 - Fetches **real bookmaker odds** from multiple sportsbooks
 - Averages odds across all available bookmakers
 - **Removes overround** (bookmaker profit margin) to get fair probabilities
 - Gets the highest weight because market odds represent the collective wisdom of millions of bettors and sharp models
 
 ### Ensemble Predictor
+
 - Weighted average of all three models
 - Weights are normalized if a model doesn't support a sport category
 - Final probabilities always sum to 1.0
@@ -303,11 +316,12 @@ curl http://localhost:3000/api/accuracy
 - Confidence = the value of the highest probability
 
 ### Confidence Levels
-| Level | Threshold | Meaning |
-|-------|-----------|---------|
-| **High** | ≥ 70% | Strong prediction, model is very confident |
-| **Medium** | 55–70% | Moderate confidence |
-| **Low** | < 55% | Close call, could go either way |
+
+| Level      | Threshold | Meaning                                    |
+| ---------- | --------- | ------------------------------------------ |
+| **High**   | ≥ 70%     | Strong prediction, model is very confident |
+| **Medium** | 55–70%    | Moderate confidence                        |
+| **Low**    | < 55%     | Close call, could go either way            |
 
 ---
 
@@ -315,11 +329,11 @@ curl http://localhost:3000/api/accuracy
 
 The system runs cron jobs automatically when the backend is running:
 
-| Schedule | Job | API Cost |
-|----------|-----|----------|
-| Daily at **3:00 AM UTC** | Sync sports catalog | FREE |
-| Every **6 hours** | Sync games + generate predictions | ~2 per active sport |
-| Every **2 hours** | Update results + grade predictions | ~1 per active sport |
+| Schedule                 | Job                                | API Cost            |
+| ------------------------ | ---------------------------------- | ------------------- |
+| Daily at **3:00 AM UTC** | Sync sports catalog                | FREE                |
+| Every **6 hours**        | Sync games + generate predictions  | ~2 per active sport |
+| Every **2 hours**        | Update results + grade predictions | ~1 per active sport |
 
 **You don't need to do anything manually** — just keep the backend running and the system will automatically discover games, predict outcomes, fetch results, and track accuracy.
 
@@ -376,12 +390,12 @@ The system runs cron jobs automatically when the backend is running:
 
 The Odds API free tier gives you **500 requests/month**. Here's how to stay within limits:
 
-| Action | Cost | Notes |
-|--------|------|-------|
-| Sync Sports | **0** | Always free |
-| Sync Games (1 sport) | **1** | Per sport |
-| Generate Predictions (1 sport) | **1** | Fetches odds |
-| Update Results (1 sport) | **1** | Fetches scores |
+| Action                         | Cost  | Notes          |
+| ------------------------------ | ----- | -------------- |
+| Sync Sports                    | **0** | Always free    |
+| Sync Games (1 sport)           | **1** | Per sport      |
+| Generate Predictions (1 sport) | **1** | Fetches odds   |
+| Update Results (1 sport)       | **1** | Fetches scores |
 
 ### Recommended Strategy
 

@@ -18,6 +18,8 @@ const SPORT_API_CATEGORIES = [
     { id: 4, key: 'baseball_mlb', title: 'Baseball - MLB', group: 'Baseball' },
     { id: 5, key: 'american_football_nfl', title: 'American Football - NFL', group: 'American Football' },
     { id: 6, key: 'mma_ufc', title: 'MMA - UFC', group: 'Mixed Martial Arts' },
+    { id: 52, key: 'soccer_south_africa_psl', title: 'Soccer - PSL (South Africa)', group: 'Soccer' },
+    { id: 23114, key: 'soccer_esoccer_gt_leagues_12', title: 'Esoccer GT Leagues - 12 mins', group: 'Esoccer' },
 ];
 
 @Injectable()
@@ -29,12 +31,13 @@ export class SportApiAdapter implements SportsDataPort {
 
     private fallbackMode = false;
     private mockTeams: Record<string, string[]> = {
-        'Soccer': ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs'],
+        'Soccer': ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs', 'Mamelodi Sundowns', 'Orlando Pirates', 'Kaizer Chiefs', 'SuperSport United'],
         'Basketball': ['Lakers', 'Warriors', 'Celtics', 'Heat', 'Bulls', 'Nets'],
         'Tennis': ['Djokovic', 'Alcaraz', 'Medvedev', 'Sinner', 'Nadal', 'Zverev'],
         'Baseball': ['Yankees', 'Dodgers', 'Red Sox', 'Astros', 'Braves', 'Mets'],
         'American Football': ['Chiefs', 'Eagles', '49ers', 'Bills', 'Bengals', 'Cowboys'],
         'Mixed Martial Arts': ['Makhachev', 'Jones', 'Volkanovski', 'Edwards', 'O\'Malley', 'Adesanya'],
+        'Esoccer GT Leagues': ['GT Lions', 'GT Eagles', 'GT Sharks', 'GT Wolves', 'GT Panthers', 'GT Tigers', 'GT Bears', 'GT Hawks'],
     };
 
     constructor(

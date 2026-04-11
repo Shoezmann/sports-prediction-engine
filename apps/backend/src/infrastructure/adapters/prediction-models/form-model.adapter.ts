@@ -18,8 +18,19 @@ import { PredictionOutcome } from '@sports-prediction-engine/shared-types';
  */
 @Injectable()
 export class FormModelAdapter implements PredictionModelPort {
-    /** Home advantage factor (applied multiplicatively) */
-    private static readonly HOME_ADVANTAGE = 1.1;
+    /** Sport-specific home advantage factors */
+    private static readonly HOME_ADVANTAGE: Record<string, number> = {
+        Soccer: 1.12,             // Strong home advantage in soccer
+        'Ice Hockey': 1.06,       // Moderate home ice advantage
+        Basketball: 1.06,         // Moderate home court advantage
+        'American Football': 1.03, // Slight home field advantage
+        MMA: 1.0,                 // Neutral (octagon is octagon)
+        Boxing: 1.0,              // Neutral venue
+        Tennis: 1.0,              // Neutral venue
+    };
+
+    /** Default home advantage for unknown sports */
+    private static readonly DEFAULT_HOME_ADVANTAGE = 1.08;
 
     constructor(
         @Optional() @Inject(GAME_REPOSITORY_PORT)
@@ -40,7 +51,7 @@ export class FormModelAdapter implements PredictionModelPort {
     ): Promise<ProbabilitySet> {
         let baseHomeStrength = 0.5;
 
-        // Phase 2: Derive form from trailing 5 matches
+        // Phase 2: Derive form from trailing 5 matches with recency weighting
         if (this.gameRepo) {
             const numMatches = 5;
             const homeRecentGames = await this.gameRepo.findRecentByTeam(game.homeTeam.id, numMatches);
@@ -48,18 +59,25 @@ export class FormModelAdapter implements PredictionModelPort {
 
             const calculateForm = (games: Game[], teamId: string): number | null => {
                 if (games.length === 0) return null;
-                let points = 0;
-                for (const g of games) {
+                let weightedPoints = 0;
+                let totalWeight = 0;
+                for (let i = 0; i < games.length; i++) {
+                    // Recency weight: most recent = 1.0, decreasing by 0.15 per match
+                    const weight = Math.max(0.25, 1.0 - (i * 0.15));
+                    const g = games[i];
                     const outcome = g.getOutcome();
+                    let points = 0;
                     if (g.homeTeam.id === teamId) {
-                        if (outcome === PredictionOutcome.HOME_WIN) points += 1;
-                        else if (outcome === PredictionOutcome.DRAW) points += 0.5;
+                        if (outcome === PredictionOutcome.HOME_WIN) points = 1;
+                        else if (outcome === PredictionOutcome.DRAW) points = 0.5;
                     } else {
-                        if (outcome === PredictionOutcome.AWAY_WIN) points += 1;
-                        else if (outcome === PredictionOutcome.DRAW) points += 0.5;
+                        if (outcome === PredictionOutcome.AWAY_WIN) points = 1;
+                        else if (outcome === PredictionOutcome.DRAW) points = 0.5;
                     }
+                    weightedPoints += points * weight;
+                    totalWeight += weight;
                 }
-                return points / games.length;
+                return totalWeight > 0 ? weightedPoints / totalWeight : null;
             };
 
             const homeForm = calculateForm(homeRecentGames, game.homeTeam.id);
@@ -71,13 +89,10 @@ export class FormModelAdapter implements PredictionModelPort {
                 const eloAway = game.awayTeam.eloRating.value;
                 const baseStrengthElo = this.sigmoid((eloHome - eloAway) / 400);
 
-                // Re-weight base strength based on pure recent match wins
-                // e.g if Home Form is 1.0 (5 wins) and Away Form is 0.0 (5 losses)
+                // Form diff ranges from -1 to 1.
+                // Shift base strength by up to ±0.20 based on form (increased from ±0.15)
                 const formDiff = homeForm - awayForm;
-                
-                // Form diff ranges from -1 to 1. 
-                // We shift base strength up by at most 0.15 based on form.
-                baseHomeStrength = baseStrengthElo + (formDiff * 0.15);
+                baseHomeStrength = baseStrengthElo + (formDiff * 0.20);
                 baseHomeStrength = Math.max(0.01, Math.min(0.99, baseHomeStrength));
             } else {
                  // Fallback to Phase 1 setup
@@ -91,10 +106,13 @@ export class FormModelAdapter implements PredictionModelPort {
              baseHomeStrength = this.sigmoid((eloHome - eloAway) / 400);
         }
 
-        // Apply home advantage
+        // Apply sport-specific home advantage
+        const sportGroup = this.getSportGroup(game.sportKey);
+        const homeAdvantage = FormModelAdapter.HOME_ADVANTAGE[sportGroup]
+            ?? FormModelAdapter.DEFAULT_HOME_ADVANTAGE;
         const adjustedHome = Math.min(
             0.95,
-            baseHomeStrength * FormModelAdapter.HOME_ADVANTAGE,
+            baseHomeStrength * homeAdvantage,
         );
 
         if (category === SportCategory.THREE_WAY) {
@@ -118,5 +136,20 @@ export class FormModelAdapter implements PredictionModelPort {
     /** Standard sigmoid function */
     private sigmoid(x: number): number {
         return 1 / (1 + Math.exp(-x));
+    }
+
+    /** Extract sport group name from a sportKey like 'soccer_epl' → 'Soccer' */
+    private getSportGroup(sportKey: string): string {
+        const keyMap: Record<string, string> = {
+            soccer: 'Soccer',
+            basketball: 'Basketball',
+            americanfootball: 'American Football',
+            icehockey: 'Ice Hockey',
+            mma: 'MMA',
+            boxing: 'Boxing',
+            tennis: 'Tennis',
+        };
+        const prefix = sportKey.split('_')[0].toLowerCase();
+        return keyMap[prefix] ?? sportKey;
     }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, ParseUUIDPipe, UseGuards, Request } from '@nestjs/common';
 import {
     SyncSportsUseCase,
     SyncGamesUseCase,
@@ -13,17 +13,22 @@ import {
     GetUserBetsUseCase,
 } from '../../application/use-cases';
 import { RegisterDto, LoginDto, PlaceBetDto } from '@sports-prediction-engine/shared-types';
+import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
 /**
  * Sports API Controller
  *
  * Endpoints for sport synchronization and discovery.
  */
+@ApiTags('sports')
 @Controller('api/sports')
 export class SportsController {
     constructor(private readonly syncSports: SyncSportsUseCase) { }
 
     @Post('sync')
+    @ApiOperation({ summary: 'Sync all available sports from The Odds API' })
+    @ApiResponse({ status: 201, description: 'Sports synced successfully' })
     async sync() {
         return this.syncSports.execute();
     }
@@ -129,6 +134,7 @@ export class HealthController {
  *
  * Endpoints for user registration and authentication.
  */
+@ApiTags('auth')
 @Controller('api/auth')
 export class AuthController {
     constructor(
@@ -137,11 +143,17 @@ export class AuthController {
     ) { }
 
     @Post('register')
+    @ApiOperation({ summary: 'Register a new user account' })
+    @ApiResponse({ status: 201, description: 'User registered successfully' })
+    @ApiResponse({ status: 400, description: 'Invalid input data' })
     async register(@Body() dto: RegisterDto) {
         return this.registerUseCase.execute(dto);
     }
 
     @Post('login')
+    @ApiOperation({ summary: 'Login and receive a JWT token' })
+    @ApiResponse({ status: 200, description: 'Login successful' })
+    @ApiResponse({ status: 401, description: 'Invalid credentials' })
     async login(@Body() dto: LoginDto) {
         return this.loginUseCase.execute(dto);
     }
@@ -151,8 +163,12 @@ export class AuthController {
  * Bets API Controller
  *
  * Endpoints for placing and retrieving bets.
+ * Protected by JWT authentication - requires valid Bearer token.
  */
+@ApiTags('bets')
+@ApiBearerAuth('JWT-auth')
 @Controller('api/bets')
+@UseGuards(JwtAuthGuard)
 export class BetsController {
     constructor(
         private readonly placeBetUseCase: PlaceBetUseCase,
@@ -160,13 +176,19 @@ export class BetsController {
     ) { }
 
     @Post()
-    async placeBet(@Query('userId', new ParseUUIDPipe()) userId: string, @Body() dto: PlaceBetDto) {
-        // In a real app, userId would be extracted from the JWT guard
+    @ApiOperation({ summary: 'Place a new bet on a prediction' })
+    @ApiResponse({ status: 201, description: 'Bet placed successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - invalid or missing JWT' })
+    async placeBet(@Request() req: any, @Body() dto: PlaceBetDto) {
+        const userId = req.user.userId;
         return this.placeBetUseCase.execute(userId, dto);
     }
 
     @Get()
-    async getBets(@Query('userId', new ParseUUIDPipe()) userId: string) {
+    @ApiOperation({ summary: 'Get all bets for the authenticated user' })
+    @ApiResponse({ status: 200, description: 'List of user bets' })
+    async getBets(@Request() req: any) {
+        const userId = req.user.userId;
         return this.getUserBetsUseCase.execute(userId);
     }
 }

@@ -17,7 +17,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     <div class="page-container">
       <header class="page-header">
         <div class="header-content">
-          <h1>My Bets</h1>
+          <h1>My Tracker</h1>
           <p class="subtitle">Track your predictions history and performance.</p>
         </div>
         <div class="header-actions">
@@ -44,7 +44,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
         } @else {
           <div class="loading-state">
             <div class="spinner"></div>
-            <p>Loading your bets...</p>
+            <p>Loading your tracker...</p>
           </div>
         }
       </div>
@@ -128,22 +128,36 @@ export class MyBetsPage implements OnInit {
     domLayout: 'autoHeight' as const,
   };
 
-  colDefs: ColDef[] = [
-    { field: 'placedAt', headerName: 'Date', valueFormatter: params => new Date(params.value).toLocaleDateString(), width: 120 },
-    { field: 'predictionId', headerName: 'Prediction ID', width: 200 },
-    { field: 'stake', headerName: 'Stake ($)', width: 120 },
+  colDefs: ColDef<BetDto>[] = [
+    { field: 'placedAt', headerName: 'Date', valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : '', width: 160 },
+    { 
+      headerName: 'Match', 
+      valueGetter: params => params.data?.prediction ? `${params.data.prediction.game.homeTeam.name} vs ${params.data.prediction.game.awayTeam.name}` : params.data?.predictionId,
+      width: 250 
+    },
+    { 
+      headerName: 'Pick', 
+      valueGetter: params => {
+        if (!params.data?.prediction) return '-';
+        const p = params.data.prediction;
+        const outcome = p.predictedOutcome;
+        return outcome === 'home_win' ? p.game.homeTeam.name : outcome === 'away_win' ? p.game.awayTeam.name : 'Draw';
+      },
+      width: 150
+    },
+    { field: 'bookmaker', headerName: 'Bookmaker', width: 140, valueFormatter: params => params.value || '-' },
     { field: 'lockedOdds', headerName: 'Odds', width: 100 },
-    { field: 'potentialPayout', headerName: 'To Win ($)', valueFormatter: params => params.value.toFixed(2), width: 130 },
     { 
       field: 'status', 
       headerName: 'Status', 
       width: 120,
-      cellRenderer: (params: any) => {
+      cellRenderer: (params: { value: string }) => {
         const status = params.value.toLowerCase();
-        let color = 'var(--color-warning)';
-        if (status === 'won') color = 'var(--color-success)';
-        if (status === 'lost') color = 'var(--color-danger, #ef4444)';
-        return `<span style="color: ${color}; font-weight: bold; text-transform: uppercase;">${status}</span>`;
+        let color = '#fbbf24'; // Warning amber
+        const label = status;
+        if (status === 'won') color = '#10b981'; // Success emerald
+        if (status === 'lost') color = '#ef4444'; // Danger rose
+        return `<span style="background: ${color}20; color: ${color}; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; border: 1px solid ${color}40;">${label}</span>`;
       }
     }
   ];
@@ -166,14 +180,13 @@ export class MyBetsPage implements OnInit {
         this.rowData.set(bets);
         this.isLoading.set(false);
       },
-      error: (err) => {
-        console.error('Failed to load bets', err);
+      error: () => {
         this.isLoading.set(false);
       }
     });
   }
 
-  onGridReady(params: any) {
+  onGridReady(params: { api: any }) {
     params.api.sizeColumnsToFit();
   }
 }

@@ -86,11 +86,17 @@ export class Prediction {
 
     /**
      * Derive confidence from the probability distribution.
-     * Higher max probability = higher confidence.
-     * More spread out = lower confidence.
+     * Uses margin-aware scoring: factors in both the max probability
+     * and the gap between the top-2 outcomes for more meaningful confidence.
      */
     private static deriveConfidence(probabilities: ProbabilitySet): Confidence {
-        return Confidence.create(probabilities.maxProbability.value);
+        const probs = [
+            probabilities.homeWin.value,
+            probabilities.awayWin.value,
+            probabilities.draw?.value ?? 0,
+        ].sort((a, b) => b - a);
+
+        return Confidence.fromProbabilities(probs[0], probs[1]);
     }
 
     /** Whether this prediction has been resolved with an actual outcome */

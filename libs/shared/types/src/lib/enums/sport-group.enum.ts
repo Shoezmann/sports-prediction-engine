@@ -20,4 +20,5 @@ export enum SportGroup {
     VOLLEYBALL = 'Volleyball',
     TABLE_TENNIS = 'Table Tennis',
     LACROSSE = 'Lacrosse',
+    ESOCER = 'Esoccer',
 }

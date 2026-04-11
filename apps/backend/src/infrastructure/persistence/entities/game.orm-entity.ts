@@ -2,6 +2,9 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Inde
 import { TeamEntity } from './team.orm-entity';
 
 @Entity('games')
+@Index('idx_games_sport_key_completed', ['sportKey', 'completed'])
+@Index('idx_games_sport_key_commence_time', ['sportKey', 'commenceTime'])
+@Index('idx_games_completed_commence_time', ['completed', 'commenceTime'])
 export class GameEntity {
     @PrimaryColumn({ type: 'uuid' })
     id!: string;

@@ -1,346 +1,316 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, OnInit, inject } from '@angular/core';
 import { StatCardComponent } from '../../components/stat-card/stat-card.component';
 import { AccuracyChartComponent } from '../../components/accuracy-chart/accuracy-chart.component';
-import { ApiService, AccuracyData, SyncResult, PredictionResult, ResultsUpdate } from '../../services/api.service';
+import { ApiService, AccuracyData } from '../../services/api.service';
 
 @Component({
   selector: 'sp-dashboard-page',
   standalone: true,
   imports: [StatCardComponent, AccuracyChartComponent],
   template: `
-    <div class="dashboard">
-      <!-- Hero Section -->
+    <div class="page">
+      <!-- Hero -->
       <section class="hero animate-in">
         <div class="hero__content">
           <h1 class="hero__title">
-            Sports Prediction
-            <span class="hero__title-gradient">Engine</span>
+            Sports Prediction <span class="hero__title-accent">Engine</span>
           </h1>
           <p class="hero__subtitle">
             Multi-sport prediction platform powered by ELO ratings, form analysis, and market odds ensemble models.
           </p>
+          <div class="hero__actions">
+            <button class="btn btn-primary" (click)="runFullPipeline()" [disabled]="isRunning()">
+              <span class="material-symbols-rounded">bolt</span>
+              {{ isRunning() ? 'Running...' : 'Run Full Pipeline' }}
+            </button>
+            <button class="btn btn-secondary" (click)="syncSports()" [disabled]="isRunning()">
+              <span class="material-symbols-rounded">sync</span>
+              Sync Sports
+            </button>
+            <button class="btn btn-secondary" (click)="updateResults()" [disabled]="isRunning()">
+              <span class="material-symbols-rounded">update</span>
+              Update Results
+            </button>
+          </div>
         </div>
-      </section>
-
-      <!-- Quick Actions -->
-      <section class="actions animate-in" style="animation-delay: 100ms">
-        <button class="action-btn" (click)="runFullPipeline()" [disabled]="isRunning()">
-          <span class="action-btn__icon material-symbols-rounded">bolt</span>
-          <span class="action-btn__text">
-            {{ isRunning() ? 'Running...' : 'Run Full Pipeline' }}
-          </span>
-        </button>
-        <button class="action-btn action-btn--outline" (click)="syncSports()" [disabled]="isRunning()">
-          <span class="action-btn__icon material-symbols-rounded">sync</span>
-          <span class="action-btn__text">Sync Sports</span>
-        </button>
-        <button class="action-btn action-btn--outline" (click)="updateResults()" [disabled]="isRunning()">
-          <span class="action-btn__icon material-symbols-rounded">analytics</span>
-          <span class="action-btn__text">Update Results</span>
-        </button>
       </section>
 
       <!-- Status Toast -->
       @if (statusMessage()) {
         <div class="toast animate-in" [class.toast--success]="!statusError()" [class.toast--error]="statusError()">
-          {{ statusMessage() }}
+          <span class="material-symbols-rounded">{{ statusError() ? 'error_outline' : 'check_circle' }}</span>
+          <span>{{ statusMessage() }}</span>
         </div>
       }
 
       <!-- Stats Grid -->
-      <section class="stats animate-in" style="animation-delay: 200ms">
+      <section class="stats animate-in" style="animation-delay: 100ms">
         <sp-stat-card
-          label="Resolved Predictions"
-          [value]="accuracy()?.totalPredictions?.toString() ?? '—'"
+          label="Resolved"
+          [value]="accuracy()?.totalPredictions?.toString() ?? '-'"
           subtitle="All time"
-          variant="default"
         />
         <sp-stat-card
-          label="Pending Predictions"
-          [value]="accuracy()?.pendingPredictions?.toString() ?? '—'"
+          label="Pending"
+          [value]="accuracy()?.pendingPredictions?.toString() ?? '-'"
           subtitle="Games not yet played"
-          variant="accent"
         />
         <sp-stat-card
           label="Accuracy"
-          [value]="accuracy() ? (accuracy()!.accuracy * 100).toFixed(1) + '%' : '—'"
+          [value]="accuracy() ? (accuracy()!.accuracy * 100).toFixed(1) + '%' : '-'"
           subtitle="Overall hit rate"
         />
         <sp-stat-card
           label="Last 7 Days"
-          [value]="accuracy() ? (accuracy()!.last7Days * 100).toFixed(1) + '%' : '—'"
+          [value]="accuracy() ? (accuracy()!.last7Days * 100).toFixed(1) + '%' : '-'"
           subtitle="Recent performance"
         />
         <sp-stat-card
           label="Last 30 Days"
-          [value]="accuracy() ? (accuracy()!.last30Days * 100).toFixed(1) + '%' : '—'"
+          [value]="accuracy() ? (accuracy()!.last30Days * 100).toFixed(1) + '%' : '-'"
           subtitle="Monthly window"
         />
       </section>
 
-      <!-- Accuracy Chart -->
-      <section class="chart-section animate-in" style="animation-delay: 300ms">
+      <!-- Chart -->
+      <section class="card animate-in" style="animation-delay: 200ms">
         <sp-accuracy-chart [data]="accuracy()" />
       </section>
 
       <!-- Pipeline Log -->
       @if (log().length > 0) {
-        <section class="log animate-in">
-          <h3 class="log__title">Pipeline Log</h3>
-          <div class="log__entries">
-            @for (entry of log(); track $index) {
-              <div class="log__entry">
-                <span class="log__time">{{ entry.time }}</span>
-                <span class="log__message">{{ entry.message }}</span>
-              </div>
-            }
+        <section class="card animate-in" style="animation-delay: 300ms">
+          <div class="log">
+            <div class="log__header">
+              <h3 class="log__title">
+                <span class="material-symbols-rounded">terminal</span>
+                Pipeline Log
+              </h3>
+              <button class="btn-ghost" (click)="log.set([])">
+                <span class="material-symbols-rounded">delete_sweep</span>
+              </button>
+            </div>
+            <div class="log__entries">
+              @for (entry of log(); track $index) {
+                <div class="log__entry">
+                  <span class="log__time">{{ entry.time }}</span>
+                  <span class="log__message">{{ entry.message }}</span>
+                </div>
+              }
+            </div>
           </div>
         </section>
       }
     </div>
   `,
   styles: [`
-    .dashboard {
-      max-width: 1280px;
+    .page {
+      max-width: 1200px;
       margin: 0 auto;
-      padding: var(--spacing-xl);
+      padding: 32px 24px;
       position: relative;
       z-index: 1;
     }
 
     // Hero
     .hero {
-      position: relative;
-      padding: var(--spacing-3xl) 0;
-      overflow: hidden;
-    }
-
-    .hero__content {
-      position: relative;
-      z-index: 1;
+      margin-bottom: 32px;
     }
 
     .hero__title {
-      font-size: 3rem;
+      font-size: 2.25rem;
       font-weight: 800;
       line-height: 1.1;
-      letter-spacing: -0.04em;
+      letter-spacing: -0.03em;
+      color: var(--color-text-primary);
+      margin-bottom: 8px;
     }
 
-    .hero__title-gradient {
-      display: inline-block;
+    .hero__title-accent {
       background: var(--gradient-neon);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
-      padding-bottom: 0.1em;
-      margin-bottom: -0.1em;
+      font-style: italic;
     }
 
     .hero__subtitle {
-      margin-top: var(--spacing-sm);
-      font-size: 1.125rem;
+      font-size: 1rem;
       color: var(--color-text-secondary);
-      max-width: 560px;
+      max-width: 520px;
       line-height: 1.6;
-      margin-bottom: var(--spacing-xl);
+      margin-bottom: 24px;
     }
-    // Actions
-    .actions {
+
+    .hero__actions {
       display: flex;
-      gap: var(--spacing-md);
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: var(--spacing-xl);
     }
 
-    .action-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      padding: 0.625rem 1.25rem;
-      border-radius: var(--radius-md);
-      border: none;
-      cursor: pointer;
-      font-family: var(--font-family);
-      font-size: 0.875rem;
-      font-weight: 600;
-      transition: all var(--transition-fast);
-      background: var(--gradient-hero);
-      color: white;
-      min-height: 44px; // Touch target
-      box-shadow: 0 4px 14px 0 rgba(0, 77, 28, 0.4); /* Deep subtle glow */
-
-      &:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 130, 0, 0.25);
-        filter: brightness(1.1);
-      }
-
-      &:active:not(:disabled) {
-        transform: translateY(0);
-      }
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-
-      &--outline {
-        background: transparent;
-        border: 1px solid var(--color-border);
-        color: var(--color-text-secondary);
-
-        &:hover:not(:disabled) {
-          border-color: var(--color-accent);
-          color: var(--color-accent-hover);
-          box-shadow: none;
-          background: var(--color-accent-subtle);
-        }
+    .hero__actions .btn {
+      .material-symbols-rounded {
+        font-size: 18px;
       }
     }
 
     // Toast
     .toast {
-      padding: 0.75rem 1.25rem;
-      border-radius: var(--radius-md);
-      font-size: 0.8125rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
       font-weight: 500;
-      margin-bottom: var(--spacing-xl);
+      margin-bottom: 24px;
+      border: 1px solid;
+
+      .material-symbols-rounded {
+        font-size: 18px;
+      }
 
       &--success {
-        background: var(--color-success-subtle);
+        background: var(--color-success-bg);
         color: var(--color-success);
-        border: 1px solid rgba(34, 197, 94, 0.15);
+        border-color: var(--color-success-border);
       }
 
       &--error {
-        background: var(--color-danger-subtle);
+        background: var(--color-danger-bg);
         color: var(--color-danger);
-        border: 1px solid rgba(239, 68, 68, 0.15);
+        border-color: var(--color-danger-border);
       }
     }
 
     // Stats
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: var(--spacing-md);
-      margin-bottom: var(--spacing-xl);
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
-    // Chart
-    .chart-section {
-      margin-bottom: var(--spacing-xl);
-    }
-
-    // Log
-    .log {
+    // Card wrapper
+    .card {
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-lg);
-      padding: var(--spacing-lg);
+      padding: 24px;
+      backdrop-filter: var(--blur-sm);
+      margin-bottom: 24px;
+      transition: all var(--transition-base);
+    }
+
+    // Log
+    .log__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
     }
 
     .log__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 0.875rem;
       font-weight: 600;
       color: var(--color-text-secondary);
-      margin-bottom: var(--spacing-md);
+
+      .material-symbols-rounded {
+        font-size: 18px;
+        opacity: 0.7;
+      }
+    }
+
+    .btn-ghost {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-xs);
+      transition: all var(--transition-fast);
+
+      &:hover {
+        background: var(--color-danger-bg);
+        color: var(--color-danger);
+      }
+
+      .material-symbols-rounded {
+        font-size: 18px;
+      }
     }
 
     .log__entries {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-sm);
-      max-height: 200px;
+      gap: 8px;
+      max-height: 180px;
       overflow-y: auto;
     }
 
     .log__entry {
       display: flex;
-      gap: var(--spacing-md);
+      gap: 12px;
       font-size: 0.8125rem;
       font-family: var(--font-mono);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--color-border-subtle);
+
+      &:last-child {
+        border-bottom: none;
+      }
     }
 
     .log__time {
       color: var(--color-text-muted);
       flex-shrink: 0;
+      font-size: 0.75rem;
     }
 
     .log__message {
       color: var(--color-text-secondary);
     }
 
-    // ─── Tablet ─────────────────────────────────────────────
+    // Responsive
     @media (max-width: 768px) {
-      .dashboard {
-        padding: var(--spacing-md);
-      }
-
-      .hero {
-        padding: var(--spacing-xl) 0;
+      .page {
+        padding: 24px 16px;
       }
 
       .hero__title {
-        font-size: 2rem;
+        font-size: 1.75rem;
       }
 
       .hero__subtitle {
-        font-size: 1rem;
+        font-size: 0.875rem;
       }
+
+      .hero__actions {
+        flex-direction: column;
+      }
+
+      .hero__actions .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
       .stats {
         grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    // ─── Mobile ─────────────────────────────────────────────
     @media (max-width: 480px) {
-      .dashboard {
-        padding: var(--spacing-sm);
-      }
-
-      .hero {
-        padding: var(--spacing-lg) 0;
-      }
-
       .hero__title {
-        font-size: 1.625rem;
-      }
-
-      .hero__subtitle {
-        font-size: 0.875rem;
-        margin-top: var(--spacing-sm);
-      }
-
-      .actions {
-        flex-direction: column;
-        gap: var(--spacing-sm);
-      }
-
-      .action-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 0.75rem 1rem;
+        font-size: 1.5rem;
       }
 
       .stats {
-        grid-template-columns: 1fr 1fr;
-        gap: var(--spacing-sm);
-      }
-
-      .log {
-        padding: var(--spacing-md);
-      }
-
-      .log__entry {
-        flex-direction: column;
-        gap: 2px;
-        font-size: 0.75rem;
-      }
-
-      .log__time {
-        font-size: 0.6875rem;
+        grid-template-columns: 1fr;
       }
     }
   `],
@@ -352,7 +322,8 @@ export class DashboardPage implements OnInit {
   statusError = signal(false);
   log = signal<{ time: string; message: string }[]>([]);
 
-  constructor(private api: ApiService) { }
+  private api = inject(ApiService);
+
 
   ngOnInit() {
     this.loadAccuracy();
@@ -361,7 +332,7 @@ export class DashboardPage implements OnInit {
   loadAccuracy() {
     this.api.getAccuracy().subscribe({
       next: (data) => this.accuracy.set(data),
-      error: () => { },
+      error: () => this.showStatus('Failed to load accuracy', true),
     });
   }
 
@@ -375,7 +346,7 @@ export class DashboardPage implements OnInit {
         this.showStatus(`Sports synced: ${r.total} total, ${r.active} active`);
         this.isRunning.set(false);
       },
-      error: (e) => {
+      error: () => {
         this.showStatus('Failed to sync sports. Is the API key set?', true);
         this.isRunning.set(false);
       },
@@ -405,22 +376,18 @@ export class DashboardPage implements OnInit {
     this.log.set([]);
 
     try {
-      // Step 1: Sync sports
       this.addLog('Step 1/4: Syncing sports...');
       const sports = await this.promisify(this.api.syncSports());
       this.addLog(`Found ${sports.total} sports (${sports.active} active)`);
 
-      // Step 2: Sync games
       this.addLog('Step 2/4: Syncing upcoming games...');
       const games = await this.promisify(this.api.syncGames());
       this.addLog(`Synced ${games.synced} new games across ${games.sports} sports`);
 
-      // Step 3: Generate predictions
       this.addLog('Step 3/4: Generating predictions...');
       const predictions = await this.promisify(this.api.generatePredictions());
       this.addLog(`Generated ${predictions.generated} predictions (${predictions.skipped} skipped)`);
 
-      // Step 4: Update results
       this.addLog('Step 4/4: Updating results...');
       const results = await this.promisify(this.api.updateResults());
       this.addLog(`Resolved ${results.predictionsResolved} predictions, updated ${results.eloUpdated} ELO ratings`);

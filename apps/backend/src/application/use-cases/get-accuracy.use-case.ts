@@ -43,6 +43,13 @@ export class GetAccuracyUseCase {
             pendingPredictions,
             correctPredictions,
             accuracy,
+            brierScore: this.calculateBrierScore(resolved),
+            brierScoreByModel: {
+                elo: this.calculateBrierScoreForModel(resolved, 'elo'),
+                form: this.calculateBrierScoreForModel(resolved, 'form'),
+                oddsImplied: this.calculateBrierScoreForModel(resolved, 'oddsImplied'),
+                ensemble: this.calculateBrierScore(resolved),
+            },
             byConfidenceLevel: {
                 high: this.bucketByConfidence(resolved, ConfidenceLevel.HIGH),
                 medium: this.bucketByConfidence(resolved, ConfidenceLevel.MEDIUM),
@@ -151,5 +158,106 @@ export class GetAccuracyUseCase {
         );
         const correct = recent.filter((p) => p.isCorrect).length;
         return recent.length > 0 ? correct / recent.length : 0;
+    }
+
+    /**
+     * Calculate Brier Score for probability calibration.
+     * Brier Score measures the mean squared difference between predicted probabilities
+     * and actual outcomes. Lower is better (0.0 is perfect calibration).
+     *
+     * Formula: BS = (1/N) * Σ(forecast_i - actual_i)²
+     *
+     * For a 3-way outcome (home/draw/away):
+     * BS = (p_home - actual_home)² + (p_draw - actual_draw)² + (p_away - actual_away)²
+     */
+    private calculateBrierScore(predictions: Prediction[]): number | null {
+        if (predictions.length === 0) return null;
+
+        let totalBrier = 0;
+        let count = 0;
+
+        for (const pred of predictions) {
+            if (!pred.actualOutcome) continue;
+
+            const probs = pred.probabilities;
+            const actual = this.outcomeToOneHot(pred.actualOutcome, pred.modelBreakdown?.elo?.draw !== undefined);
+
+            // Brier Score = sum of squared differences
+            const homeDiff = probs.homeWin.value - actual.homeWin;
+            const awayDiff = probs.awayWin.value - actual.awayWin;
+            const drawDiff = (probs.draw?.value ?? 0) - (actual.draw ?? 0);
+
+            const brier = homeDiff * homeDiff + awayDiff * awayDiff + drawDiff * drawDiff;
+            totalBrier += brier;
+            count++;
+        }
+
+        return count > 0 ? totalBrier / count : null;
+    }
+
+    /**
+     * Calculate Brier Score for a specific model.
+     */
+    private calculateBrierScoreForModel(
+        predictions: Prediction[],
+        modelName: string,
+    ): number | null {
+        if (predictions.length === 0) return null;
+
+        let totalBrier = 0;
+        let count = 0;
+
+        for (const pred of predictions) {
+            if (!pred.actualOutcome || !pred.modelBreakdown) continue;
+
+            const modelProbs = pred.modelBreakdown[modelName as keyof typeof pred.modelBreakdown];
+            if (!modelProbs) continue;
+
+            const actual = this.outcomeToOneHot(pred.actualOutcome, modelProbs.draw !== undefined);
+
+            const homeDiff = modelProbs.homeWin.value - actual.homeWin;
+            const awayDiff = modelProbs.awayWin.value - actual.awayWin;
+            const drawDiff = (modelProbs.draw?.value ?? 0) - (actual.draw ?? 0);
+
+            const brier = homeDiff * homeDiff + awayDiff * awayDiff + drawDiff * drawDiff;
+            totalBrier += brier;
+            count++;
+        }
+
+        return count > 0 ? totalBrier / count : null;
+    }
+
+    /**
+     * Convert a PredictionOutcome to a one-hot encoded vector.
+     * e.g., HOME_WIN -> { homeWin: 1, awayWin: 0, draw: 0 }
+     */
+    private outcomeToOneHot(
+        outcome: string,
+        hasDraw: boolean = true,
+    ): { homeWin: number; awayWin: number; draw?: number } {
+        const result: { homeWin: number; awayWin: number; draw?: number } = {
+            homeWin: 0,
+            awayWin: 0,
+        };
+
+        if (hasDraw) {
+            result.draw = 0;
+        }
+
+        switch (outcome) {
+            case 'home_win':
+                result.homeWin = 1;
+                break;
+            case 'away_win':
+                result.awayWin = 1;
+                break;
+            case 'draw':
+                if (hasDraw) {
+                    result.draw = 1;
+                }
+                break;
+        }
+
+        return result;
     }
 }

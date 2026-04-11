@@ -237,11 +237,12 @@ export class EntityMapper {
             orm.id,
             orm.userId,
             orm.predictionId,
-            Number(orm.stake),
+            orm.bookmaker,
             Number(orm.lockedOdds),
             orm.status,
             orm.placedAt,
             orm.resolvedAt ?? undefined,
+            orm.prediction ? EntityMapper.toDomainPrediction(orm.prediction) : undefined,
         );
     }
 
@@ -250,7 +251,7 @@ export class EntityMapper {
             id: domain.id,
             userId: domain.userId,
             predictionId: domain.predictionId,
-            stake: domain.stake,
+            bookmaker: domain.bookmaker,
             lockedOdds: domain.lockedOdds,
             status: domain.status,
             placedAt: domain.placedAt,

@@ -9,7 +9,6 @@ export const appRoutes: Route[] = [
     },
     {
         path: 'predictions',
-        canActivate: [authGuard],
         loadComponent: () =>
             import('./pages/predictions/predictions.page').then(
                 (m) => m.PredictionsPage,

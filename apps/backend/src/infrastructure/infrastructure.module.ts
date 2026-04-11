@@ -3,6 +3,8 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
 
 // Domain port tokens
 import {
@@ -32,6 +34,9 @@ import { InMemoryTeamRepository } from './adapters/repositories/in-memory-team.r
 import { InMemoryGameRepository } from './adapters/repositories/in-memory-game.repository';
 import { InMemoryPredictionRepository } from './adapters/repositories/in-memory-prediction.repository';
 
+// Auth
+import { JwtStrategy } from './auth/jwt.strategy';
+
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
 
@@ -53,6 +58,15 @@ const logger = new Logger('InfrastructureModule');
     imports: [
         HttpModule.register({ timeout: 15_000 }),
         ScheduleModule.forRoot(),
+        PassportModule.register({ defaultStrategy: 'jwt' }),
+        JwtModule.registerAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({
+                secret: config.get<string>('JWT_SECRET', 'super-secret-fallback-key-for-dev'),
+                signOptions: { expiresIn: '7d' },
+            }),
+        }),
 
         // TypeORM — configured dynamically based on DATABASE_URL
         TypeOrmModule.forRootAsync({
@@ -78,6 +92,9 @@ const logger = new Logger('InfrastructureModule');
         TypeOrmModule.forFeature([SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity]),
     ],
     providers: [
+        // ── Auth ──
+        JwtStrategy,
+
         // ── API Adapter ──
         TheOddsApiAdapter,
         ApiFootballAdapter,
@@ -130,6 +147,9 @@ const logger = new Logger('InfrastructureModule');
         ApiFootballAdapter,
         SportApiAdapter,
         OddsImpliedModelAdapter,
+        JwtStrategy,
+        PassportModule,
+        JwtModule,
     ],
 })
 export class InfrastructureModule { }

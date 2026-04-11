@@ -2,6 +2,10 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Inde
 import { GameEntity } from './game.orm-entity';
 
 @Entity('predictions')
+@Index('idx_predictions_sport_key_resolved', ['sportKey', 'isResolved'])
+@Index('idx_predictions_confidence_level_resolved', ['confidenceLevel', 'isCorrect'])
+@Index('idx_predictions_sport_key_created', ['sportKey', 'createdAt'])
+@Index('idx_predictions_actual_outcome', ['actualOutcome', 'isCorrect'])
 export class PredictionEntity {
     @PrimaryColumn({ type: 'uuid' })
     id!: string;

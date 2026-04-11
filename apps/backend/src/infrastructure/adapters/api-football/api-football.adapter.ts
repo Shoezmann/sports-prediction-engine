@@ -19,6 +19,7 @@ const API_FOOTBALL_LEAGUES = [
     { id: 78, key: 'soccer_germany_bundesliga', title: 'Bundesliga', group: 'Soccer' },
     { id: 61, key: 'soccer_france_ligue_one', title: 'Ligue 1', group: 'Soccer' },
     { id: 2, key: 'soccer_uefa_champs_league', title: 'UEFA Champions League', group: 'Soccer' },
+    { id: 288, key: 'soccer_south_africa_psl', title: 'PSL (South Africa)', group: 'Soccer' },
 ];
 
 @Injectable()
@@ -29,7 +30,7 @@ export class ApiFootballAdapter implements SportsDataPort {
     private readonly apiHost: string;
 
     private fallbackMode = false;
-    private mockTeams = ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs', 'Newcastle', 'Aston Villa'];
+    private mockTeams = ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs', 'Newcastle', 'Mamelodi Sundowns', 'Orlando Pirates', 'Kaizer Chiefs', 'SuperSport United'];
 
     constructor(
         private readonly httpService: HttpService,

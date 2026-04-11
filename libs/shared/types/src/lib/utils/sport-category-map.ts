@@ -7,6 +7,7 @@ import { SportCategory } from '../enums/sport-category.enum';
 export const SPORT_GROUP_CATEGORY_MAP: Record<string, SportCategory> = {
     'Soccer': SportCategory.THREE_WAY,
     'Ice Hockey': SportCategory.THREE_WAY,
+    'Esoccer': SportCategory.THREE_WAY,
     'American Football': SportCategory.TWO_WAY,
     'Basketball': SportCategory.TWO_WAY,
     'Baseball': SportCategory.TWO_WAY,

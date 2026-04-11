@@ -17,6 +17,17 @@ export interface AccuracyDto {
     /** Overall accuracy (0.0 – 1.0) */
     accuracy: number;
 
+    /** Brier Score - measures probability calibration (lower is better, 0.0 is perfect) */
+    brierScore: number | null;
+
+    /** Brier Score per model (lower is better) */
+    brierScoreByModel: {
+        elo: number | null;
+        form: number | null;
+        oddsImplied: number | null;
+        ensemble: number | null;
+    } | null;
+
     /** Breakdown by confidence level */
     byConfidenceLevel: {
         high: AccuracyBucketDto;

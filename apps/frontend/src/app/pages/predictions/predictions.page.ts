@@ -1,1037 +1,645 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDark } from 'ag-grid-community';
 import { ApiService, AccuracyData } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
-import { ActionCellComponent } from './action-cell.component';
-
-// Register all Community features
-ModuleRegistry.registerModules([AllCommunityModule]);
+import { PredictionDto } from '@sports-prediction-engine/shared-types';
 
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
-  imports: [CommonModule, AgGridAngular],
+  imports: [CommonModule],
   template: `
-    <div class="predictions-page">
-      <header class="page-header animate-in">
-        <div>
-          <h1 class="page-title">Predictions</h1>
-          <p class="page-subtitle">AI-powered predictions across {{ sportCount() }} sports</p>
+    <div class="page">
+      <!-- Header -->
+      <div class="header">
+        <div class="header__left">
+          <span class="header__prompt">></span>
+          <div>
+            <h1 class="header__title">PREDICTIONS</h1>
+            <p class="header__subtitle">{{ pendingPredictions().length }} upcoming matches across {{ sportCount() }} sports</p>
+          </div>
         </div>
-        <button class="generate-btn" (click)="generatePredictions()" [disabled]="isGenerating()">
-          <span class="material-symbols-rounded" style="vertical-align: sub; font-size: 20px;">bolt</span>
-          {{ isGenerating() ? 'Generating...' : 'Generate Predictions' }}
+        <button class="btn-generate" (click)="generatePredictions()" [disabled]="isGenerating()">
+          [{{ isGenerating() ? '...' : 'GENERATE' }}]
         </button>
-      </header>
+      </div>
 
-      <!-- Accuracy Overview -->
+      <!-- Status Bar -->
       @if (accuracy()) {
-        <section class="overview animate-in" style="animation-delay: 100ms">
-          <div class="overview-card">
-            <div class="overview-card__ring" [style.--progress]="accuracy()!.accuracy">
-              <span class="overview-card__pct">{{ (accuracy()!.accuracy * 100).toFixed(1) }}%</span>
-            </div>
-            <div class="overview-card__info">
-              <span class="overview-card__label">Overall Accuracy</span>
-              <span class="overview-card__detail">
-                {{ accuracy()!.correctPredictions }} / {{ accuracy()!.totalPredictions }} correct
-              </span>
-            </div>
-          </div>
-
-          <div class="model-grid">
-            @for (model of models(); track model.name) {
-              <div class="model-card">
-                <span class="model-card__name">{{ model.name }}</span>
-                <div class="model-card__bar">
-                  <div class="model-card__fill" [style.width.%]="model.accuracy * 100" [style.background]="model.color"></div>
-                </div>
-                <span class="model-card__value">{{ (model.accuracy * 100).toFixed(1) }}%</span>
-              </div>
-            }
-          </div>
-        </section>
+        <div class="status-bar animate-in">
+          <span class="status-item">ACC: <span class="val">{{ (accuracy()!.accuracy * 100).toFixed(1) }}%</span></span>
+          <span class="status-sep">│</span>
+          <span class="status-item">CORRECT: <span class="val">{{ accuracy()!.correctPredictions }}</span></span>
+          <span class="status-sep">│</span>
+          <span class="status-item">TOTAL: <span class="val">{{ accuracy()!.totalPredictions }}</span></span>
+          <span class="status-sep">│</span>
+          <span class="status-item">7D: <span class="val">{{ (accuracy()!.last7Days * 100).toFixed(1) }}%</span></span>
+          <span class="status-sep">│</span>
+          <span class="status-item">30D: <span class="val">{{ (accuracy()!.last30Days * 100).toFixed(1) }}%</span></span>
+        </div>
       }
 
-      <!-- Upcoming Predictions -->
+      <!-- Sport Tabs -->
       @if (groupedPredictions().length > 0) {
-        <section class="upcoming-predictions animate-in" style="animation-delay: 150ms">
-          <div class="upcoming-header-row">
-            <h2 class="section-title" style="margin-bottom: 0;">Upcoming Matches</h2>
-            <div class="view-toggle">
-              <button class="view-toggle__btn" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')" aria-label="Grid View">
-                <span class="material-symbols-rounded" style="font-size: 20px;">grid_view</span>
-              </button>
-              <button class="view-toggle__btn" [class.active]="viewMode() === 'table'" (click)="viewMode.set('table')" aria-label="Table View">
-                <span class="material-symbols-rounded" style="font-size: 20px;">table_rows</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="date-tabs">
-            @for (sportGroup of groupedPredictions(); track sportGroup.sport; let isFirst = $first) {
-              <button class="date-tab" 
-                      [class.active]="selectedSport() === sportGroup.sport || (selectedSport() === null && isFirst)"
-                      (click)="selectedSport.set(sportGroup.sport)">
-                {{ sportGroup.sport }}
-              </button>
-            }
-          </div>
-
-          @for (sportGroup of groupedPredictions(); track sportGroup.sport; let isFirst = $first) {
-            @if (selectedSport() === sportGroup.sport || (selectedSport() === null && isFirst)) {
-              <div class="upcoming-sport-group">
-                @if (viewMode() === 'grid') {
-                @for (countryGroup of sportGroup.countries; track countryGroup.country; let firstC = $first) {
-                  <details class="country-section" [open]="firstC">
-                    <summary class="country-heading">
-                      {{ countryGroup.country }}
-                      <span class="material-symbols-rounded chevron">expand_more</span>
-                    </summary>
-                    
-                    <div class="country-content">
-                      @for (leagueGroup of countryGroup.leagues; track leagueGroup.league; let firstL = $first) {
-                        <details class="league-section" [open]="firstL">
-                          <summary class="league-heading">
-                            {{ leagueGroup.league }}
-                            <span class="material-symbols-rounded chevron">expand_more</span>
-                          </summary>
-                          
-                          <div class="upcoming-list">
-                          @for (prediction of leagueGroup.items; track prediction.id) {
-                            <div class="upcoming-card">
-                              <div class="upcoming-card__header">
-                                <span class="upcoming-card__sport">
-                                  <span class="material-symbols-rounded" style="font-size: 16px; margin-right: 4px; vertical-align: text-bottom;">schedule</span>
-                                  {{ prediction.commenceTime | date:'MMM d, h:mm a' }}
-                                </span>
-                              </div>
-                              
-                              <div class="upcoming-card__teams">
-                                <span [class.text-muted]="prediction.predictedWinner === 'away_win'">{{ prediction.homeTeam.name }}</span>
-                                <span class="upcoming-card__vs">vs</span>
-                                <span [class.text-muted]="prediction.predictedWinner === 'home_win'">{{ prediction.awayTeam.name }}</span>
-                              </div>
-
-                              <div class="upcoming-card__prediction">
-                                <div class="upcoming-card__winner" 
-                                     [class.upcoming-card__winner--home]="prediction.predictedWinner === 'home_win'"
-                                     [class.upcoming-card__winner--away]="prediction.predictedWinner === 'away_win'"
-                                     [class.upcoming-card__winner--draw]="prediction.predictedWinner === 'draw'">
-                                  Pick: {{ prediction.predictedWinner === 'home_win' ? prediction.homeTeam.name : prediction.predictedWinner === 'away_win' ? prediction.awayTeam.name : 'Draw' }}
-                                </div>
-                                <div class="upcoming-card__confidence" 
-                                     [class.upcoming-card__confidence--high]="prediction.confidenceLevel === 'high'"
-                                     [class.upcoming-card__confidence--medium]="prediction.confidenceLevel === 'medium'"
-                                     [class.upcoming-card__confidence--low]="prediction.confidenceLevel === 'low'">
-                                  <span style="text-transform: capitalize;">{{ prediction.confidenceLevel }}</span> Edge
-                                  <span class="upcoming-card__win-prob">({{ (prediction.confidenceScore * 100).toFixed(0) }}%)</span>
-                                </div>
-                              </div>
-
-                              @if (prediction.expectedValue !== null) {
-                                <div class="upcoming-card__value-bet" [class.negative-ev]="prediction.expectedValue <= 0">
-                                  <div class="value-badge" [class.negative-ev]="prediction.expectedValue <= 0">
-                                    <span class="material-symbols-rounded">monetization_on</span>
-                                    {{ prediction.expectedValue > 0 ? '+' : '' }}{{ (prediction.expectedValue * 100).toFixed(1) }}% EV
-                                  </div>
-                                  <div class="stake-badge">
-                                    Stake: {{ (prediction.recommendedStake * 100).toFixed(1) }}%
-                                  </div>
-                                  <div class="odds-badge">
-                                    Odds: {{ prediction.odds ? prediction.odds.toFixed(2) : '-' }}
-                                  </div>
-                                </div>
-                                @if (prediction.sportKey && isBetwayCovered(prediction.sportKey)) {
-                                  <div class="upcoming-card__sportsbooks" style="margin-top: 0.5rem;">
-                                    <span class="badge" style="background: rgba(4, 120, 87, 0.1); border: 1px solid var(--color-success-subtle); color: var(--color-success); font-size: 0.65rem; padding: 2px 6px;">
-                                      <span class="material-symbols-rounded" style="font-size: 14px; margin-right: 2px; vertical-align: middle;">verified</span> Covered by Betway
-                                    </span>
-                                  </div>
-                                }
-                              }
-
-                              <!-- Confidence Bar -->
-                              <div class="upcoming-card__bar-container">
-                                <div class="upcoming-card__bar" 
-                                     [class.bg-high]="prediction.confidenceLevel === 'high'"
-                                     [class.bg-medium]="prediction.confidenceLevel === 'medium'"
-                                     [class.bg-low]="prediction.confidenceLevel === 'low'"
-                                     [style.width.%]="prediction.confidenceScore * 100"></div>
-                              </div>
-                              
-                              <!-- Place Bet Action -->
-                              <div class="upcoming-card__actions" style="margin-top: 1rem;">
-                                @if (authService.isAuthenticated) {
-                                  <button class="btn-primary" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"
-                                          [disabled]="placingBetFor() === prediction.id"
-                                          (click)="placeBet(prediction)">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">analytics</span>
-                                    {{ placingBetFor() === prediction.id ? 'Simulating...' : 'Simulate Bet' }}
-                                  </button>
-                                } @else {
-                                  <button class="btn-secondary" style="width: 100%; text-align: center; padding: 0.875rem;" (click)="goToLogin()">
-                                    Login to Simulate Bets
-                                  </button>
-                                }
-                              </div>
-                            </div>
-                          }
-                          </div>
-                        </details>
-                      }
-                    </div>
-                  </details>
-                }
-                } @else {
-                  <div class="table-container" style="height: 600px;">
-                    <ag-grid-angular
-                      [theme]="theme"
-                      style="width: 100%; height: 100%;"
-                      [rowData]="flatPredictionsForSport()"
-                      [columnDefs]="colDefs"
-                      [context]="this"
-                      [pagination]="true"
-                      [paginationPageSize]="20">
-                    </ag-grid-angular>
-                  </div>
-                }
-              </div>
-            }
+        <div class="tabs animate-in" style="animation-delay: 50ms">
+          <button class="tab" [class.tab--active]="selectedSport() === null" (click)="selectSport(null)">
+            ALL
+          </button>
+          @for (sport of groupedPredictions(); track sport.name; let i = $index) {
+            <button class="tab" [class.tab--active]="selectedSport() === sport.name" (click)="selectSport(sport.name)">
+              {{ sport.name.toUpperCase() }}
+            </button>
           }
-        </section>
+        </div>
+      }
+
+      <!-- League Filter (shown when a sport is selected) -->
+      @if (selectedSport() && leagues().length > 1) {
+        <div class="league-filter animate-in" style="animation-delay: 80ms">
+          <span class="league-filter__label">LEAGUE:</span>
+          <button class="league-chip" [class.league-chip--active]="selectedLeague() === null" (click)="selectedLeague.set(null)">
+            ALL
+          </button>
+          @for (league of leagues(); track league) {
+            <button class="league-chip" [class.league-chip--active]="selectedLeague() === league" (click)="selectedLeague.set(league)">
+              {{ league.toUpperCase() }}
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Predictions List -->
+      @if (filteredPredictions().length > 0) {
+        <div class="table-wrap animate-in" style="animation-delay: 100ms">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="th th--time">TIME</th>
+                <th class="th th--sport">SPORT</th>
+                <th class="th th--match">MATCH</th>
+                <th class="th th--pick">PICK</th>
+                <th class="th th--edge">EDGE</th>
+                <th class="th th--odds">ODDS</th>
+                <th class="th th--ev">EV</th>
+                <th class="th th--action"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of filteredPredictions(); track p.id; let i = $index) {
+                <tr class="tr" [class.tr--hover]="!isInSlip(p.id)">
+                  <td class="td td--time">
+                    <span class="td__time">{{ formatTime(p.game.commenceTime) }}</span>
+                  </td>
+                  <td class="td td--sport">
+                    <span class="td__sport">{{ sportLabel(p.game.sportKey) }}</span>
+                  </td>
+                  <td class="td td--match">
+                    <span class="td__home" [class.dimmed]="predictedTeam(p) === 'away'">{{ p.game.homeTeam.name }}</span>
+                    <span class="td__vs">vs</span>
+                    <span class="td__away" [class.dimmed]="predictedTeam(p) === 'home'">{{ p.game.awayTeam.name }}</span>
+                  </td>
+                  <td class="td td--pick">
+                    <span class="pick" [class.pick--home]="predictedTeam(p) === 'home'" [class.pick--away]="predictedTeam(p) === 'away'" [class.pick--draw]="predictedTeam(p) === 'draw'">
+                      {{ pickLabel(p) }}
+                    </span>
+                  </td>
+                  <td class="td td--edge">
+                    <span class="edge" [class.edge--high]="p.confidenceLevel === 'high'" [class.edge--med]="p.confidenceLevel === 'medium'" [class.edge--low]="p.confidenceLevel === 'low'">
+                      {{ p.confidenceLevel.toUpperCase() }}
+                    </span>
+                    <span class="edge__pct">{{ (p.confidence * 100).toFixed(0) }}%</span>
+                  </td>
+                  <td class="td td--odds">
+                    <span class="td__odds">{{ p.odds ? p.odds.toFixed(2) : '-' }}</span>
+                  </td>
+                  <td class="td td--ev">
+                    @if (p.expectedValue !== undefined && p.expectedValue !== null) {
+                      <span class="ev" [class.ev--pos]="p.expectedValue > 0" [class.ev--neg]="p.expectedValue <= 0">
+                        {{ p.expectedValue > 0 ? '+' : '' }}{{ (p.expectedValue * 100).toFixed(1) }}%
+                      </span>
+                    } @else {
+                      <span class="td__muted">-</span>
+                    }
+                  </td>
+                  <td class="td td--action">
+                    @if (authService.isAuthenticated) {
+                      <button class="btn-add" [class.btn-add--in]="isInSlip(p.id)" (click)="addToSlip(p)" [disabled]="isInSlip(p.id)">
+                        {{ isInSlip(p.id) ? '✓' : '+' }}
+                      </button>
+                    } @else {
+                      <button class="btn-add" (click)="goToLogin()">
+                        →
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       }
 
       <!-- Empty State -->
-      @if (!accuracy() || accuracy()!.totalPredictions === 0 && groupedPredictions().length === 0) {
-        <div class="empty-state animate-in" style="animation-delay: 200ms">
-          <div class="empty-state__icon material-symbols-rounded" style="font-size: 48px;">sports_esports</div>
-          <h2 class="empty-state__title">No predictions yet</h2>
-          <p class="empty-state__message">
-            Run the full pipeline from the Dashboard to sync sports data, fetch upcoming games, and generate your first predictions.
-          </p>
-          <a href="/" class="empty-state__cta">← Go to Dashboard</a>
+      @if (pendingPredictions().length === 0 && accuracy() && accuracy()!.totalPredictions === 0) {
+        <div class="empty animate-in" style="animation-delay: 100ms">
+          <pre class="empty__ascii">
+  ╔══════════════════════════════════╗
+  ║  NO PREDICTIONS IN SYSTEM        ║
+  ║  Run pipeline from dashboard     ║
+  ╚══════════════════════════════════╝</pre>
+          <a href="/" class="empty__link">[ GO TO DASHBOARD ]</a>
         </div>
-      }
-
-      <!-- Sport-by-Sport Breakdown -->
-      @if (sportBreakdown().length > 0) {
-        <section class="sports-grid animate-in" style="animation-delay: 200ms">
-          <h2 class="section-title">By Sport</h2>
-          <div class="sport-cards">
-            @for (sport of sportBreakdown(); track sport.key) {
-              <div class="sport-card">
-                <div class="sport-card__header">
-                  <span class="sport-card__key">{{ sport.key }}</span>
-                  <span class="sport-card__accuracy" [class]="getAccuracyClass(sport.accuracy)">
-                    {{ (sport.accuracy * 100).toFixed(1) }}%
-                  </span>
-                </div>
-                <div class="sport-card__bar">
-                  <div class="sport-card__fill" [style.width.%]="sport.accuracy * 100"></div>
-                </div>
-                <span class="sport-card__detail">{{ sport.correct }}/{{ sport.total }} correct</span>
-              </div>
-            }
-          </div>
-        </section>
       }
     </div>
   `,
   styles: [`
-    .predictions-page {
-      max-width: 1280px;
+    .page {
+      max-width: 1400px;
       margin: 0 auto;
-      padding: var(--spacing-xl);
+      padding: 32px 24px;
       position: relative;
       z-index: 1;
     }
 
-    .page-header {
+    // ─── Header ──────────────────────────────────
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: var(--spacing-2xl);
+      margin-bottom: 24px;
     }
 
-    .page-title {
-      font-size: 2rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
+    .header__left {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
     }
 
-    .page-subtitle {
-      font-size: 0.9375rem;
-      color: var(--color-text-secondary);
-      margin-top: var(--spacing-xs);
+    .header__prompt {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      color: var(--color-accent);
+      font-weight: 700;
+      line-height: 1;
     }
 
-    .generate-btn {
-      padding: 0.625rem 1.25rem;
-      border-radius: var(--radius-md);
-      border: none;
+    .header__title {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--color-text-primary);
+      line-height: 1.2;
+    }
+
+    .header__subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      margin-top: 4px;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-generate {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--color-accent);
+      color: var(--color-accent);
+      border-radius: var(--radius-xs);
       cursor: pointer;
-      font-family: var(--font-family);
-      font-size: 0.875rem;
-      font-weight: 600;
-      background: var(--gradient-hero);
-      color: white;
       transition: all var(--transition-fast);
-      box-shadow: 0 4px 14px 0 rgba(0, 77, 28, 0.4); /* Deep subtle glow */
+      letter-spacing: 0.05em;
 
       &:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 130, 0, 0.25);
-        filter: brightness(1.1);
+        background: var(--color-accent);
+        color: var(--color-text-on-accent);
+        box-shadow: var(--shadow-glow);
       }
 
       &:disabled {
-        opacity: 0.5;
+        opacity: 0.4;
         cursor: not-allowed;
       }
     }
 
-    // Overview
-    .overview {
+    // ─── Status Bar ──────────────────────────────
+    .status-bar {
       display: flex;
-      gap: var(--spacing-xl);
-      margin-bottom: var(--spacing-2xl);
-      flex-wrap: wrap;
-    }
-
-    /* Upcoming Predictions */
-    .date-tabs {
-      display: flex;
-      gap: var(--spacing-sm);
-      overflow-x: auto;
-      padding-bottom: var(--spacing-md);
-      margin-bottom: var(--spacing-md);
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
-    }
-
-    .date-tab {
-      padding: 0.5rem 1.25rem;
-      border-radius: var(--radius-full);
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
-      color: var(--color-text-secondary);
-      font-size: 0.875rem;
-      font-weight: 500;
+      border-radius: var(--radius-xs);
+      margin-bottom: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      overflow-x: auto;
+    }
+
+    .status-item {
+      color: var(--color-text-muted);
       white-space: nowrap;
+      letter-spacing: 0.04em;
+    }
+
+    .status-item .val {
+      color: var(--color-text-primary);
+      font-weight: 600;
+    }
+
+    .status-sep {
+      color: var(--color-border-strong);
+      user-select: none;
+    }
+
+    // ─── Tabs ────────────────────────────────────
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar { display: none; }
+    }
+
+    .tab {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      color: var(--color-text-muted);
+      border-radius: var(--radius-xs);
       cursor: pointer;
       transition: all var(--transition-fast);
+      white-space: nowrap;
+      letter-spacing: 0.04em;
 
       &:hover {
-        background: var(--color-bg-card-hover);
-        color: var(--color-text-primary);
+        border-color: var(--color-border-strong);
+        color: var(--color-text-secondary);
       }
 
-      &.active {
-        background: var(--color-accent);
-        border-color: var(--color-accent);
-        color: white;
-        box-shadow: var(--shadow-glow);
+      &--active {
+        background: var(--color-accent-subtle);
+        border-color: var(--color-accent-border);
+        color: var(--color-accent);
       }
     }
 
-    .upcoming-date-group {
-      animation: fadeInUp 0.3s ease-out;
-    }
-
-    .country-section {
-      margin-bottom: var(--spacing-md);
+    // ─── League Filter ───────────────────────────
+    .league-filter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 20px;
+      padding: 8px 12px;
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      transition: border-color var(--transition-base);
+      border-radius: var(--radius-xs);
+      overflow-x: auto;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar { display: none; }
     }
-    .country-section:hover {
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-    .country-heading {
-      font-size: 1.25rem;
+
+    .league-filter__label {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
       font-weight: 700;
-      padding: var(--spacing-lg);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--color-text-primary);
-      cursor: pointer;
-      user-select: none;
-      list-style: none; 
+      color: var(--color-text-muted);
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      margin-right: 4px;
     }
-    .country-heading::-webkit-details-marker {
-      display: none;
-    }
-    .country-heading::before {
-      content: '';
-      display: block;
-      width: 4px;
-      height: 1.25rem;
-      background: var(--color-accent);
+
+    .league-chip {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      background: transparent;
+      border: 1px solid var(--color-border-subtle);
+      color: var(--color-text-muted);
       border-radius: 2px;
-    }
-    .country-heading .chevron {
-      margin-left: auto;
-      transition: transform var(--transition-base);
-      color: var(--color-text-secondary);
-    }
-    details[open] > .country-heading .chevron {
-      transform: rotate(180deg);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+
+      &:hover {
+        border-color: var(--color-border-strong);
+        color: var(--color-text-secondary);
+      }
+
+      &--active {
+        background: var(--color-bg-tertiary);
+        border-color: var(--color-border-strong);
+        color: var(--color-text-primary);
+      }
     }
 
-    .country-content {
-      padding: 0 var(--spacing-lg) var(--spacing-lg);
-      animation: fadeInUp 0.3s ease-out forwards;
-    }
-
-    .league-section {
-      margin-bottom: var(--spacing-md);
-      background: var(--color-bg-elevated);
-      border-radius: var(--radius-md);
+    // ─── Table ───────────────────────────────────
+    .table-wrap {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xs);
       overflow: hidden;
     }
-    .league-section:last-child {
-      margin-bottom: 0;
+
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
     }
-    .league-heading {
-      font-size: 1rem;
+
+    .th {
+      font-size: 0.6875rem;
       font-weight: 600;
-      color: var(--color-text-primary);
-      padding: var(--spacing-md);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      cursor: pointer;
+      color: var(--color-text-muted);
+      letter-spacing: 0.06em;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-bg-tertiary);
+      white-space: nowrap;
       user-select: none;
-      list-style: none;
     }
-    .league-heading::-webkit-details-marker {
-      display: none;
+
+    .tr {
+      border-bottom: 1px solid var(--color-border-subtle);
+      transition: background var(--transition-fast);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: var(--color-accent-subtle);
+      }
     }
-    .league-heading .chevron {
-      margin-left: auto;
-      transition: transform var(--transition-base);
+
+    .td {
+      padding: 12px 16px;
+      font-size: 0.8125rem;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .td__time {
+      color: var(--color-text-muted);
+      font-size: 0.75rem;
+    }
+
+    .td__sport {
       color: var(--color-text-secondary);
-    }
-    details[open] > .league-heading .chevron {
-      transform: rotate(180deg);
-    }
-
-    details[open] > .upcoming-list {
-      padding: 0 var(--spacing-md) var(--spacing-md);
-      animation: fadeInUp 0.3s ease-out forwards;
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
     }
 
-    .upcoming-header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--spacing-lg);
+    .td__muted {
+      color: var(--color-text-muted);
     }
 
-    .view-toggle {
-      display: flex;
-      background: var(--color-bg-input);
-      border-radius: var(--radius-md);
-      padding: 4px;
-      gap: 4px;
+    .td--match {
+      white-space: normal;
     }
 
-    .view-toggle__btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+    .td__home,
+    .td__away {
+      font-weight: 500;
+      color: var(--color-text-primary);
+      transition: opacity var(--transition-fast);
+
+      &.dimmed {
+        opacity: 0.4;
+      }
+    }
+
+    .td__vs {
+      color: var(--color-text-muted);
+      font-size: 0.6875rem;
+      margin: 0 8px;
+    }
+
+    // Pick
+    .pick {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 3px 8px;
+      border-radius: 2px;
+
+      &--home {
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+      }
+
+      &--away {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.1);
+      }
+
+      &--draw {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.1);
+      }
+    }
+
+    // Edge
+    .td--edge {
+      min-width: 100px;
+    }
+
+    .edge {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+
+      &--high { color: var(--color-confidence-high); }
+      &--med { color: var(--color-confidence-medium); }
+      &--low { color: var(--color-confidence-low); }
+    }
+
+    .edge__pct {
+      font-size: 0.6875rem;
+      color: var(--color-text-muted);
+      margin-left: 4px;
+    }
+
+    // Odds
+    .td__odds {
+      color: var(--color-text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    // EV
+    .ev {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+
+      &--pos {
+        color: var(--color-success);
+      }
+
+      &--neg {
+        color: var(--color-danger);
+      }
+    }
+
+    // Action button
+    .td--action {
+      width: 48px;
+      text-align: center;
+    }
+
+    .btn-add {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 700;
       width: 32px;
       height: 32px;
-      border: none;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--color-border);
       background: transparent;
-      border-radius: var(--radius-sm);
       color: var(--color-text-secondary);
+      border-radius: var(--radius-xs);
       cursor: pointer;
       transition: all var(--transition-fast);
-      
-      &:hover {
-        color: var(--color-text-primary);
-        background: rgba(255, 255, 255, 0.05);
-      }
-      
-      &.active {
-        background: var(--color-bg-elevated);
+
+      &:hover:not(:disabled) {
+        border-color: var(--color-accent);
         color: var(--color-accent);
-        box-shadow: var(--shadow-sm);
+        background: var(--color-accent-subtle);
+      }
+
+      &--in {
+        border-color: var(--color-accent-border);
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+        cursor: default;
+      }
+
+      &:disabled {
+        cursor: default;
       }
     }
 
-    .table-container {
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      overflow-x: auto;
-      animation: fadeInUp 0.3s ease-out forwards;
+    // ─── Empty State ─────────────────────────────
+    .empty {
+      text-align: center;
+      padding: 64px 24px;
     }
 
-    .predictions-table {
-      width: 100%;
-      min-width: 800px;
-      border-collapse: collapse;
+    .empty__ascii {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--color-text-muted);
+      margin-bottom: 24px;
+      display: inline-block;
       text-align: left;
-      
-      th, td {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid var(--color-border-subtle);
-        font-size: 0.875rem;
-      }
-      
-      th {
-        color: var(--color-text-secondary);
-        font-weight: 600;
-        background: rgba(0, 0, 0, 0.2);
-        white-space: nowrap;
-      }
-      
-      td {
-        vertical-align: middle;
-      }
-      
-      tbody tr {
-        transition: background-color var(--transition-fast);
-        
-        &:hover {
-          background: var(--color-bg-card-hover);
-        }
-        
-        &:last-child td {
-          border-bottom: none;
-        }
-      }
     }
 
-    .mx-2 {
-      margin-left: 0.5rem;
-      margin-right: 0.5rem;
-    }
-
-    .text-center {
-      text-align: center;
-    }
-
-    .upcoming-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-      gap: var(--spacing-md);
-    }
-
-    .upcoming-card {
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--spacing-lg);
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-md);
-      transition: all var(--transition-base);
-    }
-
-    .upcoming-card:hover {
-      border-color: rgba(255, 255, 255, 0.15);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .upcoming-card__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .empty__link {
+      font-family: var(--font-mono);
       font-size: 0.8125rem;
-      color: var(--color-text-secondary);
-    }
-
-    .upcoming-card__sport {
-      font-weight: 600;
       color: var(--color-accent);
-      display: flex;
-      align-items: center;
-    }
-
-    .upcoming-card__teams {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .upcoming-card__vs {
-      font-size: 0.75rem;
-      color: var(--color-text-muted);
-      margin: 0 var(--spacing-sm);
-    }
-
-    .upcoming-card__prediction {
-      background: var(--color-bg-input);
-      border-radius: var(--radius-md) var(--radius-md) 0 0;
-      padding: var(--spacing-sm) var(--spacing-md);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: auto;
-    }
-
-    .upcoming-card__winner {
+      text-decoration: none;
       font-weight: 600;
-      font-size: 0.875rem;
-    }
-
-    .upcoming-card__winner--home { color: #3b82f6; }
-    .upcoming-card__winner--away { color: #8b5cf6; }
-    .upcoming-card__winner--draw { color: #f59e0b; }
-
-    .upcoming-card__confidence {
-      font-size: 0.8125rem;
-      font-weight: 700;
-    }
-
-    .upcoming-card__win-prob {
-      font-weight: 500;
-      opacity: 0.8;
-      font-size: 0.75rem;
-    }
-
-    .upcoming-card__confidence--high { color: var(--color-confidence-high); }
-    .upcoming-card__confidence--medium { color: var(--color-confidence-medium); }
-    .upcoming-card__confidence--low { color: var(--color-confidence-low); }
-
-    .upcoming-card__value-bet {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-sm) var(--spacing-md);
-      background: rgba(16, 185, 129, 0.08); /* slight green tint */
-      font-size: 0.75rem;
-      font-weight: 600;
-
-      &.negative-ev {
-        background: rgba(239, 68, 68, 0.08);
-      }
-    }
-
-    .value-badge {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: #10b981;
-
-      &.negative-ev {
-        color: #ef4444;
-      }
-    }
-
-    .value-badge .material-symbols-rounded {
-      font-size: 14px;
-    }
-
-    .stake-badge {
-      color: var(--color-text-secondary);
-    }
-
-    .odds-badge {
-      color: var(--color-accent);
-    }
-
-    .upcoming-card__bar-container {
-      height: 4px;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 0 0 var(--radius-md) var(--radius-md);
-      overflow: hidden;
-    }
-
-    .upcoming-card__bar {
-      height: 100%;
-      border-radius: 0 0 var(--radius-md) var(--radius-md);
-      transition: width 1s ease-out;
-    }
-
-    .bg-high { background: var(--color-confidence-high); }
-    .bg-medium { background: var(--color-confidence-medium); }
-    .bg-low { background: var(--color-confidence-low); }
-
-    .overview-card {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-lg);
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--spacing-lg) var(--spacing-xl);
-      flex: 0 0 auto;
-    }
-
-    .overview-card__ring {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: conic-gradient(
-        var(--color-accent) calc(var(--progress) * 360deg),
-        var(--color-bg-input) calc(var(--progress) * 360deg)
-      );
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-
-      &::before {
-        content: '';
-        position: absolute;
-        inset: 7px;
-        border-radius: 50%;
-        background: var(--color-bg-card);
-      }
-    }
-
-    .overview-card__pct {
-      position: relative;
-      z-index: 1;
-      font-size: 1rem;
-      font-weight: 800;
-    }
-
-    .overview-card__info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .overview-card__label {
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
-
-    .overview-card__detail {
-      font-size: 0.8125rem;
-      color: var(--color-text-muted);
-    }
-
-    .model-grid {
-      flex: 1;
-      min-width: 300px;
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--spacing-lg);
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-md);
-    }
-
-    .model-card {
-      display: grid;
-      grid-template-columns: 100px 1fr 56px;
-      align-items: center;
-      gap: var(--spacing-md);
-    }
-
-    .model-card__name {
-      font-size: 0.8125rem;
-      font-weight: 500;
-      color: var(--color-text-secondary);
-    }
-
-    .model-card__bar {
-      height: 6px;
-      background: var(--color-bg-input);
-      border-radius: var(--radius-full);
-      overflow: hidden;
-    }
-
-    .model-card__fill {
-      height: 100%;
-      border-radius: var(--radius-full);
-      transition: width 1s ease-out;
-    }
-
-    .model-card__value {
-      font-size: 0.8125rem;
-      font-weight: 700;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    // Empty state
-    .empty-state {
-      text-align: center;
-      padding: var(--spacing-3xl) var(--spacing-xl);
-    }
-
-    .empty-state__icon {
-      font-size: 3rem;
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .empty-state__title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .empty-state__message {
-      color: var(--color-text-secondary);
-      max-width: 400px;
-      margin: 0 auto var(--spacing-lg);
-    }
-
-    .empty-state__cta {
-      color: var(--color-accent-hover);
-      font-weight: 600;
-    }
-
-    // Sports grid
-    .section-title {
-      font-size: 1.125rem;
-      font-weight: 700;
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .sport-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--spacing-md);
-    }
-
-    .sport-card {
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--spacing-lg);
-      transition: all var(--transition-base);
+      letter-spacing: 0.04em;
+      transition: all var(--transition-fast);
 
       &:hover {
-        transform: translateY(-1px);
-        border-color: rgba(255, 255, 255, 0.1);
+        color: var(--color-accent-hover);
+        text-shadow: var(--shadow-glow);
       }
     }
 
-    .sport-card__header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: var(--spacing-md);
+    // ─── Responsive ──────────────────────────────
+    @media (max-width: 1024px) {
+      .th--sport, .td--sport {
+        display: none;
+      }
     }
 
-    .sport-card__key {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--color-text-secondary);
-    }
-
-    .sport-card__accuracy {
-      font-size: 0.875rem;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-
-      &.accuracy-high { color: var(--color-confidence-high); }
-      &.accuracy-medium { color: var(--color-confidence-medium); }
-      &.accuracy-low { color: var(--color-confidence-low); }
-    }
-
-    .sport-card__bar {
-      height: 4px;
-      background: var(--color-bg-input);
-      border-radius: var(--radius-full);
-      margin-bottom: var(--spacing-sm);
-      overflow: hidden;
-    }
-
-    .sport-card__fill {
-      height: 100%;
-      background: var(--gradient-hero);
-      border-radius: var(--radius-full);
-      transition: width 1s ease-out;
-    }
-
-    .sport-card__detail {
-      font-size: 0.75rem;
-      color: var(--color-text-muted);
-    }
-
-    // Tablet
     @media (max-width: 768px) {
-      .predictions-page {
-        padding: var(--spacing-md);
+      .page {
+        padding: 24px 16px;
       }
 
-      .page-header {
+      .header {
         flex-direction: column;
-        gap: var(--spacing-md);
+        gap: 16px;
       }
 
-      .generate-btn {
+      .btn-generate {
         width: 100%;
-        justify-content: center;
-        min-height: 44px;
-      }
-
-      .overview {
-        flex-direction: column;
-      }
-
-      .model-grid {
-        min-width: unset;
-      }
-
-      .sport-cards {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      }
-
-      .upcoming-list {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    // Mobile
-    @media (max-width: 480px) {
-      .predictions-page {
-        padding: var(--spacing-sm);
-      }
-
-      .page-title {
-        font-size: 1.5rem;
-      }
-
-      .page-subtitle {
-        font-size: 0.8125rem;
-      }
-
-      .overview-card {
-        flex-direction: column;
         text-align: center;
-        padding: var(--spacing-md);
       }
 
-      .overview-card__ring {
-        width: 64px;
-        height: 64px;
+      .status-bar {
+        font-size: 0.6875rem;
+        gap: 8px;
+        padding: 8px 12px;
       }
 
-      .overview-card__info {
-        align-items: center;
+      .th, .td {
+        padding: 8px 10px;
       }
 
-      .model-card {
-        grid-template-columns: 80px 1fr 48px;
-        gap: var(--spacing-sm);
+      .th--ev, .td--ev {
+        display: none;
       }
 
-      .model-card__name {
+      .th--odds, .td--odds {
+        display: none;
+      }
+
+      .td__home, .td__away {
         font-size: 0.75rem;
       }
+    }
 
-      .sport-cards {
-        grid-template-columns: 1fr;
+    @media (max-width: 480px) {
+      .header__title {
+        font-size: 1.125rem;
       }
 
-      .sport-card {
-        padding: var(--spacing-md);
-      }
-
-      .sport-card:hover {
-        transform: none;
-      }
-
-      .empty-state {
-        padding: var(--spacing-xl) var(--spacing-md);
-      }
-
-      .empty-state__icon {
-        font-size: 2.5rem;
-      }
-
-      .empty-state__title {
-        font-size: 1.25rem;
-      }
-
-      .empty-state__message {
-        font-size: 0.875rem;
-      }
-
-      .upcoming-card {
-        padding: var(--spacing-md);
-      }
-
-      .upcoming-card__teams {
-        font-size: 0.875rem;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-        align-items: flex-start;
-      }
-
-      .upcoming-card__vs {
+      .th--edge, .td--edge {
         display: none;
+      }
+
+      .pick {
+        font-size: 0.6875rem;
+        padding: 2px 6px;
       }
     }
   `],
 })
 export class PredictionsPage implements OnInit {
   accuracy = signal<AccuracyData | null>(null);
-  pendingPredictions = signal<any[]>([]);
+  pendingPredictions = signal<PredictionDto[]>([]);
   selectedSport = signal<string | null>(null);
-  viewMode = signal<'grid' | 'table'>('grid');
+  selectedLeague = signal<string | null>(null);
   isGenerating = signal(false);
   sportCount = signal(0);
-  placingBetFor = signal<string | null>(null);
 
-  theme = themeQuartz.withPart(colorSchemeDark);
-
-  colDefs: ColDef[] = [
-    { field: '_parsed.league', headerName: 'League', sortable: true, filter: true },
-    { 
-      headerName: 'Match', 
-      valueGetter: (p) => `${p.data.homeTeam.name} vs ${p.data.awayTeam.name}`,
-    },
-    { 
-      field: 'commenceTime', 
-      headerName: 'Time',
-      valueFormatter: (p) => new Date(p.value).toLocaleString()
-    },
-    { 
-      headerName: 'Pick',
-      valueGetter: (p) => p.data.predictedWinner === 'home_win' ? p.data.homeTeam.name : p.data.predictedWinner === 'away_win' ? p.data.awayTeam.name : 'Draw'
-    },
-    {
-      headerName: 'Edge',
-      valueGetter: (p) => `${p.data.confidenceLevel.toUpperCase()} (${(p.data.confidenceScore * 100).toFixed(0)}%)`
-    },
-    {
-      headerName: 'EV',
-      valueGetter: (p) => p.data.expectedValue != null ? `${p.data.expectedValue > 0 ? '+' : ''}${(p.data.expectedValue * 100).toFixed(1)}%` : '-'
-    },
-    {
-      field: 'odds',
-      headerName: 'Odds',
-      valueFormatter: (p) => p.value ? p.value.toFixed(2) : '-'
-    },
-    {
-      headerName: 'Action',
-      cellRenderer: ActionCellComponent,
-      minWidth: 120
-    }
-  ];
-
-  authService = inject(AuthService);
+  private api = inject(ApiService);
+  public authService = inject(AuthService);
   private betsService = inject(BetsService);
   private router = inject(Router);
-
-  constructor(private api: ApiService) { }
 
   ngOnInit() {
     this.fetchData();
@@ -1054,114 +662,103 @@ export class PredictionsPage implements OnInit {
   }
 
   updateSportCount() {
-    const accuracySports = this.accuracy() ? Object.keys(this.accuracy()!.bySport) : [];
-    const pendingSports = this.pendingPredictions().map(p => p.sportKey);
+    const accuracyData = this.accuracy();
+    const accuracySports = accuracyData ? Object.keys(accuracyData.bySport) : [];
+    const pendingSports = this.pendingPredictions().map(p => p.game.sportKey);
     const unique = new Set([...accuracySports, ...pendingSports]);
     this.sportCount.set(unique.size);
   }
 
-  parseSportKey(key: string) {
-    const defaultMap = {
-      'soccer_epl': { sport: 'Soccer', country: 'England', league: 'Premier League' },
-      'soccer_germany_bundesliga': { sport: 'Soccer', country: 'Germany', league: 'Bundesliga' },
-      'soccer_italy_serie_a': { sport: 'Soccer', country: 'Italy', league: 'Serie A' },
-      'soccer_spain_la_liga': { sport: 'Soccer', country: 'Spain', league: 'La Liga' },
-      'soccer_france_ligue_one': { sport: 'Soccer', country: 'France', league: 'Ligue 1' },
-      'soccer_usa_mls': { sport: 'Soccer', country: 'USA', league: 'MLS' },
-      'basketball_nba': { sport: 'Basketball', country: 'USA', league: 'NBA' },
-      'americanfootball_nfl': { sport: 'American Football', country: 'USA', league: 'NFL' },
-      'icehockey_nhl': { sport: 'Ice Hockey', country: 'USA/Canada', league: 'NHL' },
-      'mma_mixed_martial_arts': { sport: 'MMA', country: 'Global', league: 'UFC/MMA' },
-      'boxing_boxing': { sport: 'Boxing', country: 'Global', league: 'Pro Boxing' },
-      'tennis_atp_wimbledon': { sport: 'Tennis', country: 'UK', league: 'ATP Wimbledon' },
-      'tennis_wta_wimbledon': { sport: 'Tennis', country: 'UK', league: 'WTA Wimbledon' }
-    } as any;
-    if (defaultMap[key]) return defaultMap[key];
+  formatTime(dateStr: string): string {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = d.getTime() - now.getTime();
+    const diffH = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffD = Math.floor(diffH / 24);
 
-    const parts = key.split('_');
-    const sportStr = parts[0];
-    const countryStr = parts.length > 2 ? parts[1] : 'Global';
-    const leagueStr = parts.slice(parts.length > 2 ? 2 : 1).join(' ');
+    if (diffD === 0) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (diffD === 1) return 'TOMORROW';
+    if (diffD < 7) {
+      return d.toLocaleDateString([], { weekday: 'short' }).toUpperCase();
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
+  }
 
-    return {
-      sport: sportStr.charAt(0).toUpperCase() + sportStr.slice(1),
-      country: countryStr.charAt(0).toUpperCase() + countryStr.slice(1),
-      league: leagueStr.toUpperCase()
-    };
+  predictedTeam(p: PredictionDto): 'home' | 'away' | 'draw' {
+    if (p.predictedOutcome === 'home_win') return 'home';
+    if (p.predictedOutcome === 'away_win') return 'away';
+    return 'draw';
+  }
+
+  pickLabel(p: PredictionDto): string {
+    if (p.predictedOutcome === 'home_win') return p.game.homeTeam.name;
+    if (p.predictedOutcome === 'away_win') return p.game.awayTeam.name;
+    return 'DRAW';
   }
 
   groupedPredictions = computed(() => {
-    const list = this.pendingPredictions().filter(p => new Date(p.commenceTime) > new Date());
-
-    // Structure: Sport -> Country -> League -> Items
-    const groups: Record<string, Record<string, Record<string, any[]>>> = {};
+    const list = this.pendingPredictions().filter(p => new Date(p.game.commenceTime) > new Date());
+    const sportMap = new Map<string, Set<string>>();
 
     for (const p of list) {
-      const parsed = this.parseSportKey(p.sportKey);
-
-      if (!groups[parsed.sport]) groups[parsed.sport] = {};
-      if (!groups[parsed.sport][parsed.country]) groups[parsed.sport][parsed.country] = {};
-      if (!groups[parsed.sport][parsed.country][parsed.league]) groups[parsed.sport][parsed.country][parsed.league] = [];
-
-      groups[parsed.sport][parsed.country][parsed.league].push(p);
+      const parts = p.game.sportKey.split('_');
+      const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      const league = this.sportLabel(p.game.sportKey);
+      if (!sportMap.has(sportName)) sportMap.set(sportName, new Set());
+      sportMap.get(sportName)!.add(league);
     }
 
-    // Convert to sorted arrays
-    return Object.keys(groups).sort().map(sport => ({
-      sport,
-      countries: Object.keys(groups[sport]).sort().map(country => ({
-        country,
-        leagues: Object.keys(groups[sport][country]).sort().map(league => ({
-          league,
-          items: groups[sport][country][league].sort((a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime())
-        }))
-      }))
-    }));
+    return Array.from(sportMap.entries())
+      .sort((a, b) => b[1].size - a[1].size)
+      .map(([name]) => ({ name }));
   });
 
-  flatPredictionsForSport = computed(() => {
+  leagues = computed(() => {
     const sport = this.selectedSport();
-    const list = this.pendingPredictions().filter(p => new Date(p.commenceTime) > new Date());
+    if (!sport) return [];
+    const list = this.pendingPredictions().filter(p => new Date(p.game.commenceTime) > new Date());
+    const leagueSet = new Set<string>();
 
-    // Sort array globally by time
-    const sorted = list.map(p => ({ ...p, _parsed: this.parseSportKey(p.sportKey) }))
-      .sort((a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime());
+    for (const p of list) {
+      const parts = p.game.sportKey.split('_');
+      const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      if (sportName === sport) {
+        leagueSet.add(this.sportLabel(p.game.sportKey));
+      }
+    }
+
+    return Array.from(leagueSet).sort();
+  });
+
+  filteredPredictions = computed(() => {
+    const sport = this.selectedSport();
+    const league = this.selectedLeague();
+    const list = this.pendingPredictions().filter(p => new Date(p.game.commenceTime) > new Date());
+
+    let filtered = list;
 
     if (sport) {
-      return sorted.filter(p => p._parsed.sport === sport);
+      filtered = filtered.filter(p => {
+        const parts = p.game.sportKey.split('_');
+        const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+        return sportName === sport;
+      });
     }
 
-    // If no sport explicitly selected, return the first alphabetized sport's games
-    if (sorted.length === 0) return [];
+    if (sport && league) {
+      filtered = filtered.filter(p => {
+        return this.sportLabel(p.game.sportKey) === league;
+      });
+    }
 
-    const firstSport = this.groupedPredictions()[0]?.sport;
-    return sorted.filter(p => p._parsed.sport === firstSport);
+    return filtered.sort((a, b) => new Date(a.game.commenceTime).getTime() - new Date(b.game.commenceTime).getTime());
   });
 
-  models() {
-    const d = this.accuracy();
-    if (!d) return [];
-    return [
-      { name: 'Ensemble', accuracy: d.byModel.ensemble, color: 'var(--gradient-hero)' },
-      { name: 'Odds Implied', accuracy: d.byModel.oddsImplied, color: '#3b82f6' },
-      { name: 'ELO', accuracy: d.byModel.elo, color: '#8b5cf6' },
-      { name: 'Form', accuracy: d.byModel.form, color: '#f59e0b' },
-    ];
-  }
-
-  sportBreakdown() {
-    const d = this.accuracy();
-    if (!d) return [];
-    return Object.entries(d.bySport).map(([key, bucket]) => ({
-      key,
-      ...bucket,
-    }));
-  }
-
-  getAccuracyClass(accuracy: number): string {
-    if (accuracy >= 0.7) return 'accuracy-high';
-    if (accuracy >= 0.55) return 'accuracy-medium';
-    return 'accuracy-low';
+  selectSport(sport: string | null) {
+    this.selectedSport.set(sport);
+    this.selectedLeague.set(null);
   }
 
   generatePredictions() {
@@ -1175,51 +772,19 @@ export class PredictionsPage implements OnInit {
     });
   }
 
-  isBetwayCovered(sportKey: string): boolean {
-    const betwaySports = [
-      'soccer_epl',
-      'soccer_italy_serie_a',
-      'soccer_spain_la_liga',
-      'soccer_germany_bundesliga',
-      'soccer_france_ligue_one',
-      'basketball_nba',
-      'americanfootball_nfl',
-      'mma_mixed_martial_arts',
-      'tennis_atp_wimbledon',
-      'tennis_wta_wimbledon'
-    ];
-    return betwaySports.includes(sportKey);
+  isInSlip(predictionId: string): boolean {
+    return !!this.betsService.betSlipPredictions().find(p => p.id === predictionId);
+  }
+
+  addToSlip(prediction: PredictionDto) {
+    this.betsService.addToSlip(prediction);
   }
 
   goToLogin() {
     this.router.navigate(['/login']);
   }
 
-  placeBet(prediction: any) {
-    if (!this.authService.isAuthenticated) {
-      this.goToLogin();
-      return;
-    }
-
-    const user = this.authService.currentUser();
-    if (!user) return;
-
-    this.placingBetFor.set(prediction.id);
-
-    // Hardcode $10 stake for simple demo
-    this.betsService.placeBet(user.id, {
-      predictionId: prediction.id,
-      stake: 10,
-      customOdds: prediction.odds
-    }).subscribe({
-      next: () => {
-        this.placingBetFor.set(null);
-        alert('Simulation started! Track its success in the Tracker.');
-      },
-      error: (err) => {
-        this.placingBetFor.set(null);
-        alert(err.error?.message || 'Failed to simulate. Please try again.');
-      }
-    });
+  sportLabel(key: string): string {
+    return key.split('_').slice(0, 2).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
   }
 }

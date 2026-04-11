@@ -31,7 +31,7 @@ export class PlaceBetUseCase {
             uuidv4(),
             userId,
             prediction.id,
-            dto.stake,
+            dto.bookmaker,
             dto.customOdds ?? prediction.odds ?? 1.0,
             BetStatus.PENDING,
             new Date()
@@ -43,10 +43,9 @@ export class PlaceBetUseCase {
             id: bet.id,
             userId: bet.userId,
             predictionId: bet.predictionId,
-            stake: bet.stake,
+            bookmaker: bet.bookmaker,
             lockedOdds: bet.lockedOdds,
             status: bet.status,
-            potentialPayout: bet.potentialPayout,
             placedAt: bet.placedAt,
         };
     }

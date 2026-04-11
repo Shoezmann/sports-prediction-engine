@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { BetDto, PlaceBetDto } from '@sports-prediction-engine/shared-types';
@@ -9,6 +9,9 @@ import { BetDto, PlaceBetDto } from '@sports-prediction-engine/shared-types';
 export class BetsService {
     private http = inject(HttpClient);
     private readonly API_URL = 'http://localhost:3000/api/bets';
+    
+    // Global state for the active Bet Slip
+    public betSlipPredictions = signal<any[]>([]);
 
     getUserBets(userId: string): Observable<BetDto[]> {
         return this.http.get<BetDto[]>(`${this.API_URL}?userId=${userId}`);
@@ -16,5 +19,19 @@ export class BetsService {
 
     placeBet(userId: string, dto: PlaceBetDto): Observable<BetDto> {
         return this.http.post<BetDto>(`${this.API_URL}?userId=${userId}`, dto);
+    }
+
+    addToSlip(prediction: any) {
+        if (!this.betSlipPredictions().find(p => p.id === prediction.id)) {
+            this.betSlipPredictions.update(curr => [...curr, prediction]);
+        }
+    }
+
+    removeFromSlip(predictionId: string) {
+        this.betSlipPredictions.update(curr => curr.filter(p => p.id !== predictionId));
+    }
+
+    clearSlip() {
+        this.betSlipPredictions.set([]);
     }
 }
