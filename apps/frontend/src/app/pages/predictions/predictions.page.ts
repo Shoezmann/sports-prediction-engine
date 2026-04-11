@@ -6,15 +6,19 @@ import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
 import { PredictionDto } from '@sports-prediction-engine/shared-types';
 
-interface LeagueGroup {
-  sport: string;
-  leagues: { name: string; count: number }[];
+interface SportCategoryGroup {
+  name: string;          // SOCCER
+  regions: {
+    name: string;        // GERMANY
+    leagues: { name: string; count: number }[];
+  }[];
 }
 
 interface MatchRow {
   prediction: PredictionDto;
-  sport: string;
-  league: string;
+  sportCategory: string;  // SOCCER
+  region: string;         // GERMANY
+  league: string;         // BUNDESLIGA
   isLive: boolean;
   minutesPlayed: number | null;
   currentScore: string | null;
@@ -50,24 +54,39 @@ interface MatchRow {
         </div>
       </div>
 
-      <!-- Sport Tabs -->
-      @if (sportGroups().length > 0) {
+      <!-- Sport Category Tabs -->
+      @if (sportCategories().length > 0) {
         <div class="tabs">
-          <button class="tab" [class.tab--active]="selectedSport() === null" (click)="selectSport(null)">
-            ALL SPORTS
+          <button class="tab" [class.tab--active]="selectedCategory() === null" (click)="selectCategory(null)">
+            ALL
           </button>
-          @for (group of sportGroups(); track group.sport) {
-            <button class="tab" [class.tab--active]="selectedSport() === group.sport" (click)="selectSport(group.sport)">
-              {{ group.sport }}
+          @for (group of sportCategories(); track group.name) {
+            <button class="tab" [class.tab--active]="selectedCategory() === group.name" (click)="selectCategory(group.name)">
+              {{ group.name }}
             </button>
           }
         </div>
       }
 
-      <!-- League Chips (shown when sport selected) -->
-      @if (selectedSport() && availableLeagues().length > 0) {
-        <div class="league-bar">
-          <span class="league-bar__label">LEAGUE</span>
+      <!-- Region Chips (shown when category selected) -->
+      @if (selectedCategory() && availableRegions().length > 0) {
+        <div class="filter-bar">
+          <span class="filter-bar__label">REGION</span>
+          <button class="chip" [class.chip--active]="selectedRegion() === null" (click)="selectRegion(null)">
+            ALL
+          </button>
+          @for (region of availableRegions(); track region) {
+            <button class="chip" [class.chip--active]="selectedRegion() === region" (click)="selectRegion(region)">
+              {{ region }}
+            </button>
+          }
+        </div>
+      }
+
+      <!-- League Chips (shown when region selected) -->
+      @if (selectedRegion() && availableLeagues().length > 0) {
+        <div class="filter-bar filter-bar--subtle">
+          <span class="filter-bar__label">LEAGUE</span>
           <button class="chip" [class.chip--active]="selectedLeague() === null" (click)="selectedLeague.set(null)">
             ALL
           </button>
@@ -91,7 +110,7 @@ interface MatchRow {
               <div class="match-row__time">
                 <span class="match-row__minute">{{ match.minutesPlayed }}'</span>
               </div>
-              <div class="match-row__sport">{{ match.sport }}</div>
+              <div class="match-row__region">{{ match.region }} · {{ match.league }}</div>
               <div class="match-row__match">
                 <span class="match-row__home" [class.dimmed]="predictedSide(match.prediction) === 'away'">{{ match.prediction.game.homeTeam.name }}</span>
                 <span class="match-row__score">{{ match.currentScore }}</span>
@@ -131,7 +150,7 @@ interface MatchRow {
               <thead>
                 <tr>
                   <th class="th th--time">TIME</th>
-                  <th class="th th--sport">SPORT</th>
+                  <th class="th th--region">REGION</th>
                   <th class="th th--league">LEAGUE</th>
                   <th class="th th--match">MATCH</th>
                   <th class="th th--pick">PICK</th>
@@ -147,7 +166,7 @@ interface MatchRow {
                     <td class="td td--time">
                       <span class="td__time">{{ match.timeLabel }}</span>
                     </td>
-                    <td class="td td--sport">{{ match.sport }}</td>
+                    <td class="td td--region">{{ match.region }}</td>
                     <td class="td td--league">{{ match.league }}</td>
                     <td class="td td--match">
                       <span class="td__home" [class.dimmed]="predictedSide(match.prediction) === 'away'">{{ match.prediction.game.homeTeam.name }}</span>
@@ -191,13 +210,21 @@ interface MatchRow {
       }
 
       <!-- Empty State -->
-      @if (allMatches().length === 0) {
+      @if (filteredMatches().length === 0) {
         <div class="empty">
-          <pre class="empty__ascii">┌─────────────────────────────────────────┐
+          @if (hasAnyMatches()) {
+            <pre class="empty__ascii">┌─────────────────────────────────────────┐
+│  NO GAMES FOR THIS FILTER               │
+│  Try selecting a different category     │
+│  or league to view predictions          │
+└─────────────────────────────────────────┘</pre>
+          } @else {
+            <pre class="empty__ascii">┌─────────────────────────────────────────┐
 │  NO MATCHES FOUND                       │
 │  Pipeline runs daily at 06:00 UTC       │
 │  Next sync will fetch upcoming games    │
 └─────────────────────────────────────────┘</pre>
+          }
         </div>
       }
     </div>
@@ -310,12 +337,12 @@ interface MatchRow {
       }
     }
 
-    // ─── League Bar ──────────────────────────────
-    .league-bar {
+    // ─── Filter Bars ──────────────────────────────
+    .filter-bar {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       padding: 8px 12px;
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
@@ -323,9 +350,14 @@ interface MatchRow {
       overflow-x: auto;
       scrollbar-width: none;
       &::-webkit-scrollbar { display: none; }
+
+      &--subtle {
+        background: var(--color-bg-secondary);
+        border-color: var(--color-border-subtle);
+      }
     }
 
-    .league-bar__label {
+    .filter-bar__label {
       font-family: var(--font-mono);
       font-size: 0.6875rem;
       font-weight: 700;
@@ -560,7 +592,7 @@ interface MatchRow {
       color: #ef4444;
     }
 
-    .match-row__sport {
+    .match-row__region {
       font-family: var(--font-mono);
       font-size: 0.6875rem;
       color: var(--color-text-muted);
@@ -608,8 +640,9 @@ interface MatchRow {
     // ─── Responsive ──────────────────────────────
     @media (max-width: 1024px) {
       .th--sport, .td--sport { display: none; }
+      .th--region, .td--region { display: none; }
       .match-row { grid-template-columns: 70px 1fr 120px 90px 70px 48px; }
-      .match-row__sport { display: none; }
+      .match-row__region { display: none; }
     }
 
     @media (max-width: 768px) {
@@ -632,7 +665,8 @@ interface MatchRow {
 export class PredictionsPage implements OnInit, OnDestroy {
   accuracy = signal<AccuracyData | null>(null);
   pendingPredictions = signal<PredictionDto[]>([]);
-  selectedSport = signal<string | null>(null);
+  selectedCategory = signal<string | null>(null);
+  selectedRegion = signal<string | null>(null);
   selectedLeague = signal<string | null>(null);
   lastRefresh = signal<string>('');
   private pollInterval: any = null;
@@ -664,44 +698,67 @@ export class PredictionsPage implements OnInit, OnDestroy {
     });
   }
 
-  // Build hierarchical sport → league groups
-  sportGroups = computed<LeagueGroup[]>(() => {
+  // Build 3-level hierarchy: Sport Category → Region → Leagues
+  sportCategories = computed<SportCategoryGroup[]>(() => {
     const list = this.pendingPredictions();
-    const map = new Map<string, Map<string, number>>();
+    // category → region → leagues → count
+    const map = new Map<string, Map<string, Map<string, number>>>();
 
     for (const p of list) {
-      const sport = p.game.sportTitle || this.sportLabel(p.game.sportKey);
-      const league = this.extractLeague(p.game.sportKey, p.game.sportTitle);
+      const { category, region, league } = this.parseHierarchy(p.game.sportKey, p.game.sportTitle);
 
-      if (!map.has(sport)) map.set(sport, new Map());
-      const leagues = map.get(sport)!;
+      if (!map.has(category)) map.set(category, new Map());
+      const regions = map.get(category)!;
+      if (!regions.has(region)) regions.set(region, new Map());
+      const leagues = regions.get(region)!;
       leagues.set(league, (leagues.get(league) || 0) + 1);
     }
 
     return Array.from(map.entries())
-      .sort((a, b) => b[1].size - a[1].size)
-      .map(([sport, leagues]) => ({
-        sport,
-        leagues: Array.from(leagues.entries())
-          .sort((a, b) => b[1] - a[1])
-          .map(([name, count]) => ({ name, count })),
+      .sort((a, b) => {
+        const aCount = Array.from(a[1].values()).reduce((sum, r) => sum + Array.from(r.values()).reduce((s, c) => s + c, 0), 0);
+        const bCount = Array.from(b[1].values()).reduce((sum, r) => sum + Array.from(r.values()).reduce((s, c) => s + c, 0), 0);
+        return bCount - aCount;
+      })
+      .map(([category, regions]) => ({
+        name: category,
+        regions: Array.from(regions.entries())
+          .sort((a, b) => {
+            const aCount = Array.from(a[1].values()).reduce((s, c) => s + c, 0);
+            const bCount = Array.from(b[1].values()).reduce((s, c) => s + c, 0);
+            return bCount - aCount;
+          })
+          .map(([region, leagues]) => ({
+            name: region,
+            leagues: Array.from(leagues.entries())
+              .sort((a, b) => b[1] - a[1])
+              .map(([name, count]) => ({ name, count })),
+          })),
       }));
   });
 
+  availableRegions = computed<string[]>(() => {
+    const cat = this.selectedCategory();
+    if (!cat) return [];
+    const group = this.sportCategories().find(g => g.name === cat);
+    return group ? group.regions.map(r => r.name) : [];
+  });
+
   availableLeagues = computed<string[]>(() => {
-    const sport = this.selectedSport();
-    if (!sport) return [];
-    const group = this.sportGroups().find(g => g.sport === sport);
-    return group ? group.leagues.map(l => l.name) : [];
+    const cat = this.selectedCategory();
+    const reg = this.selectedRegion();
+    if (!cat || !reg) return [];
+    const group = this.sportCategories().find(g => g.name === cat);
+    const region = group?.regions.find(r => r.name === reg);
+    return region ? region.leagues.map(l => l.name) : [];
   });
 
   // Parse all matches into enriched rows
   allMatches = computed<MatchRow[]>(() => {
     return this.pendingPredictions()
-      .filter(p => new Date(p.game.commenceTime) > new Date(Date.now() - 7200000)) // include recent past for live detection
+      .filter(p => new Date(p.game.commenceTime) > new Date(Date.now() - 7200000))
       .map(p => this.enrichMatch(p))
       .sort((a, b) => {
-        // Live matches first
         if (a.isLive && !b.isLive) return -1;
         if (!a.isLive && b.isLive) return 1;
         return new Date(a.prediction.game.commenceTime).getTime() - new Date(b.prediction.game.commenceTime).getTime();
@@ -722,13 +779,19 @@ export class PredictionsPage implements OnInit, OnDestroy {
 
   liveCount = computed(() => this.allMatches().filter(m => m.isLive).length);
 
+  hasAnyMatches = computed(() => this.allMatches().length > 0);
+
   private filterBySelection(matches: MatchRow[]): MatchRow[] {
-    const sport = this.selectedSport();
+    const cat = this.selectedCategory();
+    const reg = this.selectedRegion();
     const league = this.selectedLeague();
 
     let filtered = matches;
-    if (sport) {
-      filtered = filtered.filter(m => m.sport === sport);
+    if (cat) {
+      filtered = filtered.filter(m => m.sportCategory === cat);
+    }
+    if (reg) {
+      filtered = filtered.filter(m => m.region === reg);
     }
     if (league) {
       filtered = filtered.filter(m => m.league === league);
@@ -742,7 +805,6 @@ export class PredictionsPage implements OnInit, OnDestroy {
     const diffMs = commenceTime.getTime() - now.getTime();
     const minutesSinceStart = Math.floor(-diffMs / 60000);
 
-    // A match is "live" if it started within the last 2 hours and hasn't finished
     const isLive = minutesSinceStart > 0 && minutesSinceStart < 120;
     const minutesPlayed = isLive ? minutesSinceStart : null;
 
@@ -755,28 +817,58 @@ export class PredictionsPage implements OnInit, OnDestroy {
       timeLabel = this.formatTime(p.game.commenceTime);
     }
 
-    const sport = p.game.sportTitle || this.sportLabel(p.game.sportKey);
-    const league = this.extractLeague(p.game.sportKey, p.game.sportTitle);
+    const { category, region, league } = this.parseHierarchy(p.game.sportKey, p.game.sportTitle);
 
     return {
       prediction: p,
-      sport,
+      sportCategory: category,
+      region,
       league,
       isLive,
       minutesPlayed,
-      currentScore: null, // Would come from live scores API
+      currentScore: null,
       timeLabel,
     };
   }
 
-  private extractLeague(sportKey: string, sportTitle: string | undefined): string {
-    // If sportTitle is the same as sport group, extract from key
+  // Parse sportKey into category → region → league
+  // e.g. soccer_germany_bundesliga → SOCCER → GERMANY → BUNDESLIGA
+  // e.g. soccer_epl → SOCCER → ENGLAND → EPL
+  // e.g. basketball_nba → BASKETBALL → USA → NBA
+  private parseHierarchy(sportKey: string, sportTitle: string | undefined): { category: string; region: string; league: string } {
     const parts = sportKey.split('_');
-    if (parts.length <= 2) return sportTitle || parts.join(' ');
 
-    // Extract everything after sport_group
-    const leagueParts = parts.slice(2).map(s => s.charAt(0).toUpperCase() + s.slice(1));
-    return leagueParts.join(' ') || sportTitle || 'Unknown';
+    // Category = first part (SOCCER, BASKETBALL, etc.)
+    const category = parts[0].toUpperCase();
+
+    // Region = second part if it exists and is not a generic term
+    const regionCandidates = ['germany', 'england', 'spain', 'italy', 'france', 'usa', 'europe', 'south_america', 'brazil', 'argentina', 'mexico', 'japan', 'australia', 'netherlands', 'portugal', 'belgium', 'turkey', 'scotland', 'norway', 'sweden', 'denmark', 'switzerland', 'austria', 'poland', 'greece', 'ireland', 'russia', 'china', 'korea', 'saudi_arabia', 'india', 'chile', 'finland', 'mixed_martial', 'americanfootball'];
+
+    let region = 'GLOBAL';
+    let leagueStartIdx = 1;
+
+    if (parts.length >= 2) {
+      const possibleRegion = parts[1].toLowerCase();
+      if (regionCandidates.includes(possibleRegion) || possibleRegion === 'atp' || possibleRegion === 'wta' || possibleRegion === 'esoccer') {
+        region = parts[1].toUpperCase();
+        leagueStartIdx = 2;
+      } else if (possibleRegion === 'south') {
+        // Handle south_africa as one region
+        region = 'SOUTH AFRICA';
+        leagueStartIdx = 3;
+      }
+    }
+
+    // League = remaining parts
+    if (parts.length > leagueStartIdx) {
+      const leagueParts = parts.slice(leagueStartIdx).map(s => s.toUpperCase());
+      const league = leagueParts.join(' ');
+      return { category, region, league };
+    }
+
+    // If no league part, use sportTitle or second part
+    const league = sportTitle || (parts.length > 1 ? parts[1].toUpperCase() : category);
+    return { category, region: region === 'GLOBAL' ? 'ALL' : region, league };
   }
 
   private sportLabel(key: string): string {
@@ -808,8 +900,14 @@ export class PredictionsPage implements OnInit, OnDestroy {
     return 'DRAW';
   }
 
-  selectSport(sport: string | null) {
-    this.selectedSport.set(sport);
+  selectCategory(cat: string | null) {
+    this.selectedCategory.set(cat);
+    this.selectedRegion.set(null);
+    this.selectedLeague.set(null);
+  }
+
+  selectRegion(region: string | null) {
+    this.selectedRegion.set(region);
     this.selectedLeague.set(null);
   }
 
