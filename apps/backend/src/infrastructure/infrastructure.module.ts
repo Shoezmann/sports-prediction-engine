@@ -42,6 +42,7 @@ import { PredictionStreamService } from './sse/prediction-stream.service';
 
 // Email
 import { EmailService } from './email/email.service';
+import { StreamController } from '../api/controllers/stream.controller';
 
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
@@ -146,6 +147,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
+    controllers: [StreamController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,

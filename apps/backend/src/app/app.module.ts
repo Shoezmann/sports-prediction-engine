@@ -10,7 +10,6 @@ import {
   HealthController,
   AuthController,
   BetsController,
-  StreamController,
 } from '../api/controllers/api.controllers';
 
 @Module({
@@ -30,7 +29,6 @@ import {
     HealthController,
     AuthController,
     BetsController,
-    StreamController,
   ],
 })
 export class AppModule { }
