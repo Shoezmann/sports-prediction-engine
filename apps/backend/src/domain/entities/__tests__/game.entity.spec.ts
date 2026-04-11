@@ -19,7 +19,9 @@ describe('Game Entity', () => {
                 id: 'game-1',
                 externalId: 'ext-1',
                 sportKey: 'soccer_epl',
-                sportCategory: SportCategory.THREE_WAY,
+                sportTitle: "EPL",
+            sportGroup: "Soccer",
+            sportCategory: SportCategory.THREE_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: future,
@@ -41,7 +43,9 @@ describe('Game Entity', () => {
                 id: 'g1',
                 externalId: 'e1',
                 sportKey: 'test',
-                sportCategory: SportCategory.TWO_WAY,
+                sportTitle: "NBA",
+            sportGroup: "Basketball",
+            sportCategory: SportCategory.TWO_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: today,
@@ -59,7 +63,9 @@ describe('Game Entity', () => {
                 id: 'g2',
                 externalId: 'e2',
                 sportKey: 'test',
-                sportCategory: SportCategory.TWO_WAY,
+                sportTitle: "NBA",
+            sportGroup: "Basketball",
+            sportCategory: SportCategory.TWO_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: tomorrow,
@@ -76,7 +82,9 @@ describe('Game Entity', () => {
                 id: 'g',
                 externalId: 'e',
                 sportKey: 'test',
-                sportCategory: SportCategory.THREE_WAY,
+                sportTitle: "EPL",
+            sportGroup: "Soccer",
+            sportCategory: SportCategory.THREE_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: new Date(),
@@ -91,7 +99,9 @@ describe('Game Entity', () => {
                 id: 'g',
                 externalId: 'e',
                 sportKey: 'test',
-                sportCategory: SportCategory.TWO_WAY,
+                sportTitle: "NBA",
+            sportGroup: "Basketball",
+            sportCategory: SportCategory.TWO_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: new Date(),
@@ -104,30 +114,60 @@ describe('Game Entity', () => {
     describe('getOutcome', () => {
         it('should return HOME_WIN when home score is higher', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g1', 'e1', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 3, 1
-            );
+            const game = Game.create({
+                id: 'g1',
+                externalId: 'e1',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 3,
+                awayScore: 1,
+            });
 
             expect(game.getOutcome()).toBe(PredictionOutcome.HOME_WIN);
         });
 
         it('should return AWAY_WIN when away score is higher', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g2', 'e2', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 1, 2
-            );
+            const game = Game.create({
+                id: 'g2',
+                externalId: 'e2',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 1,
+                awayScore: 2,
+            });
 
             expect(game.getOutcome()).toBe(PredictionOutcome.AWAY_WIN);
         });
 
         it('should return DRAW when scores are equal', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g3', 'e3', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 2, 2
-            );
+            const game = Game.create({
+                id: 'g3',
+                externalId: 'e3',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 2,
+                awayScore: 2,
+            });
 
             expect(game.getOutcome()).toBe(PredictionOutcome.DRAW);
         });
@@ -138,7 +178,9 @@ describe('Game Entity', () => {
                 id: 'g4',
                 externalId: 'e4',
                 sportKey: 'test',
-                sportCategory: SportCategory.THREE_WAY,
+                sportTitle: "EPL",
+            sportGroup: "Soccer",
+            sportCategory: SportCategory.THREE_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: new Date(),
@@ -152,30 +194,60 @@ describe('Game Entity', () => {
     describe('getHomeEloScore', () => {
         it('should return 1.0 for home win', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g1', 'e1', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 2, 0
-            );
+            const game = Game.create({
+                id: 'g1',
+                externalId: 'e1',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 2,
+                awayScore: 0,
+            });
 
             expect(game.getHomeEloScore()).toBe(1.0);
         });
 
         it('should return 0.5 for draw', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g2', 'e2', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 1, 1
-            );
+            const game = Game.create({
+                id: 'g2',
+                externalId: 'e2',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 1,
+                awayScore: 1,
+            });
 
             expect(game.getHomeEloScore()).toBe(0.5);
         });
 
         it('should return 0.0 for home loss', () => {
             const { home, away } = createTeams();
-            const game = new Game(
-                'g3', 'e3', 'test', SportCategory.THREE_WAY,
-                home, away, new Date(), true, 0, 1
-            );
+            const game = Game.create({
+                id: 'g3',
+                externalId: 'e3',
+                sportKey: 'test',
+                sportTitle: 'EPL',
+                sportGroup: 'Soccer',
+                sportCategory: SportCategory.THREE_WAY,
+                homeTeam: home,
+                awayTeam: away,
+                commenceTime: new Date(),
+                completed: true,
+                homeScore: 0,
+                awayScore: 1,
+            });
 
             expect(game.getHomeEloScore()).toBe(0.0);
         });
@@ -186,7 +258,9 @@ describe('Game Entity', () => {
                 id: 'g4',
                 externalId: 'e4',
                 sportKey: 'test',
-                sportCategory: SportCategory.THREE_WAY,
+                sportTitle: "EPL",
+            sportGroup: "Soccer",
+            sportCategory: SportCategory.THREE_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: new Date(),
@@ -206,7 +280,9 @@ describe('Game Entity', () => {
                 id: 'g1',
                 externalId: 'e1',
                 sportKey: 'test',
-                sportCategory: SportCategory.THREE_WAY,
+                sportTitle: "EPL",
+            sportGroup: "Soccer",
+            sportCategory: SportCategory.THREE_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: future,
@@ -228,7 +304,9 @@ describe('Game Entity', () => {
                 id: 'same-id',
                 externalId: 'e1',
                 sportKey: 'test',
-                sportCategory: SportCategory.TWO_WAY,
+                sportTitle: "NBA",
+            sportGroup: "Basketball",
+            sportCategory: SportCategory.TWO_WAY,
                 homeTeam: home,
                 awayTeam: away,
                 commenceTime: new Date(),
@@ -237,7 +315,9 @@ describe('Game Entity', () => {
                 id: 'same-id',
                 externalId: 'e2',
                 sportKey: 'test',
-                sportCategory: SportCategory.TWO_WAY,
+                sportTitle: "NBA",
+            sportGroup: "Basketball",
+            sportCategory: SportCategory.TWO_WAY,
                 homeTeam: away,
                 awayTeam: home,
                 commenceTime: new Date(),

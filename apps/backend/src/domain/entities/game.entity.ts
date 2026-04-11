@@ -15,6 +15,8 @@ export class Game {
         public readonly id: string,
         public readonly externalId: string,
         public readonly sportKey: string,
+        public readonly sportTitle: string,
+        public readonly sportGroup: string,
         public readonly sportCategory: SportCategory,
         public readonly homeTeam: Team,
         public readonly awayTeam: Team,
@@ -28,6 +30,8 @@ export class Game {
         id: string;
         externalId: string;
         sportKey: string;
+        sportTitle: string;
+        sportGroup: string;
         sportCategory: SportCategory;
         homeTeam: Team;
         awayTeam: Team;
@@ -40,6 +44,8 @@ export class Game {
             props.id,
             props.externalId,
             props.sportKey,
+            props.sportTitle,
+            props.sportGroup,
             props.sportCategory,
             props.homeTeam,
             props.awayTeam,
@@ -96,6 +102,8 @@ export class Game {
             this.id,
             this.externalId,
             this.sportKey,
+            this.sportTitle,
+            this.sportGroup,
             this.sportCategory,
             this.homeTeam,
             this.awayTeam,

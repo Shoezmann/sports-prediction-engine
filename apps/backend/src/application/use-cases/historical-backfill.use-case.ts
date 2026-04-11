@@ -66,10 +66,11 @@ export class HistoricalBackfillUseCase {
                             id: uuidv4(),
                             externalId: score.externalId,
                             sportKey: sport.key,
+                            sportTitle: sport.title,
+                            sportGroup: sport.group,
                             sportCategory: sport.category,
                             homeTeam,
                             awayTeam,
-                            // Use lastUpdate as a proxy for commence time if not strictly provided
                             commenceTime: new Date(score.lastUpdate)
                         });
                         completedGame = newGame.withResult(score.homeScore, score.awayScore);

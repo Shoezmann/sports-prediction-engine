@@ -17,6 +17,12 @@ export class GameEntity {
     @Index()
     sportKey!: string;
 
+    @Column({ name: 'sport_title', type: 'varchar', length: 256 })
+    sportTitle!: string;
+
+    @Column({ name: 'sport_group', type: 'varchar', length: 64 })
+    sportGroup!: string;
+
     @Column({ name: 'sport_category', type: 'varchar', length: 32 })
     sportCategory!: string;
 

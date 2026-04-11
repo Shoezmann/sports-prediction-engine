@@ -74,6 +74,8 @@ export class SyncGamesUseCase {
                         id: uuidv4(),
                         externalId: raw.externalId,
                         sportKey: sport.key,
+                        sportTitle: sport.title,
+                        sportGroup: sport.group,
                         sportCategory: sport.category,
                         homeTeam,
                         awayTeam,

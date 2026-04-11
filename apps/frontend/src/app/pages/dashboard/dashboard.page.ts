@@ -18,19 +18,9 @@ import { ApiService, AccuracyData } from '../../services/api.service';
           <p class="hero__subtitle">
             Multi-sport prediction platform powered by ELO ratings, form analysis, and market odds ensemble models.
           </p>
-          <div class="hero__actions">
-            <button class="btn btn-primary" (click)="runFullPipeline()" [disabled]="isRunning()">
-              <span class="material-symbols-rounded">bolt</span>
-              {{ isRunning() ? 'Running...' : 'Run Full Pipeline' }}
-            </button>
-            <button class="btn btn-secondary" (click)="syncSports()" [disabled]="isRunning()">
-              <span class="material-symbols-rounded">sync</span>
-              Sync Sports
-            </button>
-            <button class="btn btn-secondary" (click)="updateResults()" [disabled]="isRunning()">
-              <span class="material-symbols-rounded">update</span>
-              Update Results
-            </button>
+          <div class="hero__status">
+            <span class="status-dot"></span>
+            <span class="status-text">Pipeline automated · Runs daily at 06:00 UTC</span>
           </div>
         </div>
       </section>
@@ -138,7 +128,26 @@ import { ApiService, AccuracyData } from '../../services/api.service';
       color: var(--color-text-secondary);
       max-width: 520px;
       line-height: 1.6;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
+    }
+
+    .hero__status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-success);
+      box-shadow: 0 0 8px var(--color-success);
+      animation: pulse-glow 2s ease-in-out infinite;
     }
 
     .hero__actions {

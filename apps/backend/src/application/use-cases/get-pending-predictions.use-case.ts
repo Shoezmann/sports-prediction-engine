@@ -17,6 +17,8 @@ export class GetPendingPredictionsUseCase {
             game: {
                 id: prediction.game.id,
                 sportKey: prediction.game.sportKey,
+                sportTitle: prediction.game.sportTitle,
+                sportGroup: prediction.game.sportGroup,
                 commenceTime: prediction.game.commenceTime.toISOString(),
                 homeTeam: {
                     id: prediction.game.homeTeam.id,

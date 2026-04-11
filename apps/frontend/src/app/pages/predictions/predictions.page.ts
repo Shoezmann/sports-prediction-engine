@@ -93,7 +93,7 @@ import { PredictionDto } from '@sports-prediction-engine/shared-types';
                     <span class="td__time">{{ formatTime(p.game.commenceTime) }}</span>
                   </td>
                   <td class="td td--sport">
-                    <span class="td__sport">{{ sportLabel(p.game.sportKey) }}</span>
+                    <span class="td__sport">{{ p.game.sportTitle || sportLabel(p.game.sportKey) }}</span>
                   </td>
                   <td class="td td--match">
                     <span class="td__home" [class.dimmed]="predictedTeam(p) === 'away'">{{ p.game.homeTeam.name }}</span>
@@ -703,9 +703,8 @@ export class PredictionsPage implements OnInit {
     const sportMap = new Map<string, Set<string>>();
 
     for (const p of list) {
-      const parts = p.game.sportKey.split('_');
-      const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-      const league = this.sportLabel(p.game.sportKey);
+      const sportName = p.game.sportTitle || this.sportLabel(p.game.sportKey);
+      const league = p.game.sportTitle || this.sportLabel(p.game.sportKey);
       if (!sportMap.has(sportName)) sportMap.set(sportName, new Set());
       sportMap.get(sportName)!.add(league);
     }
@@ -722,10 +721,9 @@ export class PredictionsPage implements OnInit {
     const leagueSet = new Set<string>();
 
     for (const p of list) {
-      const parts = p.game.sportKey.split('_');
-      const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      const sportName = p.game.sportTitle || this.sportLabel(p.game.sportKey);
       if (sportName === sport) {
-        leagueSet.add(this.sportLabel(p.game.sportKey));
+        leagueSet.add(p.game.sportTitle || this.sportLabel(p.game.sportKey));
       }
     }
 
@@ -741,15 +739,14 @@ export class PredictionsPage implements OnInit {
 
     if (sport) {
       filtered = filtered.filter(p => {
-        const parts = p.game.sportKey.split('_');
-        const sportName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+        const sportName = p.game.sportTitle || this.sportLabel(p.game.sportKey);
         return sportName === sport;
       });
     }
 
     if (sport && league) {
       filtered = filtered.filter(p => {
-        return this.sportLabel(p.game.sportKey) === league;
+        return (p.game.sportTitle || this.sportLabel(p.game.sportKey)) === league;
       });
     }
 
