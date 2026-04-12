@@ -99,13 +99,15 @@ interface LMR { eid: string; cat: string; lg: string; ht: string; at: string; hs
       </select></div>
     @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
   </div>
-  @if (lsm().length > 0) {
-    <div class="ls"><div class="sl"><span class="pd"></span> LIVE</div>
-    @for (m of lsm(); track m.eid) {
+  @if (lm().length > 0) {
+    <div class="ls"><div class="sl"><span class="pd"></span> LIVE {{ lm().length }}</div>
+    @for (m of lm(); track m.prediction.id) {
       <div class="lr"><span class="lc">{{ m.cat }}</span><span class="ll">{{ m.lg }}</span>
-        <span class="lt">{{ m.ht }} <span class="ls">{{ m.hs }}-{{ m.as }}</span> {{ m.at }}</span>
-        <span class="lh" [class]="'lh' + hC(m.st)">{{ m.st }}{{ m.mn != null ? ' ' + m.mn + "'" : '' }}</span></div>
-    }</div>
+        <span class="lt"><span [class.di]="pS(m.prediction)==='a'">{{ m.prediction.game.homeTeam.name }}</span> <span class="lsc">vs</span> <span [class.di]="pS(m.prediction)==='h'">{{ m.prediction.game.awayTeam.name }}</span></span>
+        <span class="lh" [class]="'pk' + pK(m.prediction)">{{ pL(m.prediction) }}</span>
+        <span class="lh lh1H">{{ (m.prediction.confidence * 100).toFixed(0) }}%</span></div>
+    }
+    </div>
   }
   @if (um().length > 0) {
     <div class="sl">UPCOMING</div>
@@ -116,7 +118,7 @@ interface LMR { eid: string; cat: string; lg: string; ht: string; at: string; hs
           <tr>
             <td class="mo">{{ m.tl }}</td>
             <td class="mo di">{{ m.cat }}</td>
-            <td class="mo di">{{ m.lg }}</td>
+            <td class="mo di">{{ m.lg || '-' }}</td>
             <td><span [class.di]="pS(m.prediction)==='a'">{{ m.prediction.game.homeTeam.name }}</span>
                 <span class="vs">vs</span>
                 <span [class.di]="pS(m.prediction)==='h'">{{ m.prediction.game.awayTeam.name }}</span></td>
@@ -126,7 +128,7 @@ interface LMR { eid: string; cat: string; lg: string; ht: string; at: string; hs
               <span class="ev" [class.po]="m.prediction.expectedValue > 0" [class.ne]="m.prediction.expectedValue <= 0">{{ m.prediction.expectedValue > 0 ? '+' : '' }}{{ (m.prediction.expectedValue * 100).toFixed(1) }}%</span>
             } @else { <span class="di">\u2014</span> }</td>
             <td class="mo">{{ m.prediction.odds ? m.prediction.odds.toFixed(2) : '\u2014' }}</td>
-            <td><button class="ab" [class.in]="iS(m.prediction.id)" (click)="aS(m.prediction)" [disabled]="iS(m.prediction.id)">{{ iS(m.prediction.id) ? '\u2713' : '+' }}</button></td>
+            <td><button class="ab" [class.in]="iS(m.prediction.id)" (click)="tS(m.prediction)">{{ iS(m.prediction.id) ? '\u2713' : '+' }}</button></td>
           </tr>
         }
       </tbody>
@@ -214,6 +216,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
   lgs = computed(() => { const c = this.sc(), r = this.sr(); return [...new Set(this.am().filter(m => (!c || m.cat === c) && (!r || m.reg === r)).map(m => m.lg))].sort(); });
   lc = computed(() => this.am().filter(m => m.live).length);
   fm = computed(() => this.fl(this.am()));
+  lm = computed(() => this.am().filter(m => m.live));
   um = computed(() => this.fl(this.am().filter(m => !m.live)));
 
   private fl(ms: MR[]): MR[] {
@@ -234,7 +237,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
   pL(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? p.game.homeTeam.name : p.predictedOutcome === 'away_win' ? p.game.awayTeam.name : 'DRAW'; }
   hC(s: string) { return s === '1H' ? '1H' : s === '2H' ? '2H' : 'HT'; }
   iS(id: string) { return !!this.bs.betSlipPredictions().find(p => p.id === id); }
-  aS(p: PredictionDto) { this.bs.addToSlip(p); }
+  tS(p: PredictionDto) { if (this.iS(p.id)) this.bs.removeFromSlip(p.id); else this.bs.addToSlip(p); }
   ld() { try { const s = JSON.parse(localStorage.getItem('pv') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
   sv() { try { localStorage.setItem('pv', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
   fd() { this.api.getPendingPredictions().subscribe({ next: d => { this.pendingPredictions.set(d); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); }, error: () => {} }); }
