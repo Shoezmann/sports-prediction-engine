@@ -195,3 +195,4 @@ export class BetsController {
 
 export { StreamController } from './stream.controller';
 export { LiveScoresController } from './live-scores.controller';
+export { GTLeaguesController } from './gt-leagues.controller';

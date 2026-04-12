@@ -43,6 +43,8 @@ import { PredictionStreamService } from './sse/prediction-stream.service';
 // Email
 import { EmailService } from './email/email.service';
 import { LiveScoresService } from './live-scores/live-scores.service';
+import { GTLeaguesService } from './gt-leagues/gt-leagues.service';
+import { GTLeaguesController } from '../api/controllers/gt-leagues.controller';
 import { StreamController } from '../api/controllers/stream.controller';
 import { LiveScoresController } from '../api/controllers/live-scores.controller';
 
@@ -113,6 +115,9 @@ const logger = new Logger('InfrastructureModule');
         // ── Live Scores ──
         LiveScoresService,
 
+        // ── GT Leagues ──
+        GTLeaguesService,
+
         // ── API Adapter ──
         TheOddsApiAdapter,
         ApiFootballAdapter,
@@ -152,7 +157,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
-    controllers: [StreamController, LiveScoresController],
+    controllers: [StreamController, LiveScoresController, GTLeaguesController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,
@@ -172,6 +177,7 @@ const logger = new Logger('InfrastructureModule');
         PredictionStreamService,
         EmailService,
         LiveScoresService,
+        GTLeaguesService,
     ],
 })
 export class InfrastructureModule { }

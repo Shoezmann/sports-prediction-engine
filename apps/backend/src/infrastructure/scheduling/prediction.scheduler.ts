@@ -139,7 +139,7 @@ export class PredictionScheduler {
             const predictions = await this.getPendingPredictions.execute();
             const accuracy = await this.getAccuracy.execute();
 
-            const liveMatches = this.liveScoresService.getLiveMatches();
+            const liveMatches = await this.liveScoresService.getLiveMatches();
             this.streamService.broadcast('predictions', {
                 count: predictions.length,
                 liveCount: predictions.filter(p => {

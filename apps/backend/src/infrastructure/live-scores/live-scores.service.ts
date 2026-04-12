@@ -6,6 +6,7 @@ import { Cron, Interval } from '@nestjs/schedule';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
 import { TheOddsApiAdapter } from '../adapters/odds-api/the-odds-api.adapter';
 import { SportRepositoryPort } from '../../domain/ports/output';
+import { GTLeaguesService } from '../gt-leagues/gt-leagues.service';
 import { SPORT_REPOSITORY_PORT } from '../../domain/ports/output';
 
 export interface LiveMatchData {
@@ -44,6 +45,7 @@ export class LiveScoresService {
         private readonly configService: ConfigService,
         private readonly streamService: PredictionStreamService,
         private readonly oddsApiAdapter: TheOddsApiAdapter,
+        private readonly gtLeaguesService: GTLeaguesService,
     ) { }
 
     /**
@@ -238,7 +240,9 @@ export class LiveScoresService {
     /**
      * Get current live matches (for API endpoint)
      */
-    getLiveMatches(): LiveMatchData[] {
-        return Array.from(this.liveMatches.values());
+    async getLiveMatches(): Promise<(LiveMatchData | any)[]> {
+        const regularMatches = Array.from(this.liveMatches.values());
+        const gtMatches = await this.gtLeaguesService.getMatches();
+        return [...gtMatches, ...regularMatches];
     }
 }

@@ -10,7 +10,7 @@ import {
   HealthController,
   AuthController,
   BetsController,
-  } from '../api/controllers/api.controllers';
+} from '../api/controllers/api.controllers';
 
 @Module({
   imports: [
@@ -29,7 +29,6 @@ import {
     HealthController,
     AuthController,
     BetsController,
-    ],
-
+  ],
 })
 export class AppModule { }

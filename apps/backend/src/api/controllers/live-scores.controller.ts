@@ -13,8 +13,8 @@ export class LiveScoresController {
     @ApiOperation({ summary: 'Get current live match scores with half indicators' })
     async getLiveMatches() {
         return {
-            matches: this.liveScoresService.getLiveMatches(),
-            count: this.liveScoresService.getLiveMatches().length,
+            matches: await this.liveScoresService.getLiveMatches(),
+            count: (await this.liveScoresService.getLiveMatches()).length,
         };
     }
 }
