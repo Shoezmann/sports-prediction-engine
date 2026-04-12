@@ -4,6 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Interval } from '@nestjs/schedule';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
+import { LiveScoresScraper, LiveScoreData } from './live-scores.scraper';
 
 export interface LiveMatchData {
     externalId: string;
@@ -43,33 +44,36 @@ export class LiveScoresService {
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
         private readonly streamService: PredictionStreamService,
+        private readonly scraper: LiveScoresScraper,
     ) { }
 
     /**
      * Poll live scores every 30 seconds
      */
-    @Interval('live-scores-poll', 30_000)
+    @Interval('live-scores-poll', 15_000)
     async pollLiveScores() {
         if (this.isPolling) return;
         this.isPolling = true;
 
-        const apiKey = this.configService.get<string>('SPORT_API_KEY');
-        if (!apiKey || apiKey.includes('your_')) {
-            this.isPolling = false;
-            return;
-        }
-
         try {
+            // Get scores from scraper cache
+            const scraperScores = this.scraper.getLiveScores();
             const newMatches = new Map<string, LiveMatchData>();
 
-            for (const cat of this.SPORT_API_CATEGORIES) {
-                try {
-                    const matches = await this.fetchLiveMatches(cat.id, apiKey);
-                    for (const m of matches) {
+            for (const s of scraperScores) {
+                newMatches.set(s.id, this.toLiveMatchData(s));
+            }
+
+            // Also check SportAPI as additional source
+            const sportApiKey = this.configService.get<string>('SPORT_API_KEY');
+            if (sportApiKey && !sportApiKey.includes('your_')) {
+                const sportMatches = await this.fetchAllSportAPILive(sportApiKey);
+                for (const m of sportMatches) {
+                    // Deduplicate — prefer scraper data if same teams
+                    const key = `${m.homeTeam}-${m.awayTeam}`;
+                    if (!Array.from(newMatches.values()).some(nm => nm.homeTeam === m.homeTeam && nm.awayTeam === m.awayTeam)) {
                         newMatches.set(m.externalId, m);
                     }
-                } catch {
-                    // Skip silently
                 }
             }
 
@@ -79,7 +83,7 @@ export class LiveScoresService {
                     matches: Array.from(newMatches.values()),
                     count: newMatches.size,
                 });
-                this.logger.log(`📡 Live scores updated: ${newMatches.size} matches`);
+                this.logger.log(`📡 Live: ${newMatches.size} matches (${scraperScores.length} scraped, ${newMatches.size - scraperScores.length} SportAPI)`);
             }
 
             this.liveMatches = newMatches;
@@ -88,6 +92,32 @@ export class LiveScoresService {
         } finally {
             this.isPolling = false;
         }
+    }
+
+    private toLiveMatchData(s: LiveScoreData): LiveMatchData {
+        return {
+            externalId: s.id,
+            sportKey: s.sportKey,
+            sportTitle: s.sportTitle,
+            homeTeam: s.homeTeam,
+            awayTeam: s.awayTeam,
+            homeScore: s.homeScore,
+            awayScore: s.awayScore,
+            status: s.status as any,
+            minute: s.minute,
+            commenceTime: s.commenceTime,
+        };
+    }
+
+    private async fetchAllSportAPILive(apiKey: string): Promise<LiveMatchData[]> {
+        const allMatches: LiveMatchData[] = [];
+        for (const cat of this.SPORT_API_CATEGORIES) {
+            try {
+                const matches = await this.fetchLiveMatches(cat.id, apiKey);
+                allMatches.push(...matches);
+            } catch { /* skip */ }
+        }
+        return allMatches;
     }
 
     /**
@@ -221,6 +251,18 @@ export class LiveScoresService {
      * Get current live matches
      */
     async getLiveMatches(): Promise<LiveMatchData[]> {
-        return Array.from(this.liveMatches.values());
+        const liveFromService = Array.from(this.liveMatches.values());
+        const scraperScores = this.scraper.getLiveScores().map(s => this.toLiveMatchData(s));
+
+        // Merge, deduplicating by home+away
+        const seen = new Set<string>();
+        const all = [...liveFromService, ...scraperScores].filter(m => {
+            const key = `${m.homeTeam}-${m.awayTeam}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        return all;
     }
 }

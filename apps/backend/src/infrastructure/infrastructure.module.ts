@@ -43,10 +43,12 @@ import { PredictionStreamService } from './sse/prediction-stream.service';
 // Email
 import { EmailService } from './email/email.service';
 import { LiveScoresService } from './live-scores/live-scores.service';
+import { LiveScoresScraper } from './live-scores/live-scores.scraper';
 import { GTLeaguesService } from './gt-leagues/gt-leagues.service';
 import { GTLeaguesController } from '../api/controllers/gt-leagues.controller';
 import { StreamController } from '../api/controllers/stream.controller';
 import { LiveScoresController } from '../api/controllers/live-scores.controller';
+import { LiveScoresApiController } from '../api/controllers/api.controllers';
 
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
@@ -114,6 +116,8 @@ const logger = new Logger('InfrastructureModule');
 
         // ── Live Scores ──
         LiveScoresService,
+        LiveScoresScraper,
+        LiveScoresScraper,
 
         // ── GT Leagues ──
         GTLeaguesService,
@@ -157,7 +161,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
-    controllers: [StreamController, LiveScoresController, GTLeaguesController],
+    controllers: [StreamController, LiveScoresController, GTLeaguesController, LiveScoresApiController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,
@@ -177,6 +181,8 @@ const logger = new Logger('InfrastructureModule');
         PredictionStreamService,
         EmailService,
         LiveScoresService,
+        LiveScoresScraper,
+        LiveScoresScraper,
         GTLeaguesService,
     ],
 })

@@ -14,7 +14,8 @@ import {
 } from '../../application/use-cases';
 import { RegisterDto, LoginDto, PlaceBetDto, ForgotPasswordDto, ResetPasswordDto } from '@sports-prediction-engine/shared-types';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { LiveScoresService } from '../../infrastructure/live-scores/live-scores.service';
 
 /**
  * Sports API Controller
@@ -211,6 +212,30 @@ export class BetsController {
 }
 
 
+
+/**
+ * Live Scores API Controller
+ *
+ * Returns live scores from our scraper + API sources.
+ */
+@ApiTags('live-scores')
+@Controller('api/live-scores')
+export class LiveScoresApiController {
+    constructor(
+        private readonly liveScoresService: LiveScoresService,
+    ) { }
+
+    @Get()
+    @ApiOperation({ summary: 'Get all live scores from scraper + APIs' })
+    async getLiveScores() {
+        const matches = await this.liveScoresService.getLiveMatches();
+        return {
+            matches,
+            count: matches.length,
+            live: matches.filter(m => m.status === '1H' || m.status === '2H' || m.status === 'LIVE').length,
+        };
+    }
+}
 
 
 export { StreamController } from './stream.controller';

@@ -11,7 +11,18 @@ export class BetsService {
     private readonly API_URL = '/api/bets';
     
     // Global state for the active Bet Slip
-    public betSlipPredictions = signal<any[]>([]);
+    public betSlipPredictions = signal<any[]>(this.loadSlip());
+
+    private loadSlip(): any[] {
+        try {
+            const saved = localStorage.getItem('bet_slip');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    }
+
+    private saveSlip() {
+        try { localStorage.setItem('bet_slip', JSON.stringify(this.betSlipPredictions())); } catch {}
+    }
 
     getBets(): BetDto[] {
         // For now, return empty - bets are stored server-side and require auth
@@ -29,14 +40,17 @@ export class BetsService {
     addToSlip(prediction: any) {
         if (!this.betSlipPredictions().find(p => p.id === prediction.id)) {
             this.betSlipPredictions.update(curr => [...curr, prediction]);
+            this.saveSlip();
         }
     }
 
     removeFromSlip(predictionId: string) {
         this.betSlipPredictions.update(curr => curr.filter(p => p.id !== predictionId));
+        this.saveSlip();
     }
 
     clearSlip() {
         this.betSlipPredictions.set([]);
+        this.saveSlip();
     }
 }
