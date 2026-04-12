@@ -10,6 +10,7 @@ export interface LiveMatchData {
     externalId: string;
     sportKey: string;
     sportTitle: string;
+    league: string;
     homeTeam: string;
     awayTeam: string;
     homeScore: number;
@@ -99,6 +100,7 @@ export class LiveScoresService {
             externalId: s.id,
             sportKey: s.sportKey,
             sportTitle: s.sportTitle,
+            league: s.league,
             homeTeam: s.homeTeam,
             awayTeam: s.awayTeam,
             homeScore: s.homeScore,
@@ -200,6 +202,7 @@ export class LiveScoresService {
                     externalId: e.id?.toString() || `${categoryId}-${e.homeTeam?.name}-${e.awayTeam?.name}`,
                     sportKey: this.getSportKey(categoryId),
                     sportTitle: this.getCategoryTitle(categoryId),
+                    league: this.getCategoryTitle(categoryId),
                     homeTeam: e.homeTeam?.name || 'Home',
                     awayTeam: e.awayTeam?.name || 'Away',
                     homeScore: hs,

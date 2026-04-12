@@ -26,7 +26,7 @@ interface CachedScore {
 /**
  * Live Scores Scraper Microservice
  *
- * Polls FlashScore and other sources for live scores every 15 seconds.
+ * Polls FlashScore v2 API every 15 seconds for live scores.
  * Caches results in-memory with 5-second TTL.
  * Falls back to SportAPI when scraper is blocked.
  */
@@ -39,9 +39,8 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
     private readonly CACHE_TTL_MS = 5000;
     private readonly POLL_INTERVAL_MS = 15000;
 
-    // Source URLs
-    private readonly FLASHSCORE_URL = 'https://www.flashscore.com/football/fixtures-today';
-    private readonly SOFASCORE_URL = 'https://api.sofascore.com/api/v1/sport/football/events/live';
+    private readonly BASE_URL = 'https://flashscore4.p.rapidapi.com/api/flashscore/v2';
+    private readonly RAPID_HOST = 'flashscore4.p.rapidapi.com';
 
     constructor(
         private readonly httpService: HttpService,
@@ -76,7 +75,6 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
         const allScores: LiveScoreData[] = [];
         for (const [, cached] of this.cache) {
             if (Date.now() - cached.fetchedAt < this.CACHE_TTL_MS + 10000) {
-                // Accept data up to 10s stale
                 allScores.push(...cached.data);
             }
         }
@@ -84,20 +82,24 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
     }
 
     /**
-     * Poll all sources for live scores
+     * Poll FlashScore v2 API for live matches
      */
     private async poll() {
         if (this.isPolling) return;
         this.isPolling = true;
 
         try {
-            const scores = await this.scrapeFlashScore();
+            const apiKey = this.configService.get<string>('SCRAPER_RAPIDAPI_KEY');
+            const scores = apiKey && !apiKey.includes('your_')
+                ? await this.scrapeFlashScoreV2(apiKey)
+                : [];
+
             if (scores.length > 0) {
-                this.cache.set('flashscore', {
+                this.cache.set('flashscore_v2', {
                     data: scores,
                     fetchedAt: Date.now(),
                 });
-                this.logger.log(`Scraped ${scores.length} live matches from FlashScore`);
+                this.logger.log(`Scraped ${scores.length} live matches from FlashScore v2`);
             } else {
                 // Fallback to SportAPI
                 const fallback = await this.fallbackToSportAPI();
@@ -113,12 +115,14 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
             this.logger.warn('FlashScore scrape failed, trying fallback', error.message);
             try {
                 const fallback = await this.fallbackToSportAPI();
-                this.cache.set('fallback', {
-                    data: fallback,
-                    fetchedAt: Date.now(),
-                });
-            } catch (fbError) {
-                this.logger.error('All live score sources failed', fbError.message);
+                if (fallback.length > 0) {
+                    this.cache.set('fallback', {
+                        data: fallback,
+                        fetchedAt: Date.now(),
+                    });
+                }
+            } catch {
+                // All sources failed
             }
         } finally {
             this.isPolling = false;
@@ -126,68 +130,88 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
     }
 
     /**
-     * Scrape FlashScore for live matches
-     * Uses their JSON API endpoint (more reliable than HTML scraping)
+     * Scrape FlashScore v2 API for live matches
+     * GET /api/flashscore/v2/matches/live?sport_id=1
      */
-    private async scrapeFlashScore(): Promise<LiveScoreData[]> {
-        // FlashScore uses an API at api.flashscore.com
-        // We'll use a public proxy since direct access requires browser cookies
+    private async scrapeFlashScoreV2(apiKey: string): Promise<LiveScoreData[]> {
         const scores: LiveScoreData[] = [];
 
         try {
-            // FlashScore's public API via RapidAPI wrapper
-            const rapidKey = this.configService.get<string>('SCRAPER_RAPIDAPI_KEY');
-            if (!rapidKey) return [];
-
-            // Using FlashScore API via RapidAPI
-            const url = 'https://flashlive-sports.p.rapidapi.com/events/fixtures';
             const response = await firstValueFrom(
-                this.httpService.get(url, {
-                    params: {
-                        tournament_stage_id: '',
-                       sport_id: 1,
-                        start_date: Math.floor(Date.now() / 1000) - 3600,
-                        end_date: Math.floor(Date.now() / 1000) + 3600,
-                        timezone: 0,
-                        with_top: 1,
-                    },
+                this.httpService.get(`${this.BASE_URL}/matches/live`, {
+                    params: { sport_id: 1 },
                     headers: {
-                        'x-rapidapi-key': rapidKey,
-                        'x-rapidapi-host': 'flashlive-sports.p.rapidapi.com',
+                        'x-rapidapi-key': apiKey,
+                        'x-rapidapi-host': this.RAPID_HOST,
                     },
-                    timeout: 8000,
+                    timeout: 10_000,
                 }),
             );
 
-            const data = response.data as any;
-            const events = data?.RESULTS?.DATA || [];
+            const tournaments = response.data as any[];
+            if (!Array.isArray(tournaments)) return [];
 
-            for (const e of events) {
-                // Filter to live/in-progress matches
-                if (e.STAGE_TYPE === 3 || e.STAGE_TYPE === 4) {
-                    const minute = e.STAGE_TYPE === 3 ? this.parseMinute(e.STAGE_START_TIME, e.STAGE_END_TIME) : null;
+            for (const t of tournaments) {
+                const league = t.name || t.tournament_name || 'Unknown';
+                const matches = t.matches || [];
+
+                for (const m of matches) {
+                    const status = m.match_status || {};
+                    const homeTeam = m.home_team || {};
+                    const awayTeam = m.away_team || {};
+                    const score = m.scores || {};
+
+                    const stage = status.stage || '';
+                    const liveTime = parseInt(status.live_time || '0', 10);
+                    const isInProgress = status.is_in_progress || false;
+                    const isFinished = status.is_finished || false;
+                    const isStarted = status.is_started || false;
+
+                    let mappedStatus = 'LIVE';
+                    let minute: number | null = null;
+
+                    if (isFinished || stage === 'Finished') {
+                        mappedStatus = 'FT';
+                        minute = 90;
+                    } else if (stage === 'Halftime' || stage === 'HT') {
+                        mappedStatus = 'HT';
+                        minute = 45;
+                    } else if (isInProgress) {
+                        if (stage.includes('1st')) {
+                            mappedStatus = '1H';
+                        } else if (stage.includes('2nd')) {
+                            mappedStatus = '2H';
+                        } else if (stage.includes('Extra')) {
+                            mappedStatus = 'LIVE';
+                        }
+                        minute = liveTime || null;
+                    } else if (isStarted) {
+                        // Started but not in progress yet (e.g. penalty shootout)
+                        mappedStatus = 'LIVE';
+                        minute = liveTime || null;
+                    }
+
+                    // Only include matches that are actually live or recently finished
+                    if (!isStarted && !isFinished) continue;
+
                     scores.push({
-                        id: e.EVENT_ID,
+                        id: m.match_id || `${homeTeam.name}-${awayTeam.name}`,
                         sportKey: 'soccer_flashscore',
                         sportTitle: 'Football',
-                        league: e.TOURNAMENT_NAME || '',
-                        homeTeam: e.HOME_PARTICIPANT_NAMES?.[0] || 'Home',
-                        awayTeam: e.AWAY_PARTICIPANT_NAMES?.[0] || 'Away',
-                        homeScore: parseInt(e.HOME_SCORE_CURRENT || '0'),
-                        awayScore: parseInt(e.AWAY_SCORE_CURRENT || '0'),
-                        status: this.mapStage(e.STAGE_TYPE),
+                        league,
+                        homeTeam: homeTeam.name || 'Home',
+                        awayTeam: awayTeam.name || 'Away',
+                        homeScore: score.home ?? 0,
+                        awayScore: score.away ?? 0,
+                        status: mappedStatus,
                         minute,
-                        commenceTime: new Date(e.STAGE_START_TIME * 1000).toISOString(),
+                        commenceTime: new Date((m.timestamp || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
                         updatedAt: Date.now(),
                     });
                 }
             }
         } catch (error) {
-            // RapidAPI key not configured — skip silently
-            if (!this.configService.get<string>('SCRAPER_RAPIDAPI_KEY')) {
-                return [];
-            }
-            this.logger.warn('FlashScore API error', error.message);
+            this.logger.warn('FlashScore v2 API error', error.message);
         }
 
         return scores;
@@ -205,7 +229,6 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
 
         const scores: LiveScoreData[] = [];
 
-        // Poll multiple categories for live events
         const categories = [
             { id: 1, title: 'EPL' },
             { id: 52, title: 'PSL' },
@@ -227,10 +250,11 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
 
                 const data = response.data as any;
                 const events = data?.events || [];
+                const now = Date.now();
 
                 for (const e of events) {
                     const ct = e.startTimestamp * 1000;
-                    const elapsed = Math.floor((Date.now() - ct) / 60000);
+                    const elapsed = Math.floor((now - ct) / 60000);
 
                     if (elapsed > -2 && elapsed < 120) {
                         const hs = e.homeScore?.current ?? 0;
@@ -272,19 +296,5 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
         }
 
         return scores;
-    }
-
-    private mapStage(stageType: number): string {
-        switch (stageType) {
-            case 3: return 'LIVE';
-            case 4: return 'HT';
-            default: return 'LIVE';
-        }
-    }
-
-    private parseMinute(start: number, end: number): number | null {
-        if (!start || !end) return null;
-        const elapsed = Math.floor((Date.now() / 1000 - start) / 60);
-        return Math.min(Math.max(elapsed, 0), 90);
     }
 }
