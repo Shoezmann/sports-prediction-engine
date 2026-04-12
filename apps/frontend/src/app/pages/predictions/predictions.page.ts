@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
-import { LiveCardComponent, LiveCardData } from '../../components/live-card/live-card.component';
 import { PredictionDto } from '@sports-prediction-engine/shared-types';
 
 const LM: Record<string, [string, string, string]> = {
@@ -105,7 +104,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
-  imports: [CommonModule, LiveCardComponent],
+  imports: [CommonModule],
   template: `
 @if (loading()) {
 <div class="pg"><div class="ldr"><span class="spin"></span><p>Loading predictions...</p></div></div>
@@ -114,7 +113,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
 <div class="pg">
   <div class="hd">
     <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
-      <p class="sb">{{ lv().length }} LIVE &middot; {{ up().length }} UPCOMING</p></div></div>
+      <p class="sb">{{ total() }} MATCHES</p></div></div>
     <div class="hr">
       <span class="sd" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()"></span>
       <span class="stx" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()">{{ isLiveConnected() ? 'LIVE' : 'OFFLINE' }}</span>
@@ -141,27 +140,14 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
   </div>
 
-  @if (lv().length > 0) {
-    <div class="ls">
-      <div class="slbl slbl--click" (click)="liveOpen.set(!liveOpen())">
-        <span class="pd"></span> LIVE {{ lv().length }}
-        <span class="arr" [class.open]="liveOpen()">&#9662;</span>
-      </div>
-      @if (liveOpen()) {
-      @for (m of lv(); track m.p.id) {
-        <sp-live-card [data]="liveData(m)"></sp-live-card>
-      }
-      }
-    </div>
-  }
-  @if (up().length > 0) {
+  @if (filt().length > 0) {
     <div class="slbl">UPCOMING</div>
     <div class="tw"><table class="tb">
       <thead><tr>
         <th>TIME</th><th>DATE</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>PICK</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th>
       </tr></thead>
       <tbody>
-        @for (m of up(); track m.p.id) {
+        @for (m of filt(); track m.p.id) {
           <tr>
             <td class="mo">{{ m.tl }}</td>
             <td class="mo di">{{ m.dt }}</td>
@@ -245,7 +231,6 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
 export class PredictionsPage implements OnInit, OnDestroy {
   pp = signal<PredictionDto[]>([]);
   loading = signal(true);
-  liveOpen = signal(true);
   sc = signal<string | null>(null);
   sr = signal<string | null>(null);
   sl = signal<string | null>(null);
@@ -338,18 +323,6 @@ export class PredictionsPage implements OnInit, OnDestroy {
     this.es.onerror = () => {
       this.isLiveConnected.set(false);
       setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000);
-    };
-  }
-  liveData(m: MR): LiveCardData {
-    const mn = m.mn;
-    const st = m.live ? (m.mn <= 45 ? '1H' : m.mn <= 47 ? 'HT' : '2H') : '';
-    return {
-      id: m.p.id, cat: m.cat, reg: m.reg, lg: m.lg,
-      home: m.p.game.homeTeam.name, away: m.p.game.awayTeam.name,
-      homeScore: 0, awayScore: 0,
-      minute: mn > 0 && mn < 120 ? mn : null, status: st,
-      pick: this.pK(m.p), pickLabel: this.pL(m.p),
-      confidence: m.p.confidence, confidenceLevel: m.p.confidenceLevel,
     };
   }
 

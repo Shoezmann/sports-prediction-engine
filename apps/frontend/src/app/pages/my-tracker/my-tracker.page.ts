@@ -134,20 +134,11 @@ interface TrackedMatch {
       </div>
       @if (liveOpen()) {
       @for (m of liveMatches(); track m.id) {
-        <div class="lr">
-          <span class="lcat">{{ m.cat }}</span>
-          <span class="llg">{{ m.lg || '\u2014' }}</span>
-          <span class="lteams"><span [class.di]="m.pick==='away'">{{ m.home }}</span> <span class="lsc">{{ m.homeScore ?? 0 }}-{{ m.awayScore ?? 0 }}</span> <span [class.di]="m.pick==='home'">{{ m.away }}</span></span>
-          <span class="lmin">{{ m.tl }}</span>
-          <span class="lmin">{{ m.mn }}'</span>
-          <span class="lpick" [class]="'pk' + m.pick">{{ m.pickLabel }}</span>
-          <button class="rm" (click)="untrack(m.id)">&times;</button>
-        </div>
+        <sp-live-card [data]="trackerLiveData(m)"></sp-live-card>
       }
       }
     </div>
   }
-
   @if (upcoming().length > 0) {
     <div class="slbl">UPCOMING</div>
     <div class="tw"><table class="tb">
