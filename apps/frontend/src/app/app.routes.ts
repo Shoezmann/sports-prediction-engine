@@ -36,11 +36,10 @@ export const appRoutes: Route[] = [
             ),
     },
     {
-        path: 'my-bets',
-        canActivate: [authGuard],
+        path: 'tracker',
         loadComponent: () =>
-            import('./pages/my-bets/my-bets.page').then(
-                (m) => m.MyBetsPage,
+            import('./pages/my-tracker/my-tracker.page').then(
+                (m) => m.MyTrackerPage,
             ),
     },
     {

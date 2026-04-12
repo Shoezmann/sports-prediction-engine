@@ -2,12 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { Cron, Interval } from '@nestjs/schedule';
+import { Interval } from '@nestjs/schedule';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
-import { TheOddsApiAdapter } from '../adapters/odds-api/the-odds-api.adapter';
-import { SportRepositoryPort } from '../../domain/ports/output';
-import { GTLeaguesService } from '../gt-leagues/gt-leagues.service';
-import { SPORT_REPOSITORY_PORT } from '../../domain/ports/output';
 
 export interface LiveMatchData {
     externalId: string;
@@ -25,8 +21,7 @@ export interface LiveMatchData {
 /**
  * Live Scores Service
  *
- * Polls The Odds API for live Esoccer scores every 30 seconds.
- * Detects first/second half based on commence time and minute elapsed.
+ * Polls SportAPI for live scores every 30 seconds.
  * Broadcasts live score updates via SSE.
  */
 @Injectable()
@@ -35,17 +30,19 @@ export class LiveScoresService {
     private liveMatches: Map<string, LiveMatchData> = new Map();
     private isPolling = false;
 
-    // Esoccer matches are typically 10-12 minutes per half
-    // We use this to determine half status
-    private readonly HALF_DURATION_MS = 7 * 60 * 1000; // 7 minutes per half for GT Leagues
-    private readonly HALF_TIME_BUFFER_MS = 2 * 60 * 1000; // 2 min halftime buffer
+    // SportAPI categories that have live data
+    private readonly SPORT_API_CATEGORIES = [
+        { id: 1, key: 'soccer_epl', title: 'Soccer - EPL' },
+        { id: 2, key: 'basketball_nba', title: 'Basketball - NBA' },
+        { id: 3, key: 'tennis_atp', title: 'Tennis - ATP' },
+        { id: 52, key: 'soccer_south_africa_psl', title: 'Soccer - PSL' },
+        { id: 23114, key: 'soccer_esoccer_gt_leagues_12', title: 'Esoccer GT Leagues' },
+    ];
 
     constructor(
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
         private readonly streamService: PredictionStreamService,
-        private readonly oddsApiAdapter: TheOddsApiAdapter,
-        private readonly gtLeaguesService: GTLeaguesService,
     ) { }
 
     /**
@@ -56,46 +53,33 @@ export class LiveScoresService {
         if (this.isPolling) return;
         this.isPolling = true;
 
-        try {
-            // Focus on Esoccer sports for live data
-            const esportsKeys = [
-                'soccer_eseries',
-                'soccer_brazil_campeonato',
-                'soccer_argentina_primera_division',
-                'soccer_epl',
-                'soccer_spain_la_liga',
-                'soccer_germany_bundesliga',
-                'soccer_italy_serie_a',
-                'soccer_france_ligue_one',
-            ];
+        const apiKey = this.configService.get<string>('SPORT_API_KEY');
+        if (!apiKey || apiKey.includes('your_')) {
+            this.isPolling = false;
+            return;
+        }
 
+        try {
             const newMatches = new Map<string, LiveMatchData>();
 
-            for (const sportKey of esportsKeys) {
+            for (const cat of this.SPORT_API_CATEGORIES) {
                 try {
-                    const scores = await this.fetchScores(sportKey, 1);
-
-                    for (const score of scores) {
-                        if (!score.completed && score.homeScore !== null && score.awayScore !== null) {
-                            const matchData = this.enrichWithHalfInfo(score, sportKey);
-                            if (matchData) {
-                                newMatches.set(matchData.externalId, matchData);
-                            }
-                        }
+                    const matches = await this.fetchLiveMatches(cat.id, apiKey);
+                    for (const m of matches) {
+                        newMatches.set(m.externalId, m);
                     }
-                } catch (error) {
-                    // Sport not available or no live games — skip silently
+                } catch {
+                    // Skip silently
                 }
             }
 
-            // Update live matches
             const changed = this.updateLiveMatches(newMatches);
-
             if (changed) {
                 this.streamService.broadcast('live_scores', {
                     matches: Array.from(newMatches.values()),
                     count: newMatches.size,
                 });
+                this.logger.log(`📡 Live scores updated: ${newMatches.size} matches`);
             }
 
             this.liveMatches = newMatches;
@@ -107,106 +91,103 @@ export class LiveScoresService {
     }
 
     /**
-     * Fetch scores from The Odds API
+     * Fetch live matches from SportAPI
      */
-    private async fetchScores(sportKey: string, daysFrom: number): Promise<any[]> {
-        const apiKey = this.configService.get<string>('ODDS_API_KEY');
-        if (!apiKey || apiKey === 'your_api_key_here') return [];
+    private async fetchLiveMatches(categoryId: number, apiKey: string): Promise<LiveMatchData[]> {
+        const baseUrl = this.configService.get<string>('SPORT_API_BASE_URL', 'https://sportapi7.p.rapidapi.com/api/v1');
+        const apiHost = this.configService.get<string>('SPORT_API_HOST', 'sportapi7.p.rapidapi.com');
 
-        const baseUrl = this.configService.get<string>('ODDS_API_BASE_URL', 'https://api.the-odds-api.com/v4');
-        const url = `${baseUrl}/sports/${sportKey}/scores`;
+        // Get upcoming/recent events for this category
+        const url = `${baseUrl}/events/schedule`;
+        const response = await firstValueFrom(
+            this.httpService.get(url, {
+                params: { categoryId: categoryId.toString() },
+                headers: {
+                    'x-rapidapi-key': apiKey,
+                    'x-rapidapi-host': apiHost,
+                },
+                timeout: 10_000,
+            }),
+        );
 
-        try {
-            const response = await firstValueFrom(
-                this.httpService.get(url, {
-                    params: {
-                        apiKey,
-                        daysFrom: daysFrom.toString(),
-                    },
-                    timeout: 10_000,
-                }),
-            );
+        const data = response.data as any;
+        if (!data?.events) return [];
 
-            return response.data || [];
-        } catch {
-            return [];
-        }
-    }
+        const now = Date.now();
+        return data.events
+            .filter((e: any) => {
+                const ct = e.startTimestamp * 1000;
+                const elapsed = (now - ct) / 60000;
+                // Live if started within last 2 hours and has scores or is in progress
+                return elapsed > -5 && elapsed < 120;
+            })
+            .map((e: any) => {
+                const ct = e.startTimestamp * 1000;
+                const elapsedMin = Math.floor((now - ct) / 60000);
+                const hs = e.homeScore?.current ?? 0;
+                const as_ = e.awayScore?.current ?? 0;
+                const statusType = e.status?.type;
 
-    /**
-     * Determine half status and minute from score data
-     */
-    private enrichWithHalfInfo(score: any, sportKey: string): LiveMatchData | null {
-        if (!score.completed && score.scores && score.scores.length > 0) {
-            // Determine half based on commence time
-            const commenceTime = new Date(score.commence_time);
-            const now = new Date();
-            const elapsedMs = now.getTime() - commenceTime.getTime();
-            const elapsedMin = Math.floor(elapsedMs / 60000);
+                let status: LiveMatchData['status'] = 'LIVE';
+                let minute: number | null = null;
 
-            let status: LiveMatchData['status'] = 'LIVE';
-            let minute: number | null = null;
-
-            if (elapsedMin < 0) return null; // Not started yet
-
-            // For standard soccer (45 min halves)
-            if (sportKey.startsWith('soccer_') && !sportKey.includes('esoccer') && !sportKey.includes('eseries')) {
-                if (elapsedMin <= 45) {
-                    status = '1H';
-                    minute = Math.min(elapsedMin, 45);
-                } else if (elapsedMin <= 47) {
-                    status = 'HT';
-                    minute = 45;
-                } else if (elapsedMin <= 90) {
-                    status = '2H';
-                    minute = Math.min(elapsedMin - 2, 90);
-                } else {
+                if (statusType === 'finished' || statusType === 'ended') {
                     status = 'FT';
                     minute = 90;
-                }
-            } else {
-                // Esoccer GT Leagues (7 min halves typically)
-                const halfDuration = 7;
-                const htBuffer = 2;
-
-                if (elapsedMin <= halfDuration) {
-                    status = '1H';
-                    minute = elapsedMin;
-                } else if (elapsedMin <= halfDuration + htBuffer) {
+                } else if (statusType === 'halftime' || statusType === 'break') {
                     status = 'HT';
-                    minute = halfDuration;
-                } else if (elapsedMin <= halfDuration * 2 + htBuffer) {
-                    status = '2H';
-                    minute = Math.min(elapsedMin - htBuffer, halfDuration * 2);
-                } else {
-                    status = 'FT';
-                    minute = halfDuration * 2;
+                    minute = 45;
+                } else if (statusType === 'inprogress' || statusType === 'started') {
+                    // Determine half
+                    if (elapsedMin <= 45) {
+                        status = '1H';
+                        minute = Math.min(elapsedMin, 45);
+                    } else if (elapsedMin <= 47) {
+                        status = 'HT';
+                        minute = 45;
+                    } else if (elapsedMin <= 90) {
+                        status = '2H';
+                        minute = Math.min(elapsedMin - 2, 90);
+                    } else {
+                        status = 'FT';
+                        minute = 90;
+                    }
+                } else if (elapsedMin > 0 && elapsedMin < 120) {
+                    // Has elapsed time but no status - infer from time
+                    if (elapsedMin <= 45) {
+                        status = '1H';
+                        minute = elapsedMin;
+                    } else if (elapsedMin <= 47) {
+                        status = 'HT';
+                        minute = 45;
+                    } else {
+                        status = '2H';
+                        minute = Math.min(elapsedMin - 2, 90);
+                    }
                 }
-            }
 
-            // Extract scores
-            let homeScore = 0;
-            let awayScore = 0;
-            for (const s of score.scores) {
-                if (s.name === score.home_team) homeScore = parseInt(s.score, 10) || 0;
-                if (s.name === score.away_team) awayScore = parseInt(s.score, 10) || 0;
-            }
+                return {
+                    externalId: e.id?.toString() || `${categoryId}-${e.homeTeam?.name}-${e.awayTeam?.name}`,
+                    sportKey: this.getSportKey(categoryId),
+                    sportTitle: this.getCategoryTitle(categoryId),
+                    homeTeam: e.homeTeam?.name || 'Home',
+                    awayTeam: e.awayTeam?.name || 'Away',
+                    homeScore: hs,
+                    awayScore: as_,
+                    status,
+                    minute,
+                    commenceTime: new Date(ct).toISOString(),
+                };
+            })
+            .filter((m: LiveMatchData) => m.status !== 'FT' || m.minute !== null);
+    }
 
-            return {
-                externalId: score.id,
-                sportKey: score.sport_key,
-                sportTitle: score.sport_title || sportKey,
-                homeTeam: score.home_team,
-                awayTeam: score.away_team,
-                homeScore,
-                awayScore,
-                status,
-                minute,
-                commenceTime: score.commence_time,
-            };
-        }
+    private getSportKey(categoryId: number): string {
+        return this.SPORT_API_CATEGORIES.find(c => c.id === categoryId)?.key || 'unknown';
+    }
 
-        return null;
+    private getCategoryTitle(categoryId: number): string {
+        return this.SPORT_API_CATEGORIES.find(c => c.id === categoryId)?.title || 'Unknown';
     }
 
     /**
@@ -227,7 +208,6 @@ export class LiveScoresService {
             }
         }
 
-        // Check for finished matches
         for (const [id] of this.liveMatches) {
             if (!newMatches.has(id)) {
                 changed = true;
@@ -238,11 +218,9 @@ export class LiveScoresService {
     }
 
     /**
-     * Get current live matches (for API endpoint)
+     * Get current live matches
      */
-    async getLiveMatches(): Promise<(LiveMatchData | any)[]> {
-        const regularMatches = Array.from(this.liveMatches.values());
-        const gtMatches = await this.gtLeaguesService.getMatches();
-        return [...gtMatches, ...regularMatches];
+    async getLiveMatches(): Promise<LiveMatchData[]> {
+        return Array.from(this.liveMatches.values());
     }
 }

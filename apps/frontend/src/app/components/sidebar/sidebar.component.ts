@@ -36,7 +36,7 @@ import { ThemeService } from '../../services/theme.service';
 
         <div class="nav-group">
           <span class="nav-label">Activity</span>
-          <a routerLink="/my-bets" routerLinkActive="active" class="nav-item">
+          <a routerLink="/tracker" routerLinkActive="active" class="nav-item">
             <span class="material-symbols-rounded">receipt_long</span>
             <span>My Tracker</span>
           </a>

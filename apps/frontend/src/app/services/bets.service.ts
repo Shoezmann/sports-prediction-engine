@@ -8,10 +8,15 @@ import { BetDto, PlaceBetDto } from '@sports-prediction-engine/shared-types';
 })
 export class BetsService {
     private http = inject(HttpClient);
-    private readonly API_URL = 'http://localhost:3000/api/bets';
+    private readonly API_URL = '/api/bets';
     
     // Global state for the active Bet Slip
     public betSlipPredictions = signal<any[]>([]);
+
+    getBets(): BetDto[] {
+        // For now, return empty - bets are stored server-side and require auth
+        return [];
+    }
 
     getUserBets(userId: string): Observable<BetDto[]> {
         return this.http.get<BetDto[]>(`${this.API_URL}?userId=${userId}`);
