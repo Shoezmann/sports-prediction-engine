@@ -133,7 +133,7 @@ export class PredictionScheduler {
     // This gives clients real-time updates without page refresh.
     @Interval('live-broadcast', 60_000)
     async handleLiveBroadcast() {
-        if (this.streamService.getClientCount() === 0) return;
+        // Always broadcast to connected clients
 
         try {
             const predictions = await this.getPendingPredictions.execute();

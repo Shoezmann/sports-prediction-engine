@@ -1,5 +1,5 @@
 import { Controller, Sse, MessageEvent } from '@nestjs/common';
-import { Observable, interval, map } from 'rxjs';
+import { Observable, interval, merge, map } from 'rxjs';
 import { PredictionStreamService } from '../../infrastructure/sse/prediction-stream.service';
 import { ApiTags } from '@nestjs/swagger';
 
@@ -12,10 +12,23 @@ export class StreamController {
 
     @Sse('predictions')
     predictionsStream(): Observable<MessageEvent> {
-        return interval(15_000).pipe(
+        // Merge live broadcast messages with periodic heartbeats
+        const broadcasts$ = this.streamService.message$.pipe(
+            map((msg) => ({
+                data: {
+                    type: msg.event,
+                    timestamp: new Date().toISOString(),
+                    data: msg.data,
+                },
+            } as MessageEvent)),
+        );
+
+        const heartbeats$ = interval(15_000).pipe(
             map(() => ({
                 data: { type: 'heartbeat', timestamp: new Date().toISOString() },
             } as MessageEvent)),
         );
+
+        return merge(broadcasts$, heartbeats$);
     }
 }
