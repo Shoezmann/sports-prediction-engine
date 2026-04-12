@@ -20,6 +20,7 @@ const LM: Record<string, [string, string, string]> = {
   'soccer_germany_liga3': ['SOCCER', 'GERMANY', 'LIGA 3'],
   'soccer_italy_serie_a': ['SOCCER', 'ITALY', 'SERIE A'],
   'soccer_italy_serie_b': ['SOCCER', 'ITALY', 'SERIE B'],
+  'soccer_italy_coppa_italia': ['SOCCER', 'ITALY', 'COPPA ITALIA'],
   'soccer_france_ligue_one': ['SOCCER', 'FRANCE', 'LIGUE 1'],
   'soccer_france_ligue_two': ['SOCCER', 'FRANCE', 'LIGUE 2'],
   'soccer_netherlands_eredivisie': ['SOCCER', 'NETHERLANDS', 'EREDIVISIE'],
@@ -93,6 +94,10 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
   standalone: true,
   imports: [CommonModule],
   template: `
+@if (loading()) {
+<div class="pg"><div class="ldr"><span class="spin"></span><p>Loading predictions...</p></div></div>
+}
+@if (!loading()) {
 <div class="pg">
   <div class="hd">
     <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
@@ -130,8 +135,9 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
         <span class="lcat">{{ m.cat }}</span>
         <span class="llg">{{ m.lg || '\u2014' }}</span>
         <span class="lteams"><span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span> <span class="lvs">vs</span> <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span></span>
-        <span class="lpick" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span>
         <span class="lmin">{{ m.tl }}</span>
+        <span class="lpick" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span>
+        <span class="lconf">{{ (m.p.confidence * 100).toFixed(0) }}%</span>
       </div>
     }
     </div>
@@ -174,9 +180,14 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
   @if (total() === 0) {
     <div class="em"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES IN SYSTEM        \u2502\n\u2502  Pipeline runs every 5 min   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre></div>
   }
-</div>`,
+</div>
+}`,
   styles: [`
     .pg{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
+    .ldr{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;gap:12px}
+    .spin{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .ldr p{color:var(--color-text-muted);font-family:var(--font-family);font-size:0.8125rem}
     .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
     .hl{display:flex;align-items:flex-start;gap:8px}
     .pr{font-family:var(--font-family);font-size:1.25rem;color:var(--color-accent);font-weight:700;line-height:1}
@@ -199,9 +210,10 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     .llg{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-secondary);min-width:110px}
     .lteams{font-family:var(--font-family);font-size:0.75rem;color:var(--color-text-primary);flex:1}
     .lvs{color:var(--color-text-muted);font-size:0.625rem;margin:0 4px}
-    .lmin{font-family:var(--font-family);font-size:0.75rem;font-weight:700;color:#ef4444;min-width:40px;text-align:right}.lconf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;color:var(--color-text-muted);min-width:35px;text-align:right}
+    .lmin{font-family:var(--font-family);font-size:0.8125rem;font-weight:700;color:#ef4444;min-width:45px;text-align:right}
     .lpick{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px;white-space:nowrap}
     .pkh{color:#3b82f6;background:rgba(59,130,246,0.1)}.pka{color:#a78bfa;background:rgba(167,139,250,0.1)}.pkd{color:#fbbf24;background:rgba(251,191,36,0.1)}
+    .lconf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;color:var(--color-text-muted);min-width:35px;text-align:right}
     .tw{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:var(--radius-xs);overflow-x:auto;-webkit-overflow-scrolling:touch}
     .tw::-webkit-scrollbar{height:5px}.tw::-webkit-scrollbar-track{background:var(--color-bg-secondary)}.tw::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
     .tb{width:100%;min-width:800px;border-collapse:collapse;font-family:var(--font-family)}
@@ -220,22 +232,27 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
 })
 export class PredictionsPage implements OnInit, OnDestroy {
   pp = signal<PredictionDto[]>([]);
+  loading = signal(true);
   sc = signal<string | null>(null);
   sr = signal<string | null>(null);
   sl = signal<string | null>(null);
   lastRefresh = signal('');
   isLiveConnected = signal(false);
+  private timer = signal(Date.now());
+  private tId: any = null;
   private es: EventSource | null = null;
   private api = inject(ApiService);
   authService = inject(AuthService);
   private bs = inject(BetsService);
   private router = inject(Router);
 
-  ngOnInit() { this.ld(); this.fd(); this.cs(); }
-  ngOnDestroy() { this.ds(); }
+  ngOnInit() { this.ld(); this.fd(); this.cs(); this.st(); }
+  ngOnDestroy() { this.ds(); if (this.tId) clearInterval(this.tId); }
+
+  private st() { this.tId = setInterval(() => this.timer.set(Date.now()), 10000); }
 
   all = computed<MR[]>(() => {
-    const now = Date.now();
+    const now = this.timer();
     return this.pp()
       .filter(p => { const d = now - new Date(p.game.commenceTime).getTime(); return d < 7200000; })
       .map(p => {
@@ -263,11 +280,11 @@ export class PredictionsPage implements OnInit, OnDestroy {
   cats = computed(() => [...new Set(this.all().map(m => m.cat))].sort());
   regs = computed(() => { const c = this.sc(); return [...new Set(this.all().filter(m => !c || m.cat === c).map(m => m.reg))].sort(); });
   lgs = computed(() => { const c = this.sc(), r = this.sr(); return [...new Set(this.all().filter(m => (!c || m.cat === c) && (!r || m.reg === r)).map(m => m.lg))].sort(); });
-  lv = computed(() => { const a = this.all(); return a.filter(m => m.live); });
-  filt = computed(() => this.applyFilter(this.all()));
+  lv = computed(() => this.all().filter(m => m.live));
+  filt = computed(() => this.af(this.all()));
   up = computed(() => this.filt().filter(m => !m.live));
 
-  private applyFilter(ms: MR[]): MR[] {
+  private af(ms: MR[]): MR[] {
     let f = ms;
     const c = this.sc(); if (c) f = f.filter(m => m.cat === c);
     const r = this.sr(); if (r) f = f.filter(m => m.reg === r);
@@ -286,7 +303,28 @@ export class PredictionsPage implements OnInit, OnDestroy {
   tS(p: PredictionDto) { if (this.iS(p.id)) this.bs.removeFromSlip(p.id); else this.bs.addToSlip(p); }
   ld() { try { const s = JSON.parse(localStorage.getItem('pv') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
   sv() { try { localStorage.setItem('pv', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
-  fd() { this.api.getPendingPredictions().subscribe({ next: d => { this.pp.set(d); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); }, error: () => {} }); }
-  cs() { this.ds(); this.es = new EventSource(window.location.origin + '/api/stream/predictions'); this.es.onopen = () => this.isLiveConnected.set(true); this.es.addEventListener('predictions', (e: any) => { try { const d = JSON.parse(e.data); if (d.data?.predictions) this.pp.set(d.data.predictions); if (d.data?.liveMatches) this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); } catch {} }); this.es.addEventListener('heartbeat', () => this.isLiveConnected.set(true)); this.es.onerror = () => { this.isLiveConnected.set(false); setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000); }; }
+  fd() {
+    this.loading.set(true);
+    this.api.getPendingPredictions().subscribe({
+      next: d => { this.pp.set(d); this.loading.set(false); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); },
+      error: () => { this.loading.set(false); }
+    });
+  }
+  cs() {
+    this.ds(); this.es = new EventSource(window.location.origin + '/api/stream/predictions');
+    this.es.onopen = () => this.isLiveConnected.set(true);
+    this.es.addEventListener('predictions', (e: any) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.data?.predictions) this.pp.set(d.data.predictions);
+        this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      } catch {}
+    });
+    this.es.addEventListener('heartbeat', () => this.isLiveConnected.set(true));
+    this.es.onerror = () => {
+      this.isLiveConnected.set(false);
+      setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000);
+    };
+  }
   ds() { if (this.es) { this.es.close(); this.es = null; this.isLiveConnected.set(false); } }
 }
