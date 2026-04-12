@@ -42,7 +42,9 @@ import { PredictionStreamService } from './sse/prediction-stream.service';
 
 // Email
 import { EmailService } from './email/email.service';
+import { LiveScoresService } from './live-scores/live-scores.service';
 import { StreamController } from '../api/controllers/stream.controller';
+import { LiveScoresController } from '../api/controllers/live-scores.controller';
 
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
@@ -108,6 +110,9 @@ const logger = new Logger('InfrastructureModule');
         // ── Email ──
         EmailService,
 
+        // ── Live Scores ──
+        LiveScoresService,
+
         // ── API Adapter ──
         TheOddsApiAdapter,
         ApiFootballAdapter,
@@ -147,7 +152,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
-    controllers: [StreamController],
+    controllers: [StreamController, LiveScoresController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,
@@ -166,6 +171,7 @@ const logger = new Logger('InfrastructureModule');
         JwtModule,
         PredictionStreamService,
         EmailService,
+        LiveScoresService,
     ],
 })
 export class InfrastructureModule { }

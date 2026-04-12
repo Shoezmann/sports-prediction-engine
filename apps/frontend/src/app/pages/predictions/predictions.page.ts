@@ -16,13 +16,27 @@ interface SportCategoryGroup {
 
 interface MatchRow {
   prediction: PredictionDto;
-  sportCategory: string;  // SOCCER
-  region: string;         // GERMANY
-  league: string;         // BUNDESLIGA
+  sportCategory: string;
+  region: string;
+  league: string;
   isLive: boolean;
   minutesPlayed: number | null;
   currentScore: string | null;
+  halfStatus: '1H' | '2H' | 'HT' | 'FT' | 'LIVE' | null;
   timeLabel: string;
+}
+
+interface LiveMatchRow {
+  externalId: string;
+  sportKey: string;
+  sportTitle: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  status: '1H' | '2H' | 'HT' | 'FT' | 'LIVE';
+  minute: number | null;
+  commenceTime: string;
 }
 
 @Component({
@@ -101,43 +115,36 @@ interface MatchRow {
         </div>
       }
 
-      <!-- Live Matches (always shown at top if any) -->
-      @if (liveMatches().length > 0) {
-        <div class="section">
+      <!-- Live Matches -->
+      @if (liveScoreMatches().length > 0) {
+        <div class="section section--live">
           <h2 class="section__title">
-            <span class="live-dot"></span>
-            LIVE NOW
+            <span class="live-pulse"></span>
+            LIVE NOW — {{ liveScoreMatches().length }} MATCH{{ liveScoreMatches().length > 1 ? 'ES' : '' }}
           </h2>
-          @for (match of liveMatches(); track match.prediction.id) {
-            <div class="match-row match-row--live">
-              <div class="match-row__time">
-                <span class="match-row__minute">{{ match.minutesPlayed }}'</span>
-              </div>
-              <div class="match-row__region">{{ match.region }} · {{ match.league }}</div>
-              <div class="match-row__match">
-                <span class="match-row__home" [class.dimmed]="predictedSide(match.prediction) === 'away'">{{ match.prediction.game.homeTeam.name }}</span>
-                <span class="match-row__score">{{ match.currentScore }}</span>
-                <span class="match-row__away" [class.dimmed]="predictedSide(match.prediction) === 'home'">{{ match.prediction.game.awayTeam.name }}</span>
-              </div>
-              <div class="match-row__pick">
-                <span class="pick pick--live">{{ pickLabel(match.prediction) }}</span>
-              </div>
-              <div class="match-row__edge">
-                <span class="edge" [class.edge--high]="match.prediction.confidenceLevel === 'high'" [class.edge--med]="match.prediction.confidenceLevel === 'medium'" [class.edge--low]="match.prediction.confidenceLevel === 'low'">
-                  {{ (match.prediction.confidence * 100).toFixed(0) }}%
+          @for (match of liveScoreMatches(); track match.externalId) {
+            <div class="live-match-card">
+              <div class="live-match-card__header">
+                <span class="live-match-card__sport">{{ match.sportTitle || match.sportKey }}</span>
+                <span class="live-match-card__half" [class]="'live-match-card__half--' + match.status.toLowerCase()">
+                  @if (match.status === '1H') { 1ST HALF }
+                  @else if (match.status === '2H') { 2ND HALF }
+                  @else if (match.status === 'HT') { HALF TIME }
+                  @else if (match.status === 'FT') { FULL TIME }
+                  @else { LIVE }
+                  @if (match.minute != null) { · {{ match.minute }}' }
                 </span>
               </div>
-              <div class="match-row__ev">
-                @if (match.prediction.expectedValue != null) {
-                  <span class="ev" [class.ev--pos]="match.prediction.expectedValue > 0" [class.ev--neg]="match.prediction.expectedValue <= 0">
-                    {{ match.prediction.expectedValue > 0 ? '+' : '' }}{{ (match.prediction.expectedValue * 100).toFixed(1) }}%
-                  </span>
-                }
-              </div>
-              <div class="match-row__action">
-                <button class="btn-add" [class.btn-add--in]="isInSlip(match.prediction.id)" (click)="addToSlip(match.prediction)" [disabled]="isInSlip(match.prediction.id)">
-                  {{ isInSlip(match.prediction.id) ? '✓' : '+' }}
-                </button>
+              <div class="live-match-card__teams">
+                <div class="live-match-card__team" [class.leading]="match.homeScore > match.awayScore">
+                  <span class="live-match-card__name">{{ match.homeTeam }}</span>
+                  <span class="live-match-card__score">{{ match.homeScore }}</span>
+                </div>
+                <span class="live-match-card__vs">—</span>
+                <div class="live-match-card__team" [class.leading]="match.awayScore > match.homeScore">
+                  <span class="live-match-card__name">{{ match.awayTeam }}</span>
+                  <span class="live-match-card__score">{{ match.awayScore }}</span>
+                </div>
               </div>
             </div>
           }
@@ -427,6 +434,134 @@ interface MatchRow {
       margin-bottom: 28px;
     }
 
+    // ─── Live Matches Section ─────────────────────
+    .section--live {
+      background: linear-gradient(180deg, rgba(239, 68, 68, 0.03) 0%, transparent 100%);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+    }
+
+    .live-pulse {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+      animation: pulse-glow 1.5s ease-in-out infinite;
+    }
+
+    .live-match-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 8px;
+      transition: all var(--transition-fast);
+
+      &:last-child { margin-bottom: 0; }
+
+      &:hover {
+        border-color: rgba(239, 68, 68, 0.3);
+        background: var(--color-bg-card-hover);
+      }
+    }
+
+    .live-match-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .live-match-card__sport {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      color: var(--color-text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .live-match-card__half {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius-xs);
+      letter-spacing: 0.03em;
+
+      &--1h {
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+      }
+
+      &--2h {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.1);
+      }
+
+      &--ht {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.1);
+      }
+
+      &--ft {
+        color: var(--color-text-muted);
+        background: var(--color-bg-tertiary);
+      }
+
+      &--live {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+        animation: pulse-glow 2s ease-in-out infinite;
+      }
+    }
+
+    .live-match-card__teams {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .live-match-card__team {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+
+      &.leading .live-match-card__score {
+        color: var(--color-accent);
+      }
+    }
+
+    .live-match-card__team:last-child {
+      justify-content: flex-end;
+    }
+
+    .live-match-card__name {
+      font-family: var(--font-family);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .live-match-card__score {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--color-text-secondary);
+      transition: color var(--transition-fast);
+    }
+
+    .live-match-card__vs {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      padding: 0 16px;
+    }
+
+
     .section__title {
       display: flex;
       align-items: center;
@@ -699,6 +834,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
   selectedLeague = signal<string | null>(null);
   lastRefresh = signal<string>('');
   isLiveConnected = signal(false);
+  liveScoreMatches = signal<LiveMatchRow[]>([]);
   private eventSource: EventSource | null = null;
 
   private api = inject(ApiService);
@@ -736,7 +872,22 @@ export class PredictionsPage implements OnInit, OnDestroy {
           if (data.data.accuracy) {
             this.accuracy.set(data.data.accuracy);
           }
+          if (data.data.liveMatches) {
+            this.liveScoreMatches.set(data.data.liveMatches);
+          }
           this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    });
+
+    // Separate live_scores event for real-time score updates
+    this.eventSource.addEventListener('live_scores', (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.data?.matches) {
+          this.liveScoreMatches.set(data.data.matches);
         }
       } catch {
         // Ignore parse errors
@@ -909,6 +1060,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
       isLive,
       minutesPlayed,
       currentScore: null,
+      halfStatus: isLive ? 'LIVE' : null,
       timeLabel,
     };
   }

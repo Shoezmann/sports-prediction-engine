@@ -9,6 +9,7 @@ import { HistoricalBackfillUseCase } from '../../application/use-cases/historica
 import { GetPendingPredictionsUseCase } from '../../application/use-cases/get-pending-predictions.use-case';
 import { GetAccuracyUseCase } from '../../application/use-cases/get-accuracy.use-case';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
+import { LiveScoresService } from '../live-scores/live-scores.service';
 
 /**
  * Production-ready Prediction Pipeline Scheduler
@@ -42,6 +43,7 @@ export class PredictionScheduler {
         private readonly getPendingPredictions: GetPendingPredictionsUseCase,
         private readonly getAccuracy: GetAccuracyUseCase,
         private readonly streamService: PredictionStreamService,
+        private readonly liveScoresService: LiveScoresService,
         private readonly configService: ConfigService,
     ) {
         this.isProd = this.configService.get<string>('NODE_ENV') === 'production';
@@ -137,6 +139,7 @@ export class PredictionScheduler {
             const predictions = await this.getPendingPredictions.execute();
             const accuracy = await this.getAccuracy.execute();
 
+            const liveMatches = this.liveScoresService.getLiveMatches();
             this.streamService.broadcast('predictions', {
                 count: predictions.length,
                 liveCount: predictions.filter(p => {
@@ -146,6 +149,7 @@ export class PredictionScheduler {
                 }).length,
                 predictions,
                 accuracy,
+                liveMatches,
             });
         } catch (error) {
             this.logger.error('[SSE] Failed to broadcast predictions', error);
