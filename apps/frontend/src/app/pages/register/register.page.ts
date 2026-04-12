@@ -442,18 +442,26 @@ export class RegisterPage {
   }
 
   onSubmit() {
-    if (this.registerForm.invalid) return;
+    if (this.registerForm.invalid) {
+      this.registerForm.markAllAsTouched();
+      if (this.registerForm.get('password')?.hasError('minlength')) {
+        this.errorMessage = 'Password must be at least 8 characters.';
+      } else {
+        this.errorMessage = 'Please fill in all required fields correctly.';
+      }
+      return;
+    }
 
     this.isLoading = true;
     this.errorMessage = '';
 
-    const formVal = this.registerForm.value; this.authService.register({ ...formVal, firstName: formVal.firstName || undefined } as RegisterDto).subscribe({
-      next: () => {
-        this.router.navigate(['/']);
-      },
+    const formVal = this.registerForm.value;
+    this.authService.register({ ...formVal, firstName: formVal.firstName || undefined } as RegisterDto).subscribe({
+      next: () => { this.isLoading = false; this.router.navigate(['/']); },
       error: (err) => {
         this.isLoading = false;
-        const msg = err.error?.message; this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Registration failed. Please try again.');
+        const msg = err.error?.message;
+        this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Registration failed. Please try again.');
       }
     });
   }

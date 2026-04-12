@@ -425,24 +425,25 @@ export class LoginPage {
   errorMessage = '';
 
   socialLogin(provider: 'google' | 'github' | 'apple') {
-    // Placeholder: redirect to OAuth endpoint
-    // In production: window.location.href = `/api/auth/${provider}`;
-    this.errorMessage = `${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth not yet configured. Use email login for now.`;
+    this.errorMessage = provider.charAt(0).toUpperCase() + provider.slice(1) + ' OAuth not yet configured. Use email login.';
   }
 
   onSubmit() {
-    if (this.loginForm.invalid) return;
+    if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
+      this.errorMessage = 'Please fill in all required fields correctly.';
+      return;
+    }
 
     this.isLoading = true;
     this.errorMessage = '';
 
     this.authService.login(this.loginForm.value as LoginDto).subscribe({
-      next: () => {
-        this.router.navigate(['/']);
-      },
+      next: () => { this.isLoading = false; this.router.navigate(['/']); },
       error: (err) => {
         this.isLoading = false;
-        const msg = err.error?.message; this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Invalid credentials. Please try again.');
+        const msg = err.error?.message;
+        this.errorMessage = Array.isArray(msg) ? msg.join(', ') : (msg || 'Invalid credentials. Please try again.');
       }
     });
   }

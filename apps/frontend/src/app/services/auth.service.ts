@@ -16,7 +16,7 @@ export interface UserSession {
     providedIn: 'root'
 })
 export class AuthService {
-    private readonly API_URL = 'http://localhost:3000/api/auth';
+    private readonly API_URL = '/api/auth';
     private readonly STORAGE_KEY = 'spe_auth_token';
     private readonly USER_KEY = 'spe_user';
 

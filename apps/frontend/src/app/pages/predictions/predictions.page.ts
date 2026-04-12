@@ -199,7 +199,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     .llg{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-secondary);min-width:110px}
     .lteams{font-family:var(--font-family);font-size:0.75rem;color:var(--color-text-primary);flex:1}
     .lvs{color:var(--color-text-muted);font-size:0.625rem;margin:0 4px}
-    .lmin{font-family:var(--font-family);font-size:0.6875rem;font-weight:700;color:var(--color-accent);min-width:40px;text-align:right}
+    .lmin{font-family:var(--font-family);font-size:0.75rem;font-weight:700;color:#ef4444;min-width:40px;text-align:right}.lconf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;color:var(--color-text-muted);min-width:35px;text-align:right}
     .lpick{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px;white-space:nowrap}
     .pkh{color:#3b82f6;background:rgba(59,130,246,0.1)}.pka{color:#a78bfa;background:rgba(167,139,250,0.1)}.pkd{color:#fbbf24;background:rgba(251,191,36,0.1)}
     .tw{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:var(--radius-xs);overflow-x:auto;-webkit-overflow-scrolling:touch}
