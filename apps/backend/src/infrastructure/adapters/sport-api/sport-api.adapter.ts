@@ -37,7 +37,7 @@ export class SportApiAdapter implements SportsDataPort {
         'Baseball': ['Yankees', 'Dodgers', 'Red Sox', 'Astros', 'Braves', 'Mets'],
         'American Football': ['Chiefs', 'Eagles', '49ers', 'Bills', 'Bengals', 'Cowboys'],
         'Mixed Martial Arts': ['Makhachev', 'Jones', 'Volkanovski', 'Edwards', 'O\'Malley', 'Adesanya'],
-        'Esoccer GT Leagues': ['GT Lions', 'GT Eagles', 'GT Sharks', 'GT Wolves', 'GT Panthers', 'GT Tigers', 'GT Bears', 'GT Hawks'],
+        'Esoccer GT Leagues': ['Crysis', 'Carlos', 'Snail', 'Delpiero', 'Banega', 'Professor', 'Viper', 'Lucas', 'Sensei', 'Eminem', 'Titan', 'Klaus', 'Hulk', 'Habibi', 'Razvan', 'Arthur', 'Fred', 'Kevin', 'Shaolin', 'Eros', 'David', 'Furious', 'Stan'],
     };
 
     constructor(

@@ -31,12 +31,14 @@ export class GTLeaguesService {
 
     // Real GT Leagues team pool
     private readonly teams = [
-        'Galacticos', 'Barcelona', 'Real Madrid', 'PSG', 'Man City',
-        'Liverpool', 'Bayern', 'Juventus', 'Chelsea', 'Arsenal',
-        'Inter Milan', 'AC Milan', 'Dortmund', 'Napoli', 'Atletico',
-        'Tottenham', 'Man United', 'Ajax', 'Benfica', 'Porto',
-        'Lyon', 'Marseille', 'Roma', 'Lazio', 'Sevilla',
-        'Villarreal', 'RB Leipzig', 'Leverkusen', 'Wolfsburg', 'Frankfurt'
+        'A.Madrid(Crysis)', 'Barcelona(Carlos)', 'Real Madrid(Snail)', 'Villarreal(Delpiero)',
+        'A.Bilbao(Banega)', 'Roma(Professor)', 'Inter(Viper)', 'Juventus(Lucas)',
+        'Napoli(Sensei)', 'Atalanta(Eminem)', 'A.Madrid(Titan)', 'Barcelona(Klaus)',
+        'Real Madrid(Hulk)', 'Villarreal(Habibi)', 'A.Bilbao(Razvan)', 'Roma(Arthur)',
+        'Inter(Fred)', 'Juventus(Kevin)', 'Napoli(Shaolin)', 'Atalanta(Eros)',
+        'A.Madrid(David)', 'Barcelona(Furious)', 'Real Madrid(Stan)', 'Villarreal(Snail)',
+        'A.Bilbao(Carlos)', 'Roma(Delpiero)', 'Inter(Banega)', 'Juventus(Professor)',
+        'Napoli(Viper)', 'Atalanta(Lucas)',
     ];
 
     private readonly leagues = [
