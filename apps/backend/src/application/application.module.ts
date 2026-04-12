@@ -12,6 +12,7 @@ import {
     RegisterUseCase,
     PlaceBetUseCase,
     GetUserBetsUseCase,
+    TrainModelsUseCase,
 } from './use-cases';
 import { PredictionScheduler } from '../infrastructure/scheduling/prediction.scheduler';
 
@@ -36,6 +37,9 @@ import { PredictionScheduler } from '../infrastructure/scheduling/prediction.sch
         RegisterUseCase,
         PlaceBetUseCase,
         GetUserBetsUseCase,
+        TrainModelsUseCase,
+        TrainModelsUseCase,
+    TrainModelsUseCase,
         PredictionScheduler,
     ],
     exports: [
@@ -50,6 +54,9 @@ import { PredictionScheduler } from '../infrastructure/scheduling/prediction.sch
         RegisterUseCase,
         PlaceBetUseCase,
         GetUserBetsUseCase,
+        TrainModelsUseCase,
+        TrainModelsUseCase,
+    TrainModelsUseCase,
     ],
 })
 export class ApplicationModule { }

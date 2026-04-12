@@ -18,6 +18,7 @@ import {
 import { Prediction } from '../../domain/entities';
 import { EnsemblePredictor } from '../../domain/services';
 import { OddsImpliedModelAdapter } from '../../infrastructure/adapters/prediction-models';
+import { MLTrainingService } from '../../infrastructure/ml/ml-training.service';
 
 /**
  * Use Case: Generate Predictions
@@ -42,6 +43,7 @@ export class GeneratePredictionsUseCase {
         @Inject(SPORT_REPOSITORY_PORT)
         private readonly sportRepo: SportRepositoryPort,
         private readonly oddsImpliedModel: OddsImpliedModelAdapter,
+        private readonly mlService: MLTrainingService,
     ) {
         this.ensemble = new EnsemblePredictor(models);
     }

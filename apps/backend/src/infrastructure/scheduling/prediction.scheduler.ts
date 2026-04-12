@@ -7,6 +7,7 @@ import { GeneratePredictionsUseCase } from '../../application/use-cases/generate
 import { UpdateResultsUseCase } from '../../application/use-cases/update-results.use-case';
 import { HistoricalBackfillUseCase } from '../../application/use-cases/historical-backfill.use-case';
 import { GetPendingPredictionsUseCase } from '../../application/use-cases/get-pending-predictions.use-case';
+import { TrainModelsUseCase } from '../../application/use-cases/train-models.use-case';
 import { GetAccuracyUseCase } from '../../application/use-cases/get-accuracy.use-case';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
 import { LiveScoresService } from '../live-scores/live-scores.service';
@@ -42,6 +43,7 @@ export class PredictionScheduler {
         private readonly historicalBackfill: HistoricalBackfillUseCase,
         private readonly getPendingPredictions: GetPendingPredictionsUseCase,
         private readonly getAccuracy: GetAccuracyUseCase,
+        private readonly trainModels: TrainModelsUseCase,
         private readonly streamService: PredictionStreamService,
         private readonly liveScoresService: LiveScoresService,
         private readonly configService: ConfigService,
@@ -133,6 +135,21 @@ export class PredictionScheduler {
 
     // ─── Weekly: Historical Backfill (Sunday 04:00 UTC) ─────
     // Backfills results for the past 7 days to catch any missed games.
+    // ─── Weekly: Retrain ML Models ────────────────────
+    // Runs every Sunday at 5:00 UTC — retrains models on latest results.
+    @Cron('0 5 * * 0', { name: 'train-models-weekly' })
+    async handleTrainModels() {
+        this.logger.log('[CRON Weekly] Retraining ML models...');
+        try {
+            const result = await this.trainModels.execute();
+            this.logger.log(
+                `[CRON Weekly] Training complete: ${result.trained} trained, ${result.failed} failed`,
+            );
+        } catch (error) {
+            this.logger.error('[CRON Weekly] Model training failed', error);
+        }
+    }
+
     @Cron('0 4 * * 0', { name: 'backfill-weekly' })
     async handleWeeklyBackfill() {
         this.logger.log('[CRON SUN 04:00] Running weekly backfill...');

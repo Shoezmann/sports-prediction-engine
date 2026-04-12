@@ -9,3 +9,4 @@ export * from './register.use-case';
 export * from './login.use-case';
 export * from './place-bet.use-case';
 export * from './get-user-bets.use-case';
+export { TrainModelsUseCase } from "./train-models.use-case";

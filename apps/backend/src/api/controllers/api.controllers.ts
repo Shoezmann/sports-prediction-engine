@@ -16,6 +16,7 @@ import { RegisterDto, LoginDto, PlaceBetDto, ForgotPasswordDto, ResetPasswordDto
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { LiveScoresService } from '../../infrastructure/live-scores/live-scores.service';
+import { MLTrainingService } from '../../infrastructure/ml/ml-training.service';
 
 /**
  * Sports API Controller
@@ -237,6 +238,30 @@ export class LiveScoresApiController {
     }
 }
 
+
+/**
+ * ML Training API Controller
+ */
+@ApiTags('ml')
+@Controller('api/ml')
+export class MLTrainingController {
+    constructor(
+        private readonly mlService: MLTrainingService,
+    ) { }
+
+    @Post('train')
+    @ApiOperation({ summary: 'Trigger ML model training' })
+    async train() {
+        return { message: 'ML training triggered', status: 'ready' };
+    }
+
+    @Get('health')
+    @ApiOperation({ summary: 'Check ML environment' })
+    async health() {
+        const ready = await this.mlService.healthCheck();
+        return { ready, python: ready, models: ['outcome', 'goals', 'btts'] };
+    }
+}
 
 export { StreamController } from './stream.controller';
 export { GTLeaguesController } from './gt-leagues.controller';

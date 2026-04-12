@@ -23,6 +23,7 @@ import { TheOddsApiAdapter } from './adapters/odds-api/the-odds-api.adapter';
 import { ApiFootballAdapter } from './adapters/api-football/api-football.adapter';
 import { SportApiAdapter } from './adapters/sport-api/sport-api.adapter';
 import { SportmonksAdapter } from './adapters/sportmonks/sportmonks.adapter';
+import { MLTrainingService } from './ml/ml-training.service';
 // import removed from './adapters/composite-sports-data.adapter';
 
 // Prediction model adapters
@@ -50,7 +51,7 @@ import { GTLeaguesService } from './gt-leagues/gt-leagues.service';
 import { GTLeaguesController } from '../api/controllers/gt-leagues.controller';
 import { StreamController } from '../api/controllers/stream.controller';
 import { LiveScoresController } from '../api/controllers/live-scores.controller';
-import { LiveScoresApiController } from '../api/controllers/api.controllers';
+import { LiveScoresApiController, MLTrainingController } from '../api/controllers/api.controllers';
 
 // ORM entities
 import { SportEntity, TeamEntity, GameEntity, PredictionEntity, UserEntity, BetEntity } from './persistence/entities';
@@ -128,6 +129,8 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
+        MLTrainingService,
+        MLTrainingService,
                 SportApiAdapter,
         { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
 
@@ -164,7 +167,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
-    controllers: [StreamController, LiveScoresController, GTLeaguesController, LiveScoresApiController],
+    controllers: [StreamController, LiveScoresController, GTLeaguesController, LiveScoresApiController, MLTrainingController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,
@@ -177,6 +180,8 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
+        MLTrainingService,
+        MLTrainingService,
                 SportApiAdapter,
         OddsImpliedModelAdapter,
         JwtStrategy,
