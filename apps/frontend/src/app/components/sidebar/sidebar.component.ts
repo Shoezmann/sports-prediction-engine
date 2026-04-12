@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'sp-sidebar',
@@ -32,10 +33,21 @@ import { ThemeService } from '../../services/theme.service';
             <span class="material-symbols-rounded">auto_awesome</span>
             <span>Predictions</span>
           </a>
+          <a routerLink="/system" routerLinkActive="active" class="nav-item">
+            <span class="material-symbols-rounded">monitoring</span>
+            <span>System</span>
+          </a>
         </div>
 
         <div class="nav-group">
           <span class="nav-label">Activity</span>
+          <a routerLink="/live" routerLinkActive="active" class="nav-item nav-item--live">
+            <span class="material-symbols-rounded">sports_soccer</span>
+            <span>Live Now</span>
+            @if (liveCount() > 0) {
+              <span class="live-dot">{{ liveCount() }}</span>
+            }
+          </a>
           <a routerLink="/tracker" routerLinkActive="active" class="nav-item">
             <span class="material-symbols-rounded">receipt_long</span>
             <span>My Tracker</span>
@@ -357,6 +369,27 @@ import { ThemeService } from '../../services/theme.service';
       text-align: right;
     }
 
+    .nav-item--live {
+      position: relative;
+    }
+
+    .live-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.625rem;
+      font-weight: 700;
+      font-family: var(--font-family);
+      line-height: 1;
+      margin-left: auto;
+    }
+
     @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
@@ -364,10 +397,30 @@ import { ThemeService } from '../../services/theme.service';
     }
   `]
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
   private router = inject(Router);
+  private http = inject(HttpClient);
+
+  liveCount = signal(0);
+  private pollInterval: any = null;
+
+  ngOnInit() {
+    this.fetchLiveCount();
+    this.pollInterval = setInterval(() => this.fetchLiveCount(), 15000);
+  }
+
+  ngOnDestroy() {
+    if (this.pollInterval) clearInterval(this.pollInterval);
+  }
+
+  private fetchLiveCount() {
+    this.http.get<any>('http://127.0.0.1:3000/api/live-scores').subscribe({
+      next: (d) => this.liveCount.set(d.live || 0),
+      error: () => this.liveCount.set(0),
+    });
+  }
 
   userName() {
     const user = this.authService.currentUser();

@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
+import { LiveCardComponent, LiveCardData } from '../../components/live-card/live-card.component';
 import { PredictionDto } from '@sports-prediction-engine/shared-types';
 
 const LM: Record<string, [string, string, string]> = {
@@ -104,7 +105,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LiveCardComponent],
   template: `
 @if (loading()) {
 <div class="pg"><div class="ldr"><span class="spin"></span><p>Loading predictions...</p></div></div>

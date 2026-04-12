@@ -15,6 +15,13 @@ export const appRoutes: Route[] = [
             ),
     },
     {
+        path: 'live',
+        loadComponent: () =>
+            import('./pages/live/live.page').then(
+                (m) => m.LivePage,
+            ),
+    },
+    {
         path: 'predictions',
         loadComponent: () =>
             import('./pages/predictions/predictions.page').then(
