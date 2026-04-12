@@ -39,6 +39,8 @@ export class LiveScoresService {
         { id: 3, key: 'tennis_atp', title: 'Tennis - ATP' },
         { id: 52, key: 'soccer_south_africa_psl', title: 'Soccer - PSL' },
         { id: 23114, key: 'soccer_esoccer_gt_leagues_12', title: 'Esoccer GT Leagues' },
+        // African leagues
+        { id: 16, key: 'soccer_africa_cup_of_nations', title: 'Soccer - AFCON' },
     ];
 
     constructor(

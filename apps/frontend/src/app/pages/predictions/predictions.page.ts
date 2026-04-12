@@ -54,6 +54,7 @@ const LM: Record<string, [string, string, string]> = {
   'soccer_uefa_europa_conference_league': ['SOCCER', 'EUROPE', 'CONFERENCE LEAGUE'],
   'soccer_conmebol_copa_libertadores': ['SOCCER', 'S.AMERICA', 'COPA LIBERTADORES'],
   'soccer_esoccer_gt_leagues_12': ['ESOCCER', 'GT LEAGUES', '12 MINS'],
+  'soccer_africa_cup_of_nations': ['SOCCER', 'AFRICA', 'AFCON'],
   'basketball_nba': ['BASKETBALL', 'USA', 'NBA'],
   'basketball_ncaab': ['BASKETBALL', 'USA', 'NCAA'],
   'basketball_euroleague': ['BASKETBALL', 'EUROPE', 'EUROLEAGUE'],

@@ -74,14 +74,10 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath);
     const contentType = MIME_TYPES[ext] || 'text/html';
 
-    // No caching for HTML, short cache for JS/CSS with hash
-    if (ext === '.html') {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-    } else if (ext === '.js' || ext === '.css') {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
+    // No caching for development
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     fs.exists(filePath, (exists) => {
         if (!exists) {

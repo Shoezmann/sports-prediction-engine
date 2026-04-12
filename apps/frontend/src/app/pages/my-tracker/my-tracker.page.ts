@@ -34,6 +34,7 @@ const LM: Record<string, [string, string, string]> = {
   'soccer_uefa_champs_league': ['SOCCER', 'EUROPE', 'CHAMPIONS LEAGUE'],
   'soccer_uefa_europa_league': ['SOCCER', 'EUROPE', 'EUROPA LEAGUE'],
   'soccer_esoccer_gt_leagues_12': ['ESOCCER', 'GT LEAGUES', '12 MINS'],
+  'soccer_africa_cup_of_nations': ['SOCCER', 'AFRICA', 'AFCON'],
   'basketball_nba': ['BASKETBALL', 'USA', 'NBA'],
   'basketball_euroleague': ['BASKETBALL', 'EUROPE', 'EUROLEAGUE'],
   'americanfootball_nfl': ['AM FOOTBALL', 'USA', 'NFL'],
