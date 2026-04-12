@@ -13,13 +13,28 @@ import type {
 import { Sport } from '../../../domain/entities';
 
 const API_FOOTBALL_LEAGUES = [
+    // African leagues (priority)
+    { id: 288, key: 'soccer_south_africa_psl', title: 'PSL (South Africa)', group: 'Soccer' },
+    { id: 246, key: 'soccer_egypt_premier_league', title: 'Egypt Premier League', group: 'Soccer' },
+    { id: 201, key: 'soccer_morocco_botola', title: 'Botola Pro (Morocco)', group: 'Soccer' },
+    { id: 184, key: 'soccer_nigeria_npl', title: 'NPL (Nigeria)', group: 'Soccer' },
+    { id: 204, key: 'soccer_ghana_premier', title: 'Ghana Premier League', group: 'Soccer' },
+    { id: 287, key: 'soccer_tunisia_ligue_1', title: 'Tunisia Ligue 1', group: 'Soccer' },
+    { id: 206, key: 'soccer_algeria_ligue_1', title: 'Algeria Ligue 1', group: 'Soccer' },
+    { id: 179, key: 'soccer_kenya_premier', title: 'Kenya Premier League', group: 'Soccer' },
+    { id: 307, key: 'soccer_tanzania_premier', title: 'Tanzania Premier League', group: 'Soccer' },
+    { id: 172, key: 'soccer_cameroon_elite_one', title: 'Elite One (Cameroon)', group: 'Soccer' },
+    // CAF competitions
+    { id: 14, key: 'soccer_caf_champions_league', title: 'CAF Champions League', group: 'Soccer' },
+    { id: 513, key: 'soccer_caf_confederation_cup', title: 'CAF Confederation Cup', group: 'Soccer' },
+    { id: 1, key: 'soccer_africa_cup_of_nations', title: 'Africa Cup of Nations', group: 'Soccer' },
+    // Top European leagues (for context)
     { id: 39, key: 'soccer_epl', title: 'Premier League', group: 'Soccer' },
     { id: 140, key: 'soccer_spain_la_liga', title: 'La Liga', group: 'Soccer' },
     { id: 135, key: 'soccer_italy_serie_a', title: 'Serie A', group: 'Soccer' },
     { id: 78, key: 'soccer_germany_bundesliga', title: 'Bundesliga', group: 'Soccer' },
     { id: 61, key: 'soccer_france_ligue_one', title: 'Ligue 1', group: 'Soccer' },
     { id: 2, key: 'soccer_uefa_champs_league', title: 'UEFA Champions League', group: 'Soccer' },
-    { id: 288, key: 'soccer_south_africa_psl', title: 'PSL (South Africa)', group: 'Soccer' },
 ];
 
 @Injectable()
@@ -28,9 +43,6 @@ export class ApiFootballAdapter implements SportsDataPort {
     private readonly baseUrl: string;
     private readonly apiKey: string;
     private readonly apiHost: string;
-
-    private fallbackMode = false;
-    private mockTeams = ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs', 'Newcastle', 'Mamelodi Sundowns', 'Orlando Pirates', 'Kaizer Chiefs', 'SuperSport United'];
 
     constructor(
         private readonly httpService: HttpService,
@@ -41,8 +53,7 @@ export class ApiFootballAdapter implements SportsDataPort {
         this.apiHost = this.configService.get<string>('API_FOOTBALL_HOST') ?? 'v3.football.api-sports.io';
 
         if (!this.apiKey || this.apiKey === 'your_api_key_here') {
-            this.logger.warn('⚠️  API_FOOTBALL_KEY is not set. API calls will fail. Using mock fallback.');
-            this.fallbackMode = true;
+            this.logger.warn('⚠️  API_FOOTBALL_KEY is not set. Get your key at https://dashboard.api-football.com');
         }
     }
 
@@ -152,7 +163,7 @@ export class ApiFootballAdapter implements SportsDataPort {
     }
 
     private async makeRequest<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-        if (this.fallbackMode) return this.generateMockResponse<T>(path);
+        if (!this.apiKey || this.apiKey === 'your_api_key_here') return {} as T;
 
         const url = `${this.baseUrl}${path}`;
         try {
@@ -175,8 +186,8 @@ export class ApiFootballAdapter implements SportsDataPort {
             if (data.errors && Object.keys(data.errors).length > 0) {
                 if (data.errors.rateLimit || data.errors.token || String(data.errors.requests).includes('limit')) {
                     this.logger.warn(`API-Football Quota limit or Invalid Key. Switching to MOCK. Error: ${JSON.stringify(data.errors)}`);
-                    this.fallbackMode = true;
-                    return this.generateMockResponse<T>(path);
+                    // fallback removed
+                    return [] as unknown as T;
                 }
                 throw new Error(JSON.stringify(data.errors));
             }
@@ -186,70 +197,11 @@ export class ApiFootballAdapter implements SportsDataPort {
             const status = error.response?.status;
             if (status === 429 || status === 401 || status === 403) {
                 this.logger.warn(`API quota reached (Status ${status}). Switching to MOCK FALLBACK.`);
-                this.fallbackMode = true;
-                return this.generateMockResponse<T>(path);
+                // fallback removed
+                return [] as unknown as T;
             }
             throw error;
         }
     }
 
-    private generateMockResponse<T>(path: string): T {
-        const numItems = Math.floor(Math.random() * 3) + 2;
-
-        if (path.includes('fixtures')) {
-            const events = [];
-            for (let i = 0; i < numItems; i++) {
-                const home = this.mockTeams[Math.floor(Math.random() * 4)];
-                const away = this.mockTeams[4 + Math.floor(Math.random() * 4)];
-                const isScores = path.includes('last');
-
-                let commenceTime = new Date();
-                if (isScores) {
-                    commenceTime = new Date(Date.now() - 86400000);
-                } else {
-                    commenceTime.setHours(commenceTime.getHours() + Math.floor(Math.random() * 48) + 1);
-                }
-
-                events.push({
-                    fixture: {
-                        id: Date.now() + i,
-                        date: commenceTime.toISOString(),
-                        status: { short: isScores ? 'FT' : 'NS' }
-                    },
-                    teams: {
-                        home: { name: home },
-                        away: { name: away }
-                    },
-                    goals: isScores ? {
-                        home: Math.floor(Math.random() * 4),
-                        away: Math.floor(Math.random() * 4)
-                    } : { home: null, away: null }
-                });
-            }
-            return { response: events } as unknown as T;
-        }
-
-        if (path.includes('odds')) {
-            const odds = [];
-            for (let i = 0; i < 5; i++) {
-                odds.push({
-                    fixture: { id: Date.now() + i, home_name: 'Mock Home', away_name: 'Mock Away' },
-                    bookmakers: [{
-                        name: 'MockBookie',
-                        bets: [{
-                            name: 'Match Winner',
-                            values: [
-                                { value: 'Home', odd: (1.5 + Math.random()).toFixed(2) },
-                                { value: 'Away', odd: (2.5 + Math.random()).toFixed(2) },
-                                { value: 'Draw', odd: (3.0 + Math.random()).toFixed(2) }
-                            ]
-                        }]
-                    }]
-                });
-            }
-            return { response: odds } as unknown as T;
-        }
-
-        return { response: [] } as unknown as T;
-    }
 }
