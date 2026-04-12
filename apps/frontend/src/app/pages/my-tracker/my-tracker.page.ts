@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
+import { LiveCardComponent, LiveCardData } from '../../components/live-card/live-card.component';
 import { BetDto, PredictionDto } from '@sports-prediction-engine/shared-types';
 
 const LM: Record<string, [string, string, string]> = {
@@ -57,6 +58,14 @@ const LM: Record<string, [string, string, string]> = {
   'boxing_boxing': ['BOXING', 'WORLD', 'BOXING'],
 };
 
+function formatMinute2(status: string, mn: number | null): string {
+  if (mn === null || mn === undefined) return '';
+  if (status === 'FT') return 'FT';
+  if (status === 'HT') return 'HT';
+  if (mn > 90) return `90+${mn - 90}'`;
+  return `${mn}'`;
+}
+
 function pk(key: string): [string, string, string] {
   const m = LM[key];
   if (m) return m;
@@ -88,7 +97,7 @@ interface TrackedMatch {
 @Component({
   selector: 'sp-my-tracker',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LiveCardComponent],
   template: `
 @if (!authService.isAuthenticated) {
 <div class="pg"><div class="auth-prompt">
@@ -315,6 +324,7 @@ export class MyTrackerPage implements OnInit, OnDestroy {
     });
   });
   liveCount = computed(() => this.liveMatches().length);
+  liveMin = (m: any) => { const score = this.findLiveScore(m.home, m.away); if (score?.minute != null) return formatMinute2(score.status, score.minute); return m.tl; }
   upCount = computed(() => this.upcoming().length);
   doneCount = computed(() => this.finished().length);
   totalTracked = computed(() => this.liveMatches().length + this.upcoming().length + this.finished().length);
@@ -402,6 +412,22 @@ export class MyTrackerPage implements OnInit, OnDestroy {
     this.es.onerror = () => {
       this.isLiveConnected.set(false);
       setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000);
+    };
+  }
+
+  trackerLiveData(m: any): LiveCardData {
+    const score = this.findLiveScore(m.home, m.away);
+    const mn = score?.minute ?? m.mn;
+    const st = score?.status ?? (mn > 0 && mn < 120 ? (mn <= 45 ? '1H' : mn <= 47 ? 'HT' : '2H') : '');
+    return {
+      id: m.id, cat: m.cat, reg: m.reg, lg: m.lg,
+      home: m.home, away: m.away,
+      homeScore: score?.homeScore ?? m.homeScore ?? 0,
+      awayScore: score?.awayScore ?? m.awayScore ?? 0,
+      minute: mn, status: st,
+      pick: m.pick, pickLabel: m.pickLabel,
+      confidence: m.confidence, confidenceLevel: m.confidenceLevel,
+      onRemove: (id: string) => this.untrack(id),
     };
   }
 

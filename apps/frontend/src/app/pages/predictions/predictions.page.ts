@@ -266,7 +266,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
   private bs = inject(BetsService);
   private router = inject(Router);
 
-  ngOnInit() { this.ld(); this.fd(); this.cs(); this.st(); }
+  ngOnInit() { this.loadState(); this.fd(); this.cs(); this.st(); }
   ngOnDestroy() { this.ds(); if (this.tId) clearInterval(this.tId); }
 
   private st() { this.tId = setInterval(() => this.timer.set(Date.now()), 10000); }
@@ -322,8 +322,8 @@ export class PredictionsPage implements OnInit, OnDestroy {
   pL(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? p.game.homeTeam.name : p.predictedOutcome === 'away_win' ? p.game.awayTeam.name : 'DRAW'; }
   iS(id: string) { return !!this.bs.betSlipPredictions().find(p => p.id === id); }
   tS(p: PredictionDto) { if (this.iS(p.id)) this.bs.removeFromSlip(p.id); else this.bs.addToSlip(p); }
-  ld() { try { const s = JSON.parse(localStorage.getItem('pv') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
-  sv() { try { localStorage.setItem('pv', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
+  loadState() { try { const s = JSON.parse(localStorage.getItem('pred-filters') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
+  sv() { try { localStorage.setItem('pred-filters', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
   fd() {
     this.loading.set(true);
     this.api.getPendingPredictions().subscribe({
@@ -347,5 +347,18 @@ export class PredictionsPage implements OnInit, OnDestroy {
       setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000);
     };
   }
+  liveData(m: MR): LiveCardData {
+    const mn = m.mn;
+    const st = m.live ? (m.mn <= 45 ? '1H' : m.mn <= 47 ? 'HT' : '2H') : '';
+    return {
+      id: m.p.id, cat: m.cat, reg: m.reg, lg: m.lg,
+      home: m.p.game.homeTeam.name, away: m.p.game.awayTeam.name,
+      homeScore: 0, awayScore: 0,
+      minute: mn > 0 && mn < 120 ? mn : null, status: st,
+      pick: this.pK(m.p), pickLabel: this.pL(m.p),
+      confidence: m.p.confidence, confidenceLevel: m.p.confidenceLevel,
+    };
+  }
+
   ds() { if (this.es) { this.es.close(); this.es = null; this.isLiveConnected.set(false); } }
 }
