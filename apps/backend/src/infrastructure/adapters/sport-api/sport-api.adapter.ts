@@ -78,7 +78,7 @@ export class SportApiAdapter implements SportsDataPort {
 
             if (!data || !data.events) {
                 // If the real API returns empty or an unexpected format, fallback
-                return this.generateMockResponse<RawGameData[]>('events', sportKey, sport.group);
+                return [];
             }
 
             this.logger.log(`Fetched ${data.events.length} upcoming events for ${sportKey}`);
@@ -92,7 +92,7 @@ export class SportApiAdapter implements SportsDataPort {
             }));
         } catch (error) {
             this.logger.error(`Failed to fetch events for ${sportKey}`, error);
-            return this.generateMockResponse<RawGameData[]>('events', sportKey, sport.group);
+            return [];
         }
     }
 
@@ -104,7 +104,7 @@ export class SportApiAdapter implements SportsDataPort {
             const data = await this.makeRequest<any>(`/events/results`, { categoryId: sport.id.toString(), days: daysFrom.toString() });
 
             if (!data || !data.events) {
-                return this.generateMockResponse<RawScoreData[]>('scores', sportKey, sport.group);
+                return [];
             }
 
             this.logger.log(`Fetched ${data.events.length} scores for ${sportKey}`);
@@ -121,7 +121,7 @@ export class SportApiAdapter implements SportsDataPort {
             }));
         } catch (error) {
             this.logger.error(`Failed to fetch scores for ${sportKey}`, error);
-            return this.generateMockResponse<RawScoreData[]>('scores', sportKey, sport.group);
+            return [];
         }
     }
 
@@ -135,7 +135,7 @@ export class SportApiAdapter implements SportsDataPort {
             const data = await this.makeRequest<any>(`/events/odds`, { categoryId: sport.id.toString() });
 
             if (!data || !data.odds) {
-                return this.generateMockResponse<RawOddsData[]>('odds', sportKey, sport.group);
+                return [];
             }
 
             this.logger.log(`Fetched odds for events in ${sportKey}`);
@@ -162,7 +162,7 @@ export class SportApiAdapter implements SportsDataPort {
             }));
         } catch (error) {
             this.logger.error(`Failed to fetch odds for ${sportKey}. Using mock odds.`, error);
-            return this.generateMockResponse<RawOddsData[]>('odds', sportKey, sport.group);
+            return [];
         }
     }
 
@@ -194,81 +194,4 @@ export class SportApiAdapter implements SportsDataPort {
         }
     }
 
-    private generateMockResponse<T>(endpoint: 'events' | 'scores' | 'odds', sportKey: string, group: string): T {
-        const teams = this.mockTeams[group] || this.mockTeams['Soccer'];
-        const numItems = Math.floor(Math.random() * 4) + 3; // 3 to 6 items
-
-        if (endpoint === 'events') {
-            const events: RawGameData[] = [];
-            for (let i = 0; i < numItems; i++) {
-                const home = teams[Math.floor(Math.random() * teams.length)];
-                let away = teams[Math.floor(Math.random() * teams.length)];
-                while (away === home) away = teams[Math.floor(Math.random() * teams.length)]; // Prevent playing yourself
-
-                const commenceTime = new Date();
-                commenceTime.setHours(commenceTime.getHours() + Math.floor(Math.random() * 72) + 1);
-
-                events.push({
-                    externalId: `mock-${sportKey}-${Date.now()}-${i}`,
-                    sportKey,
-                    commenceTime: commenceTime.toISOString(),
-                    homeTeam: home,
-                    awayTeam: away,
-                });
-            }
-            return events as unknown as T;
-        }
-
-        if (endpoint === 'scores') {
-            const scores: RawScoreData[] = [];
-            for (let i = 0; i < numItems; i++) {
-                const home = teams[Math.floor(Math.random() * teams.length)];
-                let away = teams[Math.floor(Math.random() * teams.length)];
-                while (away === home) away = teams[Math.floor(Math.random() * teams.length)];
-
-                scores.push({
-                    externalId: `mock-${sportKey}-${Date.now()}-${i}`,
-                    sportKey,
-                    completed: true,
-                    homeTeam: home,
-                    awayTeam: away,
-                    homeScore: Math.floor(Math.random() * 5),
-                    awayScore: Math.floor(Math.random() * 5),
-                    lastUpdate: new Date().toISOString(),
-                });
-            }
-            return scores as unknown as T;
-        }
-
-        if (endpoint === 'odds') {
-            const odds: RawOddsData[] = [];
-            // We just ensure there's generic odds available so the Predictor doesn't throw errors
-            for (let i = 0; i < 15; i++) {
-                const home = teams[Math.floor(Math.random() * teams.length)];
-                let away = teams[Math.floor(Math.random() * teams.length)];
-
-                odds.push({
-                    externalId: `mock-odd-${sportKey}-${Date.now()}-${i}`,
-                    sportKey,
-                    homeTeam: home,
-                    awayTeam: away,
-                    bookmakers: [{
-                        key: 'mock_bookie',
-                        title: 'Mock Bookmaker',
-                        markets: [{
-                            key: 'h2h',
-                            outcomes: [
-                                { name: home, price: 1.5 + (Math.random() * 1.5) },
-                                { name: away, price: 1.5 + (Math.random() * 1.5) },
-                                { name: 'Draw', price: 2.5 + (Math.random() * 2.0) }
-                            ]
-                        }]
-                    }]
-                });
-            }
-            return odds as unknown as T;
-        }
-
-        return [] as unknown as T;
-    }
 }

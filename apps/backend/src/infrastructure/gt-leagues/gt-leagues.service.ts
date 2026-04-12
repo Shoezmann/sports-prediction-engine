@@ -77,13 +77,13 @@ export class GTLeaguesService {
 
         // If we recently fetched, return cached matches
         if (now - this.lastFetch < this.FETCH_INTERVAL && this.matches.length > 0) {
-            return this.updateMatchMinutes();
+            return [];
         }
 
         // Generate realistic GT Leagues matches
-        this.matches = this.generateRealisticMatches();
+        // No real data — return empty instead of mock
         this.lastFetch = now;
-        return this.matches;
+        return [];
     }
 
     /**
@@ -126,100 +126,10 @@ export class GTLeaguesService {
     /**
      * Generate realistic GT Leagues matches that mirror the real format
      */
-    private generateRealisticMatches(): GTLeaguesMatch[] {
-        const matches: GTLeaguesMatch[] = [];
-        const now = new Date();
-        const matchDuration = 12; // minutes
-        const halfDuration = 6;
-        const matchesPerLeague = 2;
-
-        for (const league of this.leagues) {
-            for (let i = 0; i < matchesPerLeague; i++) {
-                const homeTeam = this.teams[Math.floor(Math.random() * this.teams.length)];
-                let awayTeam = this.teams[Math.floor(Math.random() * this.teams.length)];
-                while (awayTeam === homeTeam) {
-                    awayTeam = this.teams[Math.floor(Math.random() * this.teams.length)];
-                }
-
-                // Stagger match start times so they're at different stages
-                const offsetMinutes = Math.floor(Math.random() * matchDuration * 2);
-                const startTime = new Date(now.getTime() - offsetMinutes * 60000);
-                const elapsed = now.getTime() - startTime.getTime();
-                const minute = Math.floor(elapsed / 60000);
-
-                if (minute < 0 || minute > matchDuration * 2 + 2) continue;
-
-                let status: GTLeaguesMatch['status'];
-                let displayMinute: number;
-                let homeScore: number;
-                let awayScore: number;
-
-                if (minute <= halfDuration) {
-                    status = '1H';
-                    displayMinute = Math.min(minute, halfDuration);
-                    homeScore = Math.floor(Math.random() * 3);
-                    awayScore = Math.floor(Math.random() * 2);
-                } else if (minute <= halfDuration + 1) {
-                    status = 'HT';
-                    displayMinute = halfDuration;
-                    homeScore = Math.floor(Math.random() * 4);
-                    awayScore = Math.floor(Math.random() * 3);
-                } else if (minute <= matchDuration + 1) {
-                    status = '2H';
-                    displayMinute = Math.min(minute - 1, matchDuration);
-                    homeScore = Math.floor(Math.random() * 5);
-                    awayScore = Math.floor(Math.random() * 4);
-                } else {
-                    status = 'FT';
-                    displayMinute = matchDuration;
-                    homeScore = Math.floor(Math.random() * 6);
-                    awayScore = Math.floor(Math.random() * 5);
-                }
-
-                matches.push({
-                    id: `gt-${league.replace(/\s+/g, '-')}-${i}-${now.toISOString().slice(0, 16)}`,
-                    homeTeam,
-                    awayTeam,
-                    homeScore,
-                    awayScore,
-                    status,
-                    minute: displayMinute,
-                    league,
-                    commenceTime: startTime.toISOString(),
-                });
-            }
-        }
-
-        return matches;
-    }
 
     /**
      * Update match minutes to simulate time passing
      */
-    private updateMatchMinutes(): GTLeaguesMatch[] {
-        return this.matches.map(m => {
-            const newMinute = m.minute + 1;
-
-            let newStatus = m.status;
-            if (m.status === '1H' && newMinute > 6) newStatus = 'HT';
-            else if (m.status === 'HT' && newMinute > 7) newStatus = '2H';
-            else if (m.status === '2H' && newMinute > 12) newStatus = 'FT';
-
-            // Occasionally update score
-            let newHomeScore = m.homeScore;
-            let newAwayScore = m.awayScore;
-            if (Math.random() < 0.02) newHomeScore += 1;
-            if (Math.random() < 0.02) newAwayScore += 1;
-
-            return {
-                ...m,
-                minute: newStatus === 'FT' ? 12 : newMinute,
-                status: newStatus,
-                homeScore: newHomeScore,
-                awayScore: newAwayScore,
-            };
-        }).filter(m => m.status !== 'FT'); // Remove finished matches
-    }
 
     private getBetsAPIStatus(minute: number): GTLeaguesMatch['status'] {
         if (minute <= 6) return '1H';
