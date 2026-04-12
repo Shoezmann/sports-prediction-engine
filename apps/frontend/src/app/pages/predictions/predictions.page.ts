@@ -104,11 +104,11 @@ interface LiveMatchRow {
       @if (selectedRegion() && availableLeagues().length > 0) {
         <div class="filter-bar filter-bar--subtle">
           <span class="filter-bar__label">LEAGUE</span>
-          <button class="chip" [class.chip--active]="selectedLeague() === null" (click)="selectedLeague.set(null)">
+          <button class="chip" [class.chip--active]="selectedLeague() === null" (click)="selectLeague(null)">
             ALL
           </button>
           @for (league of availableLeagues(); track league) {
-            <button class="chip" [class.chip--active]="selectedLeague() === league" (click)="selectedLeague.set(league)">
+            <button class="chip" [class.chip--active]="selectedLeague() === league" (click)="selectLeague(league)">
               {{ league }}
             </button>
           }
@@ -588,14 +588,24 @@ interface LiveMatchRow {
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-xs);
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+
+      /* Custom scrollbar */
+      &::-webkit-scrollbar { height: 6px; }
+      &::-webkit-scrollbar-track { background: var(--color-bg-secondary); }
+      &::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
     }
 
     .tbl {
       width: 100%;
+      min-width: 900px;
       border-collapse: collapse;
       font-family: var(--font-mono);
     }
+
+
 
     .th {
       font-size: 0.6875rem;
@@ -843,6 +853,7 @@ export class PredictionsPage implements OnInit, OnDestroy {
   private router = inject(Router);
 
   ngOnInit() {
+    this.loadState();
     this.fetchData();
     this.connectSSE();
   }
@@ -916,6 +927,32 @@ export class PredictionsPage implements OnInit, OnDestroy {
       this.eventSource.close();
       this.eventSource = null;
       this.isLiveConnected.set(false);
+    }
+  }
+
+  private loadState() {
+    try {
+      const saved = localStorage.getItem('predictions-view-state');
+      if (saved) {
+        const state = JSON.parse(saved);
+        if (state.selectedCategory) this.selectedCategory.set(state.selectedCategory);
+        if (state.selectedRegion) this.selectedRegion.set(state.selectedRegion);
+        if (state.selectedLeague) this.selectedLeague.set(state.selectedLeague);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  private saveState() {
+    try {
+      localStorage.setItem('predictions-view-state', JSON.stringify({
+        selectedCategory: this.selectedCategory(),
+        selectedRegion: this.selectedRegion(),
+        selectedLeague: this.selectedLeague(),
+      }));
+    } catch {
+      // Ignore storage errors
     }
   }
 
@@ -1137,12 +1174,19 @@ export class PredictionsPage implements OnInit, OnDestroy {
   selectCategory(cat: string | null) {
     this.selectedCategory.set(cat);
     this.selectedRegion.set(null);
-    this.selectedLeague.set(null);
+    this.selectLeague(null);
+    this.saveState();
   }
 
   selectRegion(region: string | null) {
     this.selectedRegion.set(region);
-    this.selectedLeague.set(null);
+    this.selectLeague(null);
+    this.saveState();
+  }
+
+  selectLeague(league: string | null) {
+    this.selectLeague(league);
+    this.saveState();
   }
 
   isInSlip(predictionId: string): boolean {

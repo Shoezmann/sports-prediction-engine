@@ -145,16 +145,14 @@ import { LoginDto } from '@sports-prediction-engine/shared-types';
 
     .auth-card {
       position: relative;
-      background: rgba(15, 16, 19, 0.85);
+      background: var(--color-bg-card);
       backdrop-filter: blur(24px) saturate(150%);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--color-border);
       border-radius: var(--radius-xl);
       padding: 2.5rem;
       width: 100%;
       max-width: 420px;
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+      box-shadow: var(--shadow-lg);
       animation: card-enter 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
@@ -184,7 +182,7 @@ import { LoginDto } from '@sports-prediction-engine/shared-types';
       font-size: 1.5rem;
       font-weight: 800;
       letter-spacing: -0.03em;
-      color: #fff;
+      color: var(--color-text-primary);
       margin-bottom: 1.25rem;
     }
 
@@ -325,8 +323,8 @@ import { LoginDto } from '@sports-prediction-engine/shared-types';
 
     .input-wrapper input {
       width: 100%;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--color-bg-input);
+      border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       padding: 0.8125rem 1rem 0.8125rem 2.75rem;
       color: var(--color-text-primary);
@@ -340,14 +338,14 @@ import { LoginDto } from '@sports-prediction-engine/shared-types';
 
       &:focus {
         outline: none;
-        border-color: rgba(16, 185, 129, 0.5);
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1), 0 0 20px rgba(16, 185, 129, 0.08);
-        background: rgba(0, 0, 0, 0.5);
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 3px var(--color-accent-subtle), 0 0 20px var(--color-accent-glow);
+        background: var(--color-bg-input-solid);
       }
 
       &.error {
-        border-color: rgba(239, 68, 68, 0.5);
-        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 3px var(--color-danger-subtle);
       }
     }
 

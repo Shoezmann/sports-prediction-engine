@@ -168,17 +168,17 @@
   // Gradients
   --gradient-hero: linear-gradient(135deg, #047857, #059669, #10b981);
   --gradient-neon: linear-gradient(135deg, #059669, #10b981);
-  --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(249, 250, 251, 0.9));
-  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.4));
-  --gradient-glass-border: linear-gradient(135deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.02));
+  --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(249, 250, 251, 0.95));
+  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6));
+  --gradient-glass-border: linear-gradient(135deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.03));
 
-  // Shadows (lighter for light theme)
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
-  --shadow-glow: 0 0 24px rgba(5, 150, 105, 0.1);
-  --shadow-glow-lg: 0 0 40px rgba(5, 150, 105, 0.15);
+  // Shadows (refined for light theme)
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 20px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 24px rgba(5, 150, 105, 0.15);
+  --shadow-glow-lg: 0 0 40px rgba(5, 150, 105, 0.2);
 }
 
 // ─── Reset & Base ───────────────────────────────────────────
@@ -218,7 +218,15 @@ body::before {
     radial-gradient(ellipse 50% 40% at 80% 90%, rgba(59, 130, 246, 0.05), transparent);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.6;
+  opacity: 0.4;
+}
+
+// Light mode specific enhancements
+:root.light body::before {
+  background:
+    radial-gradient(ellipse 70% 60% at 10% 0%, rgba(5, 150, 105, 0.06), transparent),
+    radial-gradient(ellipse 50% 50% at 90% 100%, rgba(59, 130, 246, 0.04), transparent);
+  opacity: 1;
 }
 
 a {
