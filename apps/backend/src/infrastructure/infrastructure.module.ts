@@ -23,6 +23,7 @@ import { TheOddsApiAdapter } from './adapters/odds-api/the-odds-api.adapter';
 import { ApiFootballAdapter } from './adapters/api-football/api-football.adapter';
 import { SportApiAdapter } from './adapters/sport-api/sport-api.adapter';
 import { SportmonksAdapter } from './adapters/sportmonks/sportmonks.adapter';
+// import removed from './adapters/composite-sports-data.adapter';
 
 // Prediction model adapters
 import { EloModelAdapter } from './adapters/prediction-models/elo-model.adapter';
@@ -127,8 +128,7 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
-        SportmonksAdapter,
-        SportApiAdapter,
+                SportApiAdapter,
         { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
 
         // ── Prediction Models ──
@@ -177,8 +177,7 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
-        SportmonksAdapter,
-        SportApiAdapter,
+                SportApiAdapter,
         OddsImpliedModelAdapter,
         JwtStrategy,
         PassportModule,

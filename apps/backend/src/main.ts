@@ -1,4 +1,6 @@
 import './polyfill';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app/app.module';
