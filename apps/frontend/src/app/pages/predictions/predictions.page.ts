@@ -1,1203 +1,243 @@
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ApiService, AccuracyData } from '../../services/api.service';
+import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
 import { PredictionDto } from '@sports-prediction-engine/shared-types';
 
-interface SportCategoryGroup {
-  name: string;          // SOCCER
-  regions: {
-    name: string;        // GERMANY
-    leagues: { name: string; count: number }[];
-  }[];
+const LM: Record<string, [string, string, string]> = {
+  'soccer_epl': ['SOCCER', 'ENGLAND', 'EPL'],
+  'soccer_efl_champ': ['SOCCER', 'ENGLAND', 'CHAMPIONSHIP'],
+  'soccer_england_league1': ['SOCCER', 'ENGLAND', 'LEAGUE 1'],
+  'soccer_england_league2': ['SOCCER', 'ENGLAND', 'LEAGUE 2'],
+  'soccer_fa_cup': ['SOCCER', 'ENGLAND', 'FA CUP'],
+  'soccer_spain_la_liga': ['SOCCER', 'SPAIN', 'LA LIGA'],
+  'soccer_spain_segunda_division': ['SOCCER', 'SPAIN', 'SEGUNDA'],
+  'soccer_germany_bundesliga': ['SOCCER', 'GERMANY', 'BUNDESLIGA'],
+  'soccer_germany_bundesliga2': ['SOCCER', 'GERMANY', 'BUNDESLIGA 2'],
+  'soccer_italy_serie_a': ['SOCCER', 'ITALY', 'SERIE A'],
+  'soccer_italy_serie_b': ['SOCCER', 'ITALY', 'SERIE B'],
+  'soccer_france_ligue_one': ['SOCCER', 'FRANCE', 'LIGUE 1'],
+  'soccer_france_ligue_two': ['SOCCER', 'FRANCE', 'LIGUE 2'],
+  'soccer_netherlands_eredivisie': ['SOCCER', 'NETHERLANDS', 'EREDIVISIE'],
+  'soccer_portugal_primeira_liga': ['SOCCER', 'PORTUGAL', 'PRIMEIRA LIGA'],
+  'soccer_belgium_first_div': ['SOCCER', 'BELGIUM', 'FIRST DIV'],
+  'soccer_turkey_super_league': ['SOCCER', 'TURKEY', 'SUPER LEAGUE'],
+  'soccer_brazil_campeonato': ['SOCCER', 'BRAZIL', 'SERIE A'],
+  'soccer_brazil_serie_b': ['SOCCER', 'BRAZIL', 'SERIE B'],
+  'soccer_argentina_primera_division': ['SOCCER', 'ARGENTINA', 'PRIMERA'],
+  'soccer_mexico_ligamx': ['SOCCER', 'MEXICO', 'LIGAMX'],
+  'soccer_usa_mls': ['SOCCER', 'USA', 'MLS'],
+  'soccer_australia_aleague': ['SOCCER', 'AUSTRALIA', 'A-LEAGUE'],
+  'soccer_japan_j_league': ['SOCCER', 'JAPAN', 'J-LEAGUE'],
+  'soccer_south_africa_psl': ['SOCCER', 'SOUTH AFRICA', 'PSL'],
+  'soccer_poland_ekstraklasa': ['SOCCER', 'POLAND', 'EKSTRAKLASA'],
+  'soccer_sweden_allsvenskan': ['SOCCER', 'SWEDEN', 'ALLSVENSKAN'],
+  'soccer_norway_eliteserien': ['SOCCER', 'NORWAY', 'ELITE SERIEN'],
+  'soccer_denmark_superliga': ['SOCCER', 'DENMARK', 'SUPERLIGA'],
+  'soccer_switzerland_superleague': ['SOCCER', 'SWITZERLAND', 'SUPER LEAGUE'],
+  'soccer_austria_bundesliga': ['SOCCER', 'AUSTRIA', 'BUNDESLIGA'],
+  'soccer_uefa_champs_league': ['SOCCER', 'EUROPE', 'CHAMPIONS LEAGUE'],
+  'soccer_uefa_europa_league': ['SOCCER', 'EUROPE', 'EUROPA LEAGUE'],
+  'soccer_uefa_europa_conference_league': ['SOCCER', 'EUROPE', 'CONFERENCE LEAGUE'],
+  'soccer_conmebol_copa_libertadores': ['SOCCER', 'S.AMERICA', 'COPA LIBERTADORES'],
+  'soccer_saudi_arabia_pro_league': ['SOCCER', 'SAUDI ARABIA', 'PRO LEAGUE'],
+  'soccer_esoccer_gt_leagues_12': ['ESOCCER', 'GT LEAGUES', '12 MINS'],
+  'basketball_nba': ['BASKETBALL', 'USA', 'NBA'],
+  'basketball_euroleague': ['BASKETBALL', 'EUROPE', 'EUROLEAGUE'],
+  'americanfootball_nfl': ['AM FOOTBALL', 'USA', 'NFL'],
+  'baseball_mlb': ['BASEBALL', 'USA', 'MLB'],
+  'icehockey_nhl': ['ICE HOCKEY', 'USA', 'NHL'],
+  'tennis_atp_french_open': ['TENNIS', 'ATP', 'FRENCH OPEN'],
+  'tennis_atp_wimbledon': ['TENNIS', 'ATP', 'WIMBLEDON'],
+  'tennis_atp_monte_carlo_masters': ['TENNIS', 'ATP', 'MONTE CARLO'],
+  'mma_ufc': ['MMA', 'WORLD', 'UFC'],
+  'boxing_boxing': ['BOXING', 'WORLD', 'BOXING'],
+};
+
+function pk(key: string): [string, string, string] {
+  const m = LM[key];
+  if (m) return m;
+  const p = key.split('_');
+  return [p[0].toUpperCase(), p.length > 1 ? p[1].toUpperCase() : '', p.length > 2 ? p.slice(2).join(' ').toUpperCase() : ''];
 }
 
-interface MatchRow {
-  prediction: PredictionDto;
-  sportCategory: string;
-  region: string;
-  league: string;
-  isLive: boolean;
-  minutesPlayed: number | null;
-  currentScore: string | null;
-  halfStatus: '1H' | '2H' | 'HT' | 'FT' | 'LIVE' | null;
-  timeLabel: string;
-}
-
-interface LiveMatchRow {
-  externalId: string;
-  sportKey: string;
-  sportTitle: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  status: '1H' | '2H' | 'HT' | 'FT' | 'LIVE';
-  minute: number | null;
-  commenceTime: string;
-}
+interface MR { prediction: PredictionDto; cat: string; reg: string; lg: string; live: boolean; tl: string; }
+interface LMR { eid: string; cat: string; lg: string; ht: string; at: string; hs: number; as: number; st: string; mn: number | null; }
 
 @Component({
   selector: 'sp-predictions-page',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="page">
-      <!-- Header -->
-      <div class="header">
-        <div class="header__left">
-          <span class="header__prompt">&gt;</span>
-          <div>
-            <h1 class="header__title">PREDICTIONS</h1>
-            <p class="header__subtitle">
-              {{ liveCount() > 0 ? liveCount() + ' LIVE · ' : '' }}
-              {{ filteredMatches().length }} matches
-              {{ selectedLeague() ? 'in ' + selectedLeague() : 'across all leagues' }}
-            </p>
-          </div>
-        </div>
-        <div class="header__right">
-          <span class="live-badge" [class.live-badge--connected]="isLiveConnected()" [class.live-badge--disconnected]="!isLiveConnected()">
-            <span class="live-badge__dot"></span>
-            {{ isLiveConnected() ? 'LIVE' : 'OFFLINE' }}
-          </span>
-          @if (lastRefresh()) {
-            <span class="refresh-info">
-              Updated {{ lastRefresh() }}
-            </span>
-          }
-        </div>
-      </div>
-
-      <!-- Sport Category Tabs -->
-      @if (sportCategories().length > 0) {
-        <div class="tabs">
-          <button class="tab" [class.tab--active]="selectedCategory() === null" (click)="selectCategory(null)">
-            ALL
-          </button>
-          @for (group of sportCategories(); track group.name) {
-            <button class="tab" [class.tab--active]="selectedCategory() === group.name" (click)="selectCategory(group.name)">
-              {{ group.name }}
-            </button>
-          }
-        </div>
-      }
-
-      <!-- Region Chips (shown when category selected) -->
-      @if (selectedCategory() && availableRegions().length > 0) {
-        <div class="filter-bar">
-          <span class="filter-bar__label">REGION</span>
-          <button class="chip" [class.chip--active]="selectedRegion() === null" (click)="selectRegion(null)">
-            ALL
-          </button>
-          @for (region of availableRegions(); track region) {
-            <button class="chip" [class.chip--active]="selectedRegion() === region" (click)="selectRegion(region)">
-              {{ region }}
-            </button>
-          }
-        </div>
-      }
-
-      <!-- League Chips (shown when region selected) -->
-      @if (selectedRegion() && availableLeagues().length > 0) {
-        <div class="filter-bar filter-bar--subtle">
-          <span class="filter-bar__label">LEAGUE</span>
-          <button class="chip" [class.chip--active]="selectedLeague() === null" (click)="selectLeague(null)">
-            ALL
-          </button>
-          @for (league of availableLeagues(); track league) {
-            <button class="chip" [class.chip--active]="selectedLeague() === league" (click)="selectLeague(league)">
-              {{ league }}
-            </button>
-          }
-        </div>
-      }
-
-      <!-- Live Matches -->
-      @if (liveScoreMatches().length > 0) {
-        <div class="section section--live">
-          <h2 class="section__title">
-            <span class="live-pulse"></span>
-            LIVE NOW — {{ liveScoreMatches().length }} MATCH{{ liveScoreMatches().length > 1 ? 'ES' : '' }}
-          </h2>
-          @for (match of liveScoreMatches(); track match.externalId) {
-            <div class="live-match-card">
-              <div class="live-match-card__header">
-                <span class="live-match-card__sport">{{ match.sportTitle || match.sportKey }}</span>
-                <span class="live-match-card__half" [class]="'live-match-card__half--' + match.status.toLowerCase()">
-                  @if (match.status === '1H') { 1ST HALF }
-                  @else if (match.status === '2H') { 2ND HALF }
-                  @else if (match.status === 'HT') { HALF TIME }
-                  @else if (match.status === 'FT') { FULL TIME }
-                  @else { LIVE }
-                  @if (match.minute != null) { · {{ match.minute }}' }
-                </span>
-              </div>
-              <div class="live-match-card__teams">
-                <div class="live-match-card__team" [class.leading]="match.homeScore > match.awayScore">
-                  <span class="live-match-card__name">{{ match.homeTeam }}</span>
-                  <span class="live-match-card__score">{{ match.homeScore }}</span>
-                </div>
-                <span class="live-match-card__vs">—</span>
-                <div class="live-match-card__team" [class.leading]="match.awayScore > match.homeScore">
-                  <span class="live-match-card__name">{{ match.awayTeam }}</span>
-                  <span class="live-match-card__score">{{ match.awayScore }}</span>
-                </div>
-              </div>
-            </div>
-          }
-        </div>
-      }
-
-      <!-- Upcoming Matches -->
-      @if (upcomingMatches().length > 0) {
-        <div class="section">
-          <h2 class="section__title">UPCOMING</h2>
-          <div class="table-wrap">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th class="th th--time">TIME</th>
-                  <th class="th th--region">REGION</th>
-                  <th class="th th--league">LEAGUE</th>
-                  <th class="th th--match">MATCH</th>
-                  <th class="th th--pick">PICK</th>
-                  <th class="th th--edge">CONFIDENCE</th>
-                  <th class="th th--ev">EV</th>
-                  <th class="th th--odds">ODDS</th>
-                  <th class="th th--action"></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (match of upcomingMatches(); track match.prediction.id) {
-                  <tr class="tr">
-                    <td class="td td--time">
-                      <span class="td__time">{{ match.timeLabel }}</span>
-                    </td>
-                    <td class="td td--region">{{ match.region }}</td>
-                    <td class="td td--league">{{ match.league }}</td>
-                    <td class="td td--match">
-                      <span class="td__home" [class.dimmed]="predictedSide(match.prediction) === 'away'">{{ match.prediction.game.homeTeam.name }}</span>
-                      <span class="td__vs">vs</span>
-                      <span class="td__away" [class.dimmed]="predictedSide(match.prediction) === 'home'">{{ match.prediction.game.awayTeam.name }}</span>
-                    </td>
-                    <td class="td td--pick">
-                      <span class="pick" [class.pick--home]="predictedSide(match.prediction) === 'home'" [class.pick--away]="predictedSide(match.prediction) === 'away'" [class.pick--draw]="predictedSide(match.prediction) === 'draw'">
-                        {{ pickLabel(match.prediction) }}
-                      </span>
-                    </td>
-                    <td class="td td--edge">
-                      <span class="edge" [class.edge--high]="match.prediction.confidenceLevel === 'high'" [class.edge--med]="match.prediction.confidenceLevel === 'medium'" [class.edge--low]="match.prediction.confidenceLevel === 'low'">
-                        {{ match.prediction.confidenceLevel.toUpperCase() }}
-                      </span>
-                      <span class="edge__pct">{{ (match.prediction.confidence * 100).toFixed(0) }}%</span>
-                    </td>
-                    <td class="td td--ev">
-                      @if (match.prediction.expectedValue != null) {
-                        <span class="ev" [class.ev--pos]="match.prediction.expectedValue > 0" [class.ev--neg]="match.prediction.expectedValue <= 0">
-                          {{ match.prediction.expectedValue > 0 ? '+' : '' }}{{ (match.prediction.expectedValue * 100).toFixed(1) }}%
-                        </span>
-                      } @else {
-                        <span class="td__muted">—</span>
-                      }
-                    </td>
-                    <td class="td td--odds">
-                      <span class="td__odds">{{ match.prediction.odds ? match.prediction.odds.toFixed(2) : '—' }}</span>
-                    </td>
-                    <td class="td td--action">
-                      <button class="btn-add" [class.btn-add--in]="isInSlip(match.prediction.id)" (click)="addToSlip(match.prediction)" [disabled]="isInSlip(match.prediction.id)">
-                        {{ isInSlip(match.prediction.id) ? '✓' : '+' }}
-                      </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      }
-
-      <!-- Empty State -->
-      @if (filteredMatches().length === 0) {
-        <div class="empty">
-          @if (hasAnyMatches()) {
-            <pre class="empty__ascii">┌─────────────────────────────────────────┐
-│  NO GAMES FOR THIS FILTER               │
-│  Try selecting a different category     │
-│  or league to view predictions          │
-└─────────────────────────────────────────┘</pre>
-          } @else {
-            <pre class="empty__ascii">┌─────────────────────────────────────────┐
-│  NO MATCHES FOUND                       │
-│  Pipeline runs daily at 06:00 UTC       │
-│  Next sync will fetch upcoming games    │
-└─────────────────────────────────────────┘</pre>
-          }
-        </div>
-      }
+<div class="pg">
+  <div class="hd">
+    <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
+      <p class="sb">{{ lc() > 0 ? lc() + ' LIVE  \u00B7  ' : '' }}{{ fm().length }} MATCHES</p></div></div>
+    <div class="hr">
+      <span class="sd" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()"></span>
+      <span class="st" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()">{{ isLiveConnected() ? 'LIVE' : 'OFFLINE' }}</span>
+      @if (lastRefresh()) { <span class="up">UPDATED {{ lastRefresh() }}</span> }
     </div>
-  `,
-  styles: [`
-    .page {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 32px 24px;
-      position: relative;
-      z-index: 1;
-    }
-
-    // ─── Header ──────────────────────────────────
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 24px;
-    }
-
-    .header__left {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
-    .header__prompt {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      color: var(--color-accent);
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .header__title {
-      font-family: var(--font-family);
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: var(--color-text-primary);
-      line-height: 1.2;
-    }
-
-    .header__subtitle {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--color-text-muted);
-      margin-top: 4px;
-      letter-spacing: 0.02em;
-    }
-
-    .header__right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .live-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: var(--radius-full);
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      border: 1px solid var(--color-border);
-
-      &--connected {
-        background: var(--color-success-bg);
-        border-color: var(--color-success-border);
-        color: var(--color-success);
-      }
-
-      &--disconnected {
-        background: var(--color-danger-bg);
-        border-color: var(--color-danger-border);
-        color: var(--color-danger);
-      }
-    }
-
-    .live-badge__dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
-    .live-badge--connected .live-badge__dot {
-      box-shadow: 0 0 6px currentColor;
-      animation: pulse-glow 2s ease-in-out infinite;
-    }
-
-    .refresh-info {
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      color: var(--color-text-muted);
-    }
-
-    // ─── Sport Tabs ──────────────────────────────
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 12px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: none;
-      &::-webkit-scrollbar { display: none; }
-    }
-
-    .tab {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 6px 14px;
-      background: transparent;
-      border: 1px solid var(--color-border);
-      color: var(--color-text-muted);
-      border-radius: var(--radius-xs);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      white-space: nowrap;
-      letter-spacing: 0.04em;
-
-      &:hover {
-        border-color: var(--color-border-strong);
-        color: var(--color-text-secondary);
-      }
-
-      &--active {
-        background: var(--color-accent-subtle);
-        border-color: var(--color-accent-border);
-        color: var(--color-accent);
-      }
-    }
-
-    // ─── Filter Bars ──────────────────────────────
-    .filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 16px;
-      padding: 8px 12px;
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-xs);
-      overflow-x: auto;
-      scrollbar-width: none;
-      &::-webkit-scrollbar { display: none; }
-
-      &--subtle {
-        background: var(--color-bg-secondary);
-        border-color: var(--color-border-subtle);
-      }
-    }
-
-    .filter-bar__label {
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      font-weight: 700;
-      color: var(--color-text-muted);
-      letter-spacing: 0.06em;
-      white-space: nowrap;
-      margin-right: 4px;
-    }
-
-    .chip {
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      font-weight: 600;
-      padding: 4px 10px;
-      background: transparent;
-      border: 1px solid var(--color-border-subtle);
-      color: var(--color-text-muted);
-      border-radius: 2px;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      white-space: nowrap;
-      letter-spacing: 0.03em;
-
-      &:hover {
-        border-color: var(--color-border-strong);
-        color: var(--color-text-secondary);
-      }
-
-      &--active {
-        background: var(--color-bg-tertiary);
-        border-color: var(--color-border-strong);
-        color: var(--color-text-primary);
-      }
-    }
-
-    // ─── Section ─────────────────────────────────
-    .section {
-      margin-bottom: 28px;
-    }
-
-    // ─── Live Matches Section ─────────────────────
-    .section--live {
-      background: linear-gradient(180deg, rgba(239, 68, 68, 0.03) 0%, transparent 100%);
-      border: 1px solid rgba(239, 68, 68, 0.15);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-    }
-
-    .live-pulse {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #ef4444;
-      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-      animation: pulse-glow 1.5s ease-in-out infinite;
-    }
-
-    .live-match-card {
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      margin-bottom: 8px;
-      transition: all var(--transition-fast);
-
-      &:last-child { margin-bottom: 0; }
-
-      &:hover {
-        border-color: rgba(239, 68, 68, 0.3);
-        background: var(--color-bg-card-hover);
-      }
-    }
-
-    .live-match-card__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .live-match-card__sport {
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      color: var(--color-text-muted);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .live-match-card__half {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: var(--radius-xs);
-      letter-spacing: 0.03em;
-
-      &--1h {
-        color: #3b82f6;
-        background: rgba(59, 130, 246, 0.1);
-      }
-
-      &--2h {
-        color: #a78bfa;
-        background: rgba(167, 139, 250, 0.1);
-      }
-
-      &--ht {
-        color: #fbbf24;
-        background: rgba(251, 191, 36, 0.1);
-      }
-
-      &--ft {
-        color: var(--color-text-muted);
-        background: var(--color-bg-tertiary);
-      }
-
-      &--live {
-        color: #ef4444;
-        background: rgba(239, 68, 68, 0.1);
-        animation: pulse-glow 2s ease-in-out infinite;
-      }
-    }
-
-    .live-match-card__teams {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .live-match-card__team {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
-
-      &.leading .live-match-card__score {
-        color: var(--color-accent);
-      }
-    }
-
-    .live-match-card__team:last-child {
-      justify-content: flex-end;
-    }
-
-    .live-match-card__name {
-      font-family: var(--font-family);
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-text-primary);
-    }
-
-    .live-match-card__score {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--color-text-secondary);
-      transition: color var(--transition-fast);
-    }
-
-    .live-match-card__vs {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--color-text-muted);
-      padding: 0 16px;
-    }
-
-
-    .section__title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--color-text-muted);
-      letter-spacing: 0.06em;
-      margin-bottom: 12px;
-    }
-
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ef4444;
-      box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-      animation: pulse-glow 1.5s ease-in-out infinite;
-    }
-
-    // ─── Table ───────────────────────────────────
-    .table-wrap {
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-xs);
-      overflow-x: auto;
-      overflow-y: hidden;
-      -webkit-overflow-scrolling: touch;
-
-      /* Custom scrollbar */
-      &::-webkit-scrollbar { height: 6px; }
-      &::-webkit-scrollbar-track { background: var(--color-bg-secondary); }
-      &::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
-    }
-
-    .tbl {
-      width: 100%;
-      min-width: 900px;
-      border-collapse: collapse;
-      font-family: var(--font-mono);
-    }
-
-
-
-    .th {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      color: var(--color-text-muted);
-      letter-spacing: 0.06em;
-      padding: 10px 14px;
-      text-align: left;
-      border-bottom: 1px solid var(--color-border);
-      background: var(--color-bg-tertiary);
-      white-space: nowrap;
-      user-select: none;
-    }
-
-    .tr {
-      border-bottom: 1px solid var(--color-border-subtle);
-      transition: background var(--transition-fast);
-
-      &:last-child { border-bottom: none; }
-      &:hover { background: var(--color-accent-subtle); }
-    }
-
-    .td {
-      padding: 10px 14px;
-      font-size: 0.8125rem;
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-
-    .td__muted { color: var(--color-text-muted); }
-    .td__odds { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
-
-    .td__time {
-      color: var(--color-text-muted);
-      font-size: 0.75rem;
-    }
-
-    .td__home, .td__away {
-      font-weight: 500;
-      color: var(--color-text-primary);
-      transition: opacity var(--transition-fast);
-      &.dimmed { opacity: 0.4; }
-    }
-
-    .td__vs {
-      color: var(--color-text-muted);
-      font-size: 0.6875rem;
-      margin: 0 8px;
-    }
-
-    // Pick badge
-    .pick {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      padding: 3px 8px;
-      border-radius: 2px;
-
-      &--home { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-      &--away { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
-      &--draw { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-      &--live {
-        color: #ef4444;
-        background: rgba(239, 68, 68, 0.1);
-        animation: pulse-glow 2s ease-in-out infinite;
-      }
-    }
-
-    // Edge
-    .edge {
-      font-size: 0.6875rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      &--high { color: var(--color-confidence-high); }
-      &--med { color: var(--color-confidence-medium); }
-      &--low { color: var(--color-confidence-low); }
-    }
-    .edge__pct {
-      font-size: 0.6875rem;
-      color: var(--color-text-muted);
-      margin-left: 4px;
-    }
-
-    // EV
-    .ev {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      &--pos { color: var(--color-success); }
-      &--neg { color: var(--color-danger); }
-    }
-
-    // Action button
-    .td--action { width: 48px; text-align: center; }
-
-    .btn-add {
-      font-family: var(--font-mono);
-      font-size: 1rem;
-      font-weight: 700;
-      width: 32px;
-      height: 32px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--color-border);
-      background: transparent;
-      color: var(--color-text-secondary);
-      border-radius: var(--radius-xs);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-
-      &:hover:not(:disabled) {
-        border-color: var(--color-accent);
-        color: var(--color-accent);
-        background: var(--color-accent-subtle);
-      }
-
-      &--in {
-        border-color: var(--color-accent-border);
-        background: var(--color-accent-subtle);
-        color: var(--color-accent);
-        cursor: default;
-      }
-
-      &:disabled { cursor: default; }
-    }
-
-    // ─── Live Match Row ──────────────────────────
-    .match-row {
-      display: grid;
-      grid-template-columns: 70px 80px 1fr 140px 100px 80px 48px;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      background: var(--color-bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-xs);
-      margin-bottom: 6px;
-      transition: all var(--transition-fast);
-
-      &:hover {
-        border-color: var(--color-border-strong);
-      }
-
-      &--live {
-        border-color: rgba(239, 68, 68, 0.2);
-        background: rgba(239, 68, 68, 0.03);
-
-        &:hover {
-          border-color: rgba(239, 68, 68, 0.35);
+  </div>
+  <div class="fl">
+    <div class="fg"><label>SPORT</label>
+      <select [value]="sc() ?? ''" (change)="onCat($any($event.target).value)">
+        <option value="">ALL</option>
+        @for (c of cats(); track c) { <option [value]="c">{{ c }}</option> }
+      </select></div>
+    <div class="fg"><label>REGION</label>
+      <select [value]="sr() ?? ''" (change)="onReg($any($event.target).value)">
+        <option value="">ALL</option>
+        @for (r of regs(); track r) { <option [value]="r">{{ r }}</option> }
+      </select></div>
+    <div class="fg"><label>LEAGUE</label>
+      <select [value]="sl() ?? ''" (change)="onLg($any($event.target).value)">
+        <option value="">ALL</option>
+        @for (l of lgs(); track l) { <option [value]="l">{{ l }}</option> }
+      </select></div>
+    @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
+  </div>
+  @if (lsm().length > 0) {
+    <div class="ls"><div class="sl"><span class="pd"></span> LIVE</div>
+    @for (m of lsm(); track m.eid) {
+      <div class="lr"><span class="lc">{{ m.cat }}</span><span class="ll">{{ m.lg }}</span>
+        <span class="lt">{{ m.ht }} <span class="ls">{{ m.hs }}-{{ m.as }}</span> {{ m.at }}</span>
+        <span class="lh" [class]="'lh' + hC(m.st)">{{ m.st }}{{ m.mn != null ? ' ' + m.mn + "'" : '' }}</span></div>
+    }</div>
+  }
+  @if (um().length > 0) {
+    <div class="sl">UPCOMING</div>
+    <div class="tw"><table class="tb">
+      <thead><tr><th>TIME</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>PICK</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th></tr></thead>
+      <tbody>
+        @for (m of um(); track m.prediction.id) {
+          <tr>
+            <td class="mo">{{ m.tl }}</td>
+            <td class="mo di">{{ m.cat }}</td>
+            <td class="mo di">{{ m.lg }}</td>
+            <td><span [class.di]="pS(m.prediction)==='a'">{{ m.prediction.game.homeTeam.name }}</span>
+                <span class="vs">vs</span>
+                <span [class.di]="pS(m.prediction)==='h'">{{ m.prediction.game.awayTeam.name }}</span></td>
+            <td><span class="pk" [class]="'pk' + pK(m.prediction)">{{ pL(m.prediction) }}</span></td>
+            <td><span class="cf" [class]="m.prediction.confidenceLevel">{{ m.prediction.confidenceLevel.toUpperCase() }} {{ (m.prediction.confidence * 100).toFixed(0) }}%</span></td>
+            <td>@if (m.prediction.expectedValue != null) {
+              <span class="ev" [class.po]="m.prediction.expectedValue > 0" [class.ne]="m.prediction.expectedValue <= 0">{{ m.prediction.expectedValue > 0 ? '+' : '' }}{{ (m.prediction.expectedValue * 100).toFixed(1) }}%</span>
+            } @else { <span class="di">\u2014</span> }</td>
+            <td class="mo">{{ m.prediction.odds ? m.prediction.odds.toFixed(2) : '\u2014' }}</td>
+            <td><button class="ab" [class.in]="iS(m.prediction.id)" (click)="aS(m.prediction)" [disabled]="iS(m.prediction.id)">{{ iS(m.prediction.id) ? '\u2713' : '+' }}</button></td>
+          </tr>
         }
-      }
-    }
-
-    .match-row__minute {
-      font-family: var(--font-mono);
-      font-size: 0.8125rem;
-      font-weight: 700;
-      color: #ef4444;
-    }
-
-    .match-row__region {
-      font-family: var(--font-mono);
-      font-size: 0.6875rem;
-      color: var(--color-text-muted);
-    }
-
-    .match-row__match {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: var(--font-mono);
-      font-size: 0.8125rem;
-    }
-
-    .match-row__home, .match-row__away {
-      font-weight: 500;
-      color: var(--color-text-primary);
-      &.dimmed { opacity: 0.4; }
-    }
-
-    .match-row__score {
-      font-family: var(--font-mono);
-      font-size: 0.875rem;
-      font-weight: 700;
-      color: var(--color-text-primary);
-      padding: 2px 8px;
-      background: var(--color-bg-tertiary);
-      border-radius: 2px;
-    }
-
-    // ─── Empty State ─────────────────────────────
-    .empty {
-      text-align: center;
-      padding: 64px 24px;
-    }
-
-    .empty__ascii {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      line-height: 1.5;
-      color: var(--color-text-muted);
-      display: inline-block;
-      text-align: left;
-    }
-
-    // ─── Responsive ──────────────────────────────
-    @media (max-width: 1024px) {
-      .th--sport, .td--sport { display: none; }
-      .th--region, .td--region { display: none; }
-      .match-row { grid-template-columns: 70px 1fr 120px 90px 70px 48px; }
-      .match-row__region { display: none; }
-    }
-
-    @media (max-width: 768px) {
-      .page { padding: 24px 16px; }
-      .header { flex-direction: column; gap: 12px; }
-      .th--ev, .td--ev { display: none; }
-      .th--odds, .td--odds { display: none; }
-      .th--league, .td--league { display: none; }
-      .match-row { grid-template-columns: 60px 1fr 90px 48px; }
-      .match-row__edge { display: none; }
-      .match-row__ev { display: none; }
-    }
-
-    @media (max-width: 480px) {
-      .header__title { font-size: 1.125rem; }
-      .pick { font-size: 0.6875rem; padding: 2px 6px; }
-    }
+      </tbody>
+    </table></div>
+  }
+  @if (am().length > 0 && fm().length === 0) {
+    <div class="em"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES FOR THIS FILTER  \u2502\n\u2502  Clear filters above         \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre>
+      <button class="bc" (click)="clr()">[ CLEAR FILTERS ]</button></div>
+  }
+  @if (am().length === 0) {
+    <div class="em"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES IN SYSTEM        \u2502\n\u2502  Pipeline runs every 5 min   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre></div>
+  }
+</div>`,
+  styles: [`
+    .pg{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
+    .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+    .hl{display:flex;align-items:flex-start;gap:8px}
+    .pr{font-family:var(--font-family);font-size:1.25rem;color:var(--color-accent);font-weight:700;line-height:1}
+    h1{font-family:var(--font-family);font-size:1.375rem;font-weight:700;letter-spacing:0.06em;color:var(--color-text-primary);line-height:1.2;margin:0}
+    .sb{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);margin:3px 0 0;letter-spacing:0.02em}
+    .hr{display:flex;align-items:center;gap:6px}
+    .sd{width:7px;height:7px;border-radius:50%}.sd.on{background:var(--color-success);box-shadow:0 0 6px var(--color-success);animation:pulse-glow 2s ease-in-out infinite}.sd.off{background:var(--color-text-muted)}
+    .st{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.06em}.st.on{color:var(--color-success)}.st.off{color:var(--color-text-muted)}
+    .up{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-muted)}
+    .fl{display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+    .fg{display:flex;flex-direction:column;gap:3px}.fg label{font-family:var(--font-family);font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em}
+    .fg select{font-family:var(--font-family);font-size:0.6875rem;font-weight:500;padding:5px 26px 5px 8px;background:var(--color-bg-input);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-xs);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
+    .fg select:focus{outline:none;border-color:var(--color-accent)}
+    .clr{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:5px 10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.clr:hover{border-color:var(--color-accent);color:var(--color-accent)}
+    .sl{display:flex;align-items:center;gap:6px;font-family:var(--font-family);font-size:0.6875rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;margin-bottom:10px}
+    .pd{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 5px rgba(239,68,68,0.5);animation:pulse-glow 1.5s ease-in-out infinite}
+    .ls{background:linear-gradient(180deg,rgba(239,68,68,0.03),transparent);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xs);padding:12px;margin-bottom:20px}
+    .lr{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--color-border-subtle)}.lr:last-child{border-bottom:none}
+    .lc{font-family:var(--font-family);font-size:0.5625rem;color:var(--color-text-muted);min-width:70px}
+    .ll{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-secondary);min-width:110px}
+    .lt{font-family:var(--font-family);font-size:0.75rem;color:var(--color-text-primary);flex:1}
+    .lsc{font-weight:700;color:var(--color-accent);margin:0 3px}
+    .lh{font-family:var(--font-family);font-size:0.625rem;font-weight:700;padding:2px 6px;border-radius:2px;white-space:nowrap}
+    .lh1H{color:#3b82f6;background:rgba(59,130,246,0.1)}.lh2H{color:#a78bfa;background:rgba(167,139,250,0.1)}.lhHT{color:#fbbf24;background:rgba(251,191,36,0.1)}.lhFT{color:var(--color-text-muted);background:var(--color-bg-tertiary)}
+    .tw{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:var(--radius-xs);overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .tw::-webkit-scrollbar{height:5px}.tw::-webkit-scrollbar-track{background:var(--color-bg-secondary)}.tw::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
+    .tb{width:100%;min-width:800px;border-collapse:collapse;font-family:var(--font-family)}
+    .tb thead th{font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--color-border);background:var(--color-bg-tertiary);white-space:nowrap}
+    .tb tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--transition-fast)}.tb tbody tr:hover{background:var(--color-accent-subtle)}.tb tbody tr:last-child{border-bottom:none}
+    .tb tbody td{padding:8px 12px;font-size:0.75rem;white-space:nowrap;vertical-align:middle}
+    .mo{font-family:var(--font-family)}.di{color:var(--color-text-muted)}.di2{opacity:0.4}.vs{color:var(--color-text-muted);font-size:0.625rem;margin:0 5px}
+    .pk{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px}
+    .pkh{color:#3b82f6;background:rgba(59,130,246,0.1)}.pka{color:#a78bfa;background:rgba(167,139,250,0.1)}.pkd{color:#fbbf24;background:rgba(251,191,36,0.1)}
+    .cf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.02em}.cf.high{color:var(--color-confidence-high)}.cf.medium{color:var(--color-confidence-medium)}.cf.low{color:var(--color-confidence-low)}
+    .ev{font-family:var(--font-family);font-size:0.6875rem;font-weight:600}.ev.po{color:var(--color-success)}.ev.ne{color:var(--color-danger)}
+    .ab{font-family:var(--font-family);font-size:0.875rem;font-weight:700;width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--color-border);background:transparent;color:var(--color-text-secondary);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}
+    .ab:hover:not(:disabled){border-color:var(--color-accent);color:var(--color-accent);background:var(--color-accent-subtle)}.ab.in{border-color:var(--color-accent-border);background:var(--color-accent-subtle);color:var(--color-accent);cursor:default}.ab:disabled{cursor:default}
+    .em{text-align:center;padding:48px 20px}.em pre{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);line-height:1.5;display:inline-block}
+    .bc{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:5px 14px;margin-top:12px;background:transparent;border:1px solid var(--color-accent-border);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.bc:hover{background:var(--color-accent);color:var(--color-text-on-accent)}
   `],
 })
 export class PredictionsPage implements OnInit, OnDestroy {
-  accuracy = signal<AccuracyData | null>(null);
   pendingPredictions = signal<PredictionDto[]>([]);
-  selectedCategory = signal<string | null>(null);
-  selectedRegion = signal<string | null>(null);
-  selectedLeague = signal<string | null>(null);
-  lastRefresh = signal<string>('');
+  sc = signal<string | null>(null);
+  sr = signal<string | null>(null);
+  sl = signal<string | null>(null);
+  lastRefresh = signal('');
   isLiveConnected = signal(false);
-  liveScoreMatches = signal<LiveMatchRow[]>([]);
-  private eventSource: EventSource | null = null;
-
+  lsm = signal<LMR[]>([]);
+  private es: EventSource | null = null;
   private api = inject(ApiService);
-  public authService = inject(AuthService);
-  private betsService = inject(BetsService);
+  authService = inject(AuthService);
+  private bs = inject(BetsService);
   private router = inject(Router);
 
-  ngOnInit() {
-    this.loadState();
-    this.fetchData();
-    this.connectSSE();
+  ngOnInit() { this.ld(); this.fd(); this.cs(); }
+  ngOnDestroy() { this.ds(); }
+
+  am = computed<MR[]>(() => this.pendingPredictions()
+    .filter(p => new Date(p.game.commenceTime) > new Date(Date.now() - 7200000))
+    .map(p => {
+      const [c, r, l] = pk(p.game.sportKey);
+      const ct = new Date(p.game.commenceTime), d = ct.getTime() - Date.now(), ms = Math.floor(-d / 60000), lv = ms > 0 && ms < 120;
+      let tl = lv ? ms + "'" : (ms <= 0 && ms > -60) ? 'SOON' : (d > 0 && d < 86400000) ? ct.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (Math.floor(d / 86400000) === 1 ? 'TOMORROW' : ct.toLocaleDateString([], { weekday: 'short' }).toUpperCase());
+      return { prediction: p, cat: c, reg: r, lg: l, live: lv, tl };
+    }).sort((a, b) => (a.live === b.live ? 0 : a.live ? -1 : 1) || new Date(a.prediction.game.commenceTime).getTime() - new Date(b.prediction.game.commenceTime).getTime()));
+
+  cats = computed(() => [...new Set(this.am().map(m => m.cat))].sort());
+  regs = computed(() => { const c = this.sc(); return [...new Set(this.am().filter(m => !c || m.cat === c).map(m => m.reg))].sort(); });
+  lgs = computed(() => { const c = this.sc(), r = this.sr(); return [...new Set(this.am().filter(m => (!c || m.cat === c) && (!r || m.reg === r)).map(m => m.lg))].sort(); });
+  lc = computed(() => this.am().filter(m => m.live).length);
+  fm = computed(() => this.fl(this.am()));
+  um = computed(() => this.fl(this.am().filter(m => !m.live)));
+
+  private fl(ms: MR[]): MR[] {
+    let f = ms;
+    const c = this.sc(), r = this.sr(), l = this.sl();
+    if (c) f = f.filter(m => m.cat === c);
+    if (r) f = f.filter(m => m.reg === r);
+    if (l) f = f.filter(m => m.lg === l);
+    return f;
   }
 
-  ngOnDestroy() {
-    this.disconnectSSE();
-  }
-
-  connectSSE() {
-    this.disconnectSSE();
-
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    const url = `${protocol}//${host}/api/stream/predictions`;
-
-    this.eventSource = new EventSource(url);
-
-    this.eventSource.onopen = () => {
-      this.isLiveConnected.set(true);
-    };
-
-    this.eventSource.addEventListener('predictions', (event: any) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.data?.predictions) {
-          this.pendingPredictions.set(data.data.predictions);
-          if (data.data.accuracy) {
-            this.accuracy.set(data.data.accuracy);
-          }
-          if (data.data.liveMatches) {
-            this.liveScoreMatches.set(data.data.liveMatches);
-          }
-          this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    });
-
-    // Separate live_scores event for real-time score updates
-    this.eventSource.addEventListener('live_scores', (event: any) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.data?.matches) {
-          this.liveScoreMatches.set(data.data.matches);
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    });
-
-    this.eventSource.addEventListener('heartbeat', () => {
-      // Connection is alive
-      this.isLiveConnected.set(true);
-    });
-
-    this.eventSource.onerror = () => {
-      this.isLiveConnected.set(false);
-      // Auto-reconnect is handled by EventSource natively
-      // Retry with exponential backoff after 3 failed attempts
-      setTimeout(() => {
-        if (!this.isLiveConnected()) {
-          this.connectSSE();
-        }
-      }, 5000);
-    };
-  }
-
-  disconnectSSE() {
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-      this.isLiveConnected.set(false);
-    }
-  }
-
-  private loadState() {
-    try {
-      const saved = localStorage.getItem('predictions-view-state');
-      if (saved) {
-        const state = JSON.parse(saved);
-        if (state.selectedCategory) this.selectedCategory.set(state.selectedCategory);
-        if (state.selectedRegion) this.selectedRegion.set(state.selectedRegion);
-        if (state.selectedLeague) this.selectedLeague.set(state.selectedLeague);
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  private saveState() {
-    try {
-      localStorage.setItem('predictions-view-state', JSON.stringify({
-        selectedCategory: this.selectedCategory(),
-        selectedRegion: this.selectedRegion(),
-        selectedLeague: this.selectedLeague(),
-      }));
-    } catch {
-      // Ignore storage errors
-    }
-  }
-
-  fetchData() {
-    this.api.getPendingPredictions().subscribe({
-      next: (data) => {
-        this.pendingPredictions.set(data);
-        this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      },
-    });
-    this.api.getAccuracy().subscribe({
-      next: (data) => this.accuracy.set(data),
-    });
-  }
-
-  // Build 3-level hierarchy: Sport Category → Region → Leagues
-  sportCategories = computed<SportCategoryGroup[]>(() => {
-    const list = this.pendingPredictions();
-    // category → region → leagues → count
-    const map = new Map<string, Map<string, Map<string, number>>>();
-
-    for (const p of list) {
-      const { category, region, league } = this.parseHierarchy(p.game.sportKey, p.game.sportTitle);
-
-      if (!map.has(category)) map.set(category, new Map());
-      const regions = map.get(category)!;
-      if (!regions.has(region)) regions.set(region, new Map());
-      const leagues = regions.get(region)!;
-      leagues.set(league, (leagues.get(league) || 0) + 1);
-    }
-
-    return Array.from(map.entries())
-      .sort((a, b) => {
-        const aCount = Array.from(a[1].values()).reduce((sum, r) => sum + Array.from(r.values()).reduce((s, c) => s + c, 0), 0);
-        const bCount = Array.from(b[1].values()).reduce((sum, r) => sum + Array.from(r.values()).reduce((s, c) => s + c, 0), 0);
-        return bCount - aCount;
-      })
-      .map(([category, regions]) => ({
-        name: category,
-        regions: Array.from(regions.entries())
-          .sort((a, b) => {
-            const aCount = Array.from(a[1].values()).reduce((s, c) => s + c, 0);
-            const bCount = Array.from(b[1].values()).reduce((s, c) => s + c, 0);
-            return bCount - aCount;
-          })
-          .map(([region, leagues]) => ({
-            name: region,
-            leagues: Array.from(leagues.entries())
-              .sort((a, b) => b[1] - a[1])
-              .map(([name, count]) => ({ name, count })),
-          })),
-      }));
-  });
-
-  availableRegions = computed<string[]>(() => {
-    const cat = this.selectedCategory();
-    if (!cat) return [];
-    const group = this.sportCategories().find(g => g.name === cat);
-    return group ? group.regions.map(r => r.name) : [];
-  });
-
-  availableLeagues = computed<string[]>(() => {
-    const cat = this.selectedCategory();
-    const reg = this.selectedRegion();
-    if (!cat || !reg) return [];
-    const group = this.sportCategories().find(g => g.name === cat);
-    const region = group?.regions.find(r => r.name === reg);
-    return region ? region.leagues.map(l => l.name) : [];
-  });
-
-  // Parse all matches into enriched rows
-  allMatches = computed<MatchRow[]>(() => {
-    return this.pendingPredictions()
-      .filter(p => new Date(p.game.commenceTime) > new Date(Date.now() - 7200000))
-      .map(p => this.enrichMatch(p))
-      .sort((a, b) => {
-        if (a.isLive && !b.isLive) return -1;
-        if (!a.isLive && b.isLive) return 1;
-        return new Date(a.prediction.game.commenceTime).getTime() - new Date(b.prediction.game.commenceTime).getTime();
-      });
-  });
-
-  liveMatches = computed<MatchRow[]>(() =>
-    this.filterBySelection(this.allMatches().filter(m => m.isLive))
-  );
-
-  upcomingMatches = computed<MatchRow[]>(() =>
-    this.filterBySelection(this.allMatches().filter(m => !m.isLive && new Date(m.prediction.game.commenceTime) > new Date()))
-  );
-
-  filteredMatches = computed<MatchRow[]>(() =>
-    this.filterBySelection(this.allMatches())
-  );
-
-  liveCount = computed(() => this.allMatches().filter(m => m.isLive).length);
-
-  hasAnyMatches = computed(() => this.allMatches().length > 0);
-
-  private filterBySelection(matches: MatchRow[]): MatchRow[] {
-    const cat = this.selectedCategory();
-    const reg = this.selectedRegion();
-    const league = this.selectedLeague();
-
-    let filtered = matches;
-    if (cat) {
-      filtered = filtered.filter(m => m.sportCategory === cat);
-    }
-    if (reg) {
-      filtered = filtered.filter(m => m.region === reg);
-    }
-    if (league) {
-      filtered = filtered.filter(m => m.league === league);
-    }
-    return filtered;
-  }
-
-  private enrichMatch(p: PredictionDto): MatchRow {
-    const commenceTime = new Date(p.game.commenceTime);
-    const now = new Date();
-    const diffMs = commenceTime.getTime() - now.getTime();
-    const minutesSinceStart = Math.floor(-diffMs / 60000);
-
-    const isLive = minutesSinceStart > 0 && minutesSinceStart < 120;
-    const minutesPlayed = isLive ? minutesSinceStart : null;
-
-    let timeLabel = '';
-    if (isLive) {
-      timeLabel = minutesPlayed + "'";
-    } else if (minutesSinceStart <= 0 && minutesSinceStart > -60) {
-      timeLabel = 'SOON';
-    } else {
-      timeLabel = this.formatTime(p.game.commenceTime);
-    }
-
-    const { category, region, league } = this.parseHierarchy(p.game.sportKey, p.game.sportTitle);
-
-    return {
-      prediction: p,
-      sportCategory: category,
-      region,
-      league,
-      isLive,
-      minutesPlayed,
-      currentScore: null,
-      halfStatus: isLive ? 'LIVE' : null,
-      timeLabel,
-    };
-  }
-
-  // Parse sportKey into category → region → league
-  // e.g. soccer_germany_bundesliga → SOCCER → GERMANY → BUNDESLIGA
-  // e.g. soccer_epl → SOCCER → ENGLAND → EPL
-  // e.g. basketball_nba → BASKETBALL → USA → NBA
-  private parseHierarchy(sportKey: string, sportTitle: string | undefined): { category: string; region: string; league: string } {
-    const parts = sportKey.split('_');
-
-    // Category = first part (SOCCER, BASKETBALL, etc.)
-    const category = parts[0].toUpperCase();
-
-    // Region = second part if it exists and is not a generic term
-    const regionCandidates = ['germany', 'england', 'spain', 'italy', 'france', 'usa', 'europe', 'south_america', 'brazil', 'argentina', 'mexico', 'japan', 'australia', 'netherlands', 'portugal', 'belgium', 'turkey', 'scotland', 'norway', 'sweden', 'denmark', 'switzerland', 'austria', 'poland', 'greece', 'ireland', 'russia', 'china', 'korea', 'saudi_arabia', 'india', 'chile', 'finland', 'mixed_martial', 'americanfootball'];
-
-    let region = 'GLOBAL';
-    let leagueStartIdx = 1;
-
-    if (parts.length >= 2) {
-      const possibleRegion = parts[1].toLowerCase();
-      if (regionCandidates.includes(possibleRegion) || possibleRegion === 'atp' || possibleRegion === 'wta' || possibleRegion === 'esoccer') {
-        region = parts[1].toUpperCase();
-        leagueStartIdx = 2;
-      } else if (possibleRegion === 'south') {
-        // Handle south_africa as one region
-        region = 'SOUTH AFRICA';
-        leagueStartIdx = 3;
-      }
-    }
-
-    // League = remaining parts
-    if (parts.length > leagueStartIdx) {
-      const leagueParts = parts.slice(leagueStartIdx).map(s => s.toUpperCase());
-      const league = leagueParts.join(' ');
-      return { category, region, league };
-    }
-
-    // If no league part, use sportTitle or second part
-    const league = sportTitle || (parts.length > 1 ? parts[1].toUpperCase() : category);
-    return { category, region: region === 'GLOBAL' ? 'ALL' : region, league };
-  }
-
-  private sportLabel(key: string): string {
-    return key.split('_').slice(0, 2).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-  }
-
-  private formatTime(dateStr: string): string {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
-    const diffH = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffD = Math.floor(diffH / 24);
-
-    if (diffD === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (diffD === 1) return 'TOMORROW';
-    if (diffD < 7) return d.toLocaleDateString([], { weekday: 'short' }).toUpperCase();
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
-  }
-
-  predictedSide(p: PredictionDto): 'home' | 'away' | 'draw' {
-    if (p.predictedOutcome === 'home_win') return 'home';
-    if (p.predictedOutcome === 'away_win') return 'away';
-    return 'draw';
-  }
-
-  pickLabel(p: PredictionDto): string {
-    if (p.predictedOutcome === 'home_win') return p.game.homeTeam.name;
-    if (p.predictedOutcome === 'away_win') return p.game.awayTeam.name;
-    return 'DRAW';
-  }
-
-  selectCategory(cat: string | null) {
-    this.selectedCategory.set(cat);
-    this.selectedRegion.set(null);
-    this.selectLeague(null);
-    this.saveState();
-  }
-
-  selectRegion(region: string | null) {
-    this.selectedRegion.set(region);
-    this.selectLeague(null);
-    this.saveState();
-  }
-
-  selectLeague(league: string | null) {
-    this.selectLeague(league);
-    this.saveState();
-  }
-
-  isInSlip(predictionId: string): boolean {
-    return !!this.betsService.betSlipPredictions().find(p => p.id === predictionId);
-  }
-
-  addToSlip(prediction: PredictionDto) {
-    this.betsService.addToSlip(prediction);
-  }
-
-  goToLogin() {
-    this.router.navigate(['/login']);
-  }
+  onCat(v: string) { this.sc.set(v || null); this.sr.set(null); this.sl.set(null); this.sv(); }
+  onReg(v: string) { this.sr.set(v || null); this.sl.set(null); this.sv(); }
+  onLg(v: string) { this.sl.set(v || null); this.sv(); }
+  clr() { this.sc.set(null); this.sr.set(null); this.sl.set(null); this.sv(); }
+  pS(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
+  pK(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
+  pL(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? p.game.homeTeam.name : p.predictedOutcome === 'away_win' ? p.game.awayTeam.name : 'DRAW'; }
+  hC(s: string) { return s === '1H' ? '1H' : s === '2H' ? '2H' : 'HT'; }
+  iS(id: string) { return !!this.bs.betSlipPredictions().find(p => p.id === id); }
+  aS(p: PredictionDto) { this.bs.addToSlip(p); }
+  ld() { try { const s = JSON.parse(localStorage.getItem('pv') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
+  sv() { try { localStorage.setItem('pv', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
+  fd() { this.api.getPendingPredictions().subscribe({ next: d => { this.pendingPredictions.set(d); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); }, error: () => {} }); }
+  cs() { this.ds(); this.es = new EventSource(window.location.origin + '/api/stream/predictions'); this.es.onopen = () => this.isLiveConnected.set(true); this.es.addEventListener('predictions', (e: any) => { try { const d = JSON.parse(e.data); if (d.data?.predictions) this.pendingPredictions.set(d.data.predictions); if (d.data?.liveMatches) this.lsm.set(d.data.liveMatches.map((m: any) => { const [c,,l] = pk(m.sportKey); return { eid: m.externalId, cat: c, lg: l, ht: m.homeTeam, at: m.awayTeam, hs: m.homeScore, as: m.awayScore, st: m.status, mn: m.minute }; })); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); } catch {} }); this.es.addEventListener('heartbeat', () => this.isLiveConnected.set(true)); this.es.onerror = () => { this.isLiveConnected.set(false); setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000); }; }
+  ds() { if (this.es) { this.es.close(); this.es = null; this.isLiveConnected.set(false); } }
 }
