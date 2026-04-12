@@ -10,7 +10,6 @@ import type {
 } from '../../../domain/ports/output';
 import { Sport } from '../../../domain/entities';
 
-// SportAPI supports many sports, we'll map a few popular ones here.
 const SPORT_API_CATEGORIES = [
     { id: 1, key: 'soccer_epl', title: 'Soccer - Premier League', group: 'Soccer' },
     { id: 2, key: 'basketball_nba', title: 'Basketball - NBA', group: 'Basketball' },
@@ -29,17 +28,6 @@ export class SportApiAdapter implements SportsDataPort {
     private readonly apiKey: string;
     private readonly apiHost: string;
 
-    private fallbackMode = false;
-    private mockTeams: Record<string, string[]> = {
-        'Soccer': ['Arsenal', 'Chelsea', 'Liverpool', 'Man City', 'Man United', 'Spurs', 'Mamelodi Sundowns', 'Orlando Pirates', 'Kaizer Chiefs', 'SuperSport United'],
-        'Basketball': ['Lakers', 'Warriors', 'Celtics', 'Heat', 'Bulls', 'Nets'],
-        'Tennis': ['Djokovic', 'Alcaraz', 'Medvedev', 'Sinner', 'Nadal', 'Zverev'],
-        'Baseball': ['Yankees', 'Dodgers', 'Red Sox', 'Astros', 'Braves', 'Mets'],
-        'American Football': ['Chiefs', 'Eagles', '49ers', 'Bills', 'Bengals', 'Cowboys'],
-        'Mixed Martial Arts': ['Makhachev', 'Jones', 'Volkanovski', 'Edwards', 'O\'Malley', 'Adesanya'],
-        'Esoccer GT Leagues': ['Crysis', 'Carlos', 'Snail', 'Delpiero', 'Banega', 'Professor', 'Viper', 'Lucas', 'Sensei', 'Eminem', 'Titan', 'Klaus', 'Hulk', 'Habibi', 'Razvan', 'Arthur', 'Fred', 'Kevin', 'Shaolin', 'Eros', 'David', 'Furious', 'Stan'],
-    };
-
     constructor(
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
@@ -49,8 +37,7 @@ export class SportApiAdapter implements SportsDataPort {
         this.apiHost = this.configService.get<string>('SPORT_API_HOST') ?? 'sportapi7.p.rapidapi.com';
 
         if (!this.apiKey || this.apiKey.includes('your_')) {
-            this.logger.warn('⚠️  SPORT_API_KEY is not set or invalid. API calls will fail. Using mock fallback mode.');
-            this.fallbackMode = true;
+            this.logger.warn('⚠️  SPORT_API_KEY is not set. API calls will fail.');
         }
     }
 
@@ -73,13 +60,8 @@ export class SportApiAdapter implements SportsDataPort {
         if (!sport) return [];
 
         try {
-            // Mocking the request path, SportAPI has specific endpoints per sport/category
             const data = await this.makeRequest<any>(`/events/schedule`, { categoryId: sport.id.toString() });
-
-            if (!data || !data.events) {
-                // If the real API returns empty or an unexpected format, fallback
-                return [];
-            }
+            if (!data || !data.events) return [];
 
             this.logger.log(`Fetched ${data.events.length} upcoming events for ${sportKey}`);
 
@@ -102,16 +84,13 @@ export class SportApiAdapter implements SportsDataPort {
 
         try {
             const data = await this.makeRequest<any>(`/events/results`, { categoryId: sport.id.toString(), days: daysFrom.toString() });
-
-            if (!data || !data.events) {
-                return [];
-            }
+            if (!data || !data.events) return [];
 
             this.logger.log(`Fetched ${data.events.length} scores for ${sportKey}`);
 
             return data.events.map((e: any) => ({
                 externalId: e.id.toString(),
-                sportKey: sportKey,
+                sportKey,
                 completed: e.status.type === 'finished',
                 homeTeam: e.homeTeam.name,
                 awayTeam: e.awayTeam.name,
@@ -130,19 +109,14 @@ export class SportApiAdapter implements SportsDataPort {
         if (!sport) return [];
 
         try {
-            // Not all SportAPI endpoints provide full pre-match odds in the free tier easily.
-            // We will attempt to fetch, but gracefully fallback to our odds generator if needed.
             const data = await this.makeRequest<any>(`/events/odds`, { categoryId: sport.id.toString() });
-
-            if (!data || !data.odds) {
-                return [];
-            }
+            if (!data || !data.odds) return [];
 
             this.logger.log(`Fetched odds for events in ${sportKey}`);
 
             return data.odds.map((o: any) => ({
                 externalId: o.eventId.toString(),
-                sportKey: sportKey,
+                sportKey,
                 homeTeam: o.homeTeamName || 'Home',
                 awayTeam: o.awayTeamName || 'Away',
                 bookmakers: [
@@ -161,37 +135,23 @@ export class SportApiAdapter implements SportsDataPort {
                 ],
             }));
         } catch (error) {
-            this.logger.error(`Failed to fetch odds for ${sportKey}. Using mock odds.`, error);
+            this.logger.error(`Failed to fetch odds for ${sportKey}`, error);
             return [];
         }
     }
 
     private async makeRequest<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-        if (this.fallbackMode) return null as unknown as T; // Will trigger the fallback handler in the caller methods
-
         const url = `${this.baseUrl}${path}`;
-        try {
-            const response = await firstValueFrom(
-                this.httpService.get<T>(url, {
-                    params,
-                    headers: {
-                        'x-rapidapi-key': this.apiKey,
-                        'x-rapidapi-host': this.apiHost,
-                    },
-                    timeout: 10_000,
-                }),
-            );
-
-            return response.data;
-        } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 429 || status === 401 || status === 403) {
-                this.logger.warn(`SportAPI quota reached or invalid key (Status ${status}). Switching to MOCK FALLBACK.`);
-                this.fallbackMode = true;
-                return null as unknown as T;
-            }
-            throw error;
-        }
+        const response = await firstValueFrom(
+            this.httpService.get<T>(url, {
+                params,
+                headers: {
+                    'x-rapidapi-key': this.apiKey,
+                    'x-rapidapi-host': this.apiHost,
+                },
+                timeout: 10_000,
+            }),
+        );
+        return response.data;
     }
-
 }

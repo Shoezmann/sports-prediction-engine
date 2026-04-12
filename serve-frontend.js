@@ -1,9 +1,9 @@
-// Simple static file server for the built frontend
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.FRONTEND_PORT || 4200;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:3000';
 const DIST_DIR = path.join(__dirname, 'dist/apps/frontend/browser');
 
 const MIME_TYPES = {
@@ -21,14 +21,61 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-    // SPA fallback: serve index.html for non-file routes
+    // ── Proxy /api requests to backend ──
+    if (req.url.startsWith('/api')) {
+        const options = {
+            hostname: '127.0.0.1',
+            port: 3000,
+            path: req.url,
+            method: req.method,
+            headers: {
+                ...req.headers,
+                host: '127.0.0.1:3000',
+            },
+        };
+
+        const proxyReq = http.request(options, (proxyRes) => {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+            if (req.method === 'OPTIONS') {
+                res.writeHead(204);
+                res.end();
+                return;
+            }
+
+            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            proxyRes.pipe(res);
+        });
+
+        proxyReq.on('error', (err) => {
+            console.error(`[Proxy Error] ${req.url}: ${err.message}`);
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Backend unavailable', detail: err.message }));
+        });
+
+        req.pipe(proxyReq);
+        return;
+    }
+
+    // ── Handle CORS preflight ──
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    // ── Serve static files ──
     let filePath = path.join(DIST_DIR, req.url === '/' ? 'index.html' : req.url);
     const ext = path.extname(filePath);
     const contentType = MIME_TYPES[ext] || 'text/html';
 
     fs.exists(filePath, (exists) => {
         if (!exists) {
-            // SPA fallback
             filePath = path.join(DIST_DIR, 'index.html');
         }
         fs.readFile(filePath, (err, data) => {
@@ -45,4 +92,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
     console.log(`Frontend running on http://localhost:${PORT}`);
+    console.log(`API proxying to ${BACKEND_URL}`);
 });

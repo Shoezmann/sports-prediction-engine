@@ -19,8 +19,7 @@ import { Sport } from '../../../domain/entities';
  *
  * Implements the SportsDataPort interface to fetch sports, games,
  * scores, and odds from The Odds API v4.
- *
- * API docs: https://the-odds-api.com/liveapi/guides/v4/
+ * NO MOCK DATA — returns empty arrays when API fails.
  */
 @Injectable()
 export class TheOddsApiAdapter implements SportsDataPort {
@@ -56,12 +55,6 @@ export class TheOddsApiAdapter implements SportsDataPort {
         return this._usedRequests;
     }
 
-    /**
-     * Fetch all available sports from The Odds API.
-     * This endpoint is FREE and does not count against quota.
-     *
-     * GET /v4/sports?all=true&apiKey=...
-     */
     async fetchSports(): Promise<Sport[]> {
         try {
             const response = await this.makeRequest<OddsApiSport[]>(
@@ -86,16 +79,10 @@ export class TheOddsApiAdapter implements SportsDataPort {
             );
         } catch (error) {
             this.logger.error('Failed to fetch sports', error);
-            throw error;
+            return [];
         }
     }
 
-    /**
-     * Fetch upcoming games/events for a specific sport.
-     *
-     * GET /v4/sports/{sportKey}/events?apiKey=...
-     * Costs 1 request per call.
-     */
     async fetchUpcomingGames(sportKey: string): Promise<RawGameData[]> {
         try {
             const response = await this.makeRequest<OddsApiEvent[]>(
@@ -122,12 +109,6 @@ export class TheOddsApiAdapter implements SportsDataPort {
         }
     }
 
-    /**
-     * Fetch completed game scores for a specific sport.
-     *
-     * GET /v4/sports/{sportKey}/scores?daysFrom={days}&apiKey=...
-     * Costs 1 request per call.
-     */
     async fetchScores(
         sportKey: string,
         daysFrom: number = 3,
@@ -161,13 +142,6 @@ export class TheOddsApiAdapter implements SportsDataPort {
         }
     }
 
-    /**
-     * Fetch current odds for a specific sport.
-     * Uses 'h2h' market (moneyline) from multiple bookmakers.
-     *
-     * GET /v4/sports/{sportKey}/odds?regions=uk,us&markets=h2h&apiKey=...
-     * Costs 1 request per call.
-     */
     async fetchOdds(sportKey: string): Promise<RawOddsData[]> {
         try {
             const response = await this.makeRequest<OddsApiOdds[]>(
@@ -213,146 +187,26 @@ export class TheOddsApiAdapter implements SportsDataPort {
 
     // ─── Private helpers ─────────────────────────────────────────
 
-    private fallbackMode = false;
-    private mockTeams = [
-        'Lions', 'Tigers', 'Bears', 'Eagles', 'Sharks', 'Panthers', 'Wolves', 'Hawks',
-        'Dragons', 'Falcons', 'Titans', 'Spartans', 'Knights', 'Warriors', 'Pirates', 'Ninjas'
-    ];
-
-    /**
-     * Make an authenticated request to The Odds API.
-     * Automatically tracks request quota from response headers.
-     * Falls back to mock data if the API limit is reached.
-     */
     private async makeRequest<T>(
         path: string,
         params: Record<string, string> = {},
     ): Promise<T> {
-        if (this.fallbackMode) {
-            return this.generateMockResponse<T>(path);
-        }
-
         const url = `${this.baseUrl}${path}`;
 
-        try {
-            const response = await firstValueFrom(
-                this.httpService.get<T>(url, {
-                    params: {
-                        apiKey: this.apiKey,
-                        ...params,
-                    },
-                    timeout: 10_000,
-                }),
-            );
+        const response = await firstValueFrom(
+            this.httpService.get<T>(url, {
+                params: {
+                    apiKey: this.apiKey,
+                    ...params,
+                },
+                timeout: 10_000,
+            }),
+        );
 
-            // Track quota from response headers
-            this.trackQuota(response.headers);
-            return response.data;
-        } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 429 || status === 401 || status === 403) {
-                this.logger.warn(`API quota reached or invalid key (Status ${status}). Switching to MOCK FALLBACK MODE to prevent blocking.`);
-                this.fallbackMode = true;
-                return this.generateMockResponse<T>(path);
-            }
-            throw error;
-        }
+        this.trackQuota(response.headers);
+        return response.data;
     }
 
-    private generateMockResponse<T>(path: string): T {
-        const sportKeyMatch = path.match(/^\/sports\/([a-zA-Z0-9_]+)\/(events|odds|scores)/);
-
-        if (!sportKeyMatch) {
-            return [] as unknown as T; // Fallback for /sports
-        }
-
-        const sportKey = sportKeyMatch[1];
-        const endpoint = sportKeyMatch[2];
-        const numItems = Math.floor(Math.random() * 3) + 2; // 2 to 4 items
-
-        if (endpoint === 'events') {
-            const events: OddsApiEvent[] = [];
-            for (let i = 0; i < numItems; i++) {
-                const home = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} FC`;
-                const away = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} United`;
-                const commenceTime = new Date();
-                commenceTime.setHours(commenceTime.getHours() + Math.floor(Math.random() * 48) + 1); // 1-48 hours from now
-
-                events.push({
-                    id: `mock-event-${Date.now()}-${i}`,
-                    sport_key: sportKey,
-                    sport_title: 'Mock Sport',
-                    commence_time: commenceTime.toISOString(),
-                    home_team: home,
-                    away_team: away,
-                });
-            }
-            return events as unknown as T;
-        }
-
-        if (endpoint === 'odds') {
-            const odds: OddsApiOdds[] = [];
-            // We just generate a large list of mock odds for ALL possible mock teams so that when the predictor looks them up, it finds something
-            for (let i = 0; i < 10; i++) {
-                const home = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} FC`;
-                const away = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} United`;
-
-                odds.push({
-                    id: `mock-odds-${Date.now()}-${i}`,
-                    sport_key: sportKey,
-                    sport_title: 'Mock Sport',
-                    commence_time: new Date().toISOString(),
-                    home_team: home,
-                    away_team: away,
-                    bookmakers: [
-                        {
-                            key: 'mock_bookie',
-                            title: 'Mock Bookmaker',
-                            last_update: new Date().toISOString(),
-                            markets: [{
-                                key: 'h2h',
-                                last_update: new Date().toISOString(),
-                                outcomes: [
-                                    { name: home, price: 1.5 + (Math.random() * 1.5) },
-                                    { name: away, price: 1.5 + (Math.random() * 1.5) },
-                                    { name: 'Draw', price: 2.5 + (Math.random() * 2.0) }
-                                ]
-                            }]
-                        }
-                    ]
-                });
-            }
-            return odds as unknown as T;
-        }
-
-        if (endpoint === 'scores') {
-            const scores: OddsApiScore[] = [];
-            for (let i = 0; i < numItems; i++) {
-                const home = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} FC`;
-                const away = `${this.mockTeams[Math.floor(Math.random() * this.mockTeams.length)]} United`;
-
-                scores.push({
-                    id: `mock-score-${Date.now()}-${i}`,
-                    sport_key: sportKey,
-                    sport_title: 'Mock Sport',
-                    commence_time: new Date(Date.now() - 86400000).toISOString(),
-                    completed: true,
-                    home_team: home,
-                    away_team: away,
-                    last_update: new Date().toISOString(),
-                    scores: [
-                        { name: home, score: Math.floor(Math.random() * 4).toString() },
-                        { name: away, score: Math.floor(Math.random() * 4).toString() }
-                    ]
-                });
-            }
-            return scores as unknown as T;
-        }
-
-        return [] as unknown as T;
-    }
-
-    /** Extract quota info from The Odds API response headers */
     private trackQuota(headers: Record<string, unknown>): void {
         const remaining = headers['x-requests-remaining'];
         const used = headers['x-requests-used'];
@@ -374,7 +228,6 @@ export class TheOddsApiAdapter implements SportsDataPort {
         }
     }
 
-    /** Extract a numeric score from The Odds API scores array */
     private extractScore(
         scores: OddsApiScoreEntry[] | null,
         teamName: string,
