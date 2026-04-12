@@ -122,7 +122,7 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportApiAdapter,
-        { provide: SPORTS_DATA_PORT, useExisting: SportApiAdapter },
+        { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
 
         // ── Prediction Models ──
         EloModelAdapter,

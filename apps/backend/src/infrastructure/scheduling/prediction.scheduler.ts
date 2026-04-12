@@ -47,11 +47,29 @@ export class PredictionScheduler {
         private readonly configService: ConfigService,
     ) {
         this.isProd = this.configService.get<string>('NODE_ENV') === 'production';
+        this.logger.log(`Scheduler initialized — isProd: ${this.isProd}, env: ${this.configService.get<string>('NODE_ENV')}`);
     }
 
     // ─── Daily: Sync Sports Catalog ──────────────────────────
     // Runs at 03:00 UTC — free endpoint, no API quota cost.
     // Discovers new sports/leagues and updates active status.
+    // ─── Development: Auto-sync every 30 minutes ─────────────
+    @Cron('*/5 * * * *', { name: 'auto-sync-dev' })
+    async handleAutoSyncDev() {
+        if (this.isProd) return; // Only in development
+        this.logger.log('[CRON */5min] Auto-syncing sports, games, and predictions...');
+        try {
+            await this.syncSports.execute();
+            const games = await this.syncGames.execute();
+            if (games.synced > 0) {
+                await this.generatePredictions.execute();
+            }
+            this.logger.log('[CRON */5min] Auto-sync complete');
+        } catch (error) {
+            this.logger.error('[CRON */5min] Auto-sync failed', error);
+        }
+    }
+
     @Cron('0 3 * * *', { name: 'sync-sports-daily' })
     async handleSyncSports() {
         this.logger.log('[CRON 03:00] Syncing sports catalog...');
