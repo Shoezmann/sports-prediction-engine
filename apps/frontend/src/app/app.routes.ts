@@ -8,6 +8,13 @@ export const appRoutes: Route[] = [
             import('./pages/dashboard/dashboard.page').then((m) => m.DashboardPage),
     },
     {
+        path: 'system',
+        loadComponent: () =>
+            import('./pages/system-status/system-status.page').then(
+                (m) => m.SystemStatusPage,
+            ),
+    },
+    {
         path: 'predictions',
         loadComponent: () =>
             import('./pages/predictions/predictions.page').then(
