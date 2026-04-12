@@ -129,20 +129,25 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
   </div>
 
   @if (lv().length > 0) {
-    <div class="ls"><div class="slbl"><span class="pd"></span> LIVE {{ lv().length }}</div>
-    @for (m of lv(); track m.p.id) {
-      <div class="lr">
-        <span class="lcat">{{ m.cat }}</span>
-        <span class="llg">{{ m.lg || '\u2014' }}</span>
-        <span class="lteams"><span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span> <span class="lvs">vs</span> <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span></span>
-        <span class="lmin">{{ m.tl }}</span>
-        <span class="lpick" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span>
-        <span class="lconf">{{ (m.p.confidence * 100).toFixed(0) }}%</span>
+    <div class="ls">
+      <div class="slbl slbl--click" (click)="liveOpen.set(!liveOpen())">
+        <span class="pd"></span> LIVE {{ lv().length }}
+        <span class="arr" [class.open]="liveOpen()">&#9662;</span>
       </div>
-    }
+      @if (liveOpen()) {
+      @for (m of lv(); track m.p.id) {
+        <div class="lr">
+          <span class="lcat">{{ m.cat }}</span>
+          <span class="llg">{{ m.lg || '\u2014' }}</span>
+          <span class="lteams"><span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span> <span class="lvs">vs</span> <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span></span>
+          <span class="lmin">{{ m.tl }}</span>
+          <span class="lpick" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span>
+          <span class="lconf">{{ (m.p.confidence * 100).toFixed(0) }}%</span>
+        </div>
+      }
+      }
     </div>
   }
-
   @if (up().length > 0) {
     <div class="slbl">UPCOMING</div>
     <div class="tw"><table class="tb">
@@ -203,7 +208,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     .fg select{font-family:var(--font-family);font-size:0.6875rem;font-weight:500;padding:5px 26px 5px 8px;background:var(--color-bg-input);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-xs);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
     .fg select:focus{outline:none;border-color:var(--color-accent)}
     .clr{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:5px 10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.clr:hover{border-color:var(--color-accent);color:var(--color-accent)}
-    .slbl{display:flex;align-items:center;gap:6px;font-family:var(--font-family);font-size:0.6875rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;margin-bottom:10px}.slbl--click{cursor:pointer;user-select:none}.slbl--click:hover{color:var(--color-text-primary)}.arr{font-size:0.625rem;transition:transform 0.2s;display:inline-block}.arr.open{transform:rotate(180deg)}
+    .slbl{display:flex;align-items:center;gap:6px;font-family:var(--font-family);font-size:0.6875rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;margin-bottom:10px}.slbl--click{cursor:pointer;user-select:none}.slbl--click:hover{color:var(--color-text-primary)}.arr{font-size:0.625rem;transition:transform 0.2s;display:inline-block}.arr.open{transform:rotate(180deg)}.slbl--click{cursor:pointer;user-select:none}.slbl--click:hover{color:var(--color-text-primary)}.arr{font-size:0.625rem;transition:transform 0.2s;display:inline-block}.arr.open{transform:rotate(180deg)}
     .pd{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 5px rgba(239,68,68,0.5);animation:pulse-glow 1.5s ease-in-out infinite}
     .ls{background:linear-gradient(180deg,rgba(239,68,68,0.03),transparent);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xs);padding:12px;margin-bottom:20px;transition:all 0.2s}
     .lr{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--color-border-subtle)}.lr:last-child{border-bottom:none}
