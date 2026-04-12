@@ -149,14 +149,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
       </div>
       @if (liveOpen()) {
       @for (m of lv(); track m.p.id) {
-        <div class="lr">
-          <span class="lcat">{{ m.cat }}</span>
-          <span class="llg">{{ m.lg || '\u2014' }}</span>
-          <span class="lteams"><span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span> <span class="lvs">vs</span> <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span></span>
-          <span class="lmin">{{ m.tl }}</span>
-          <span class="lpick" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span>
-          <span class="lconf">{{ (m.p.confidence * 100).toFixed(0) }}%</span>
-        </div>
+        <sp-live-card [data]="liveData(m)"></sp-live-card>
       }
       }
     </div>
