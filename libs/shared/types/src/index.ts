@@ -23,6 +23,8 @@ export {
     RegisterDto,
     LoginDto,
     AuthResponseDto,
+    ForgotPasswordDto,
+    ResetPasswordDto,
     BetDto,
     PlaceBetDto,
 } from './lib/dto';

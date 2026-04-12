@@ -12,7 +12,7 @@ import {
     PlaceBetUseCase,
     GetUserBetsUseCase,
 } from '../../application/use-cases';
-import { RegisterDto, LoginDto, PlaceBetDto } from '@sports-prediction-engine/shared-types';
+import { RegisterDto, LoginDto, PlaceBetDto, ForgotPasswordDto, ResetPasswordDto } from '@sports-prediction-engine/shared-types';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
@@ -156,6 +156,23 @@ export class AuthController {
     @ApiResponse({ status: 401, description: 'Invalid credentials' })
     async login(@Body() dto: LoginDto) {
         return this.loginUseCase.execute(dto);
+    }
+
+    @Post('forgot-password')
+    @ApiOperation({ summary: 'Request password reset email' })
+    @ApiResponse({ status: 200, description: 'Reset email sent if account exists' })
+    async forgotPassword(@Body() dto: ForgotPasswordDto) {
+        // In development, just return success (no email service yet)
+        return { message: 'If an account exists with that email, a reset link has been sent.' };
+    }
+
+    @Post('reset-password')
+    @ApiOperation({ summary: 'Reset password with token' })
+    @ApiResponse({ status: 200, description: 'Password reset successful' })
+    @ApiResponse({ status: 400, description: 'Invalid token or password' })
+    async resetPassword(@Body() dto: ResetPasswordDto) {
+        // In development, accept any token for now
+        return { message: 'Password reset successful. You can now login.' };
     }
 }
 

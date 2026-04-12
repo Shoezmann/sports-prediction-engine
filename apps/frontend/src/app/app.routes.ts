@@ -29,6 +29,13 @@ export const appRoutes: Route[] = [
             ),
     },
     {
+        path: 'forgot',
+        loadComponent: () =>
+            import('./pages/forgot-password/forgot-password.page').then(
+                (m) => m.ForgotPasswordPage,
+            ),
+    },
+    {
         path: 'my-bets',
         canActivate: [authGuard],
         loadComponent: () =>
