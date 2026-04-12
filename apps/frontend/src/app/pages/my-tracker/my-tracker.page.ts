@@ -1,5 +1,6 @@
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
@@ -115,7 +116,8 @@ interface TrackedMatch {
         <div class="lr">
           <span class="lcat">{{ m.cat }}</span>
           <span class="llg">{{ m.lg || '\u2014' }}</span>
-          <span class="lteams"><span [class.di]="m.pick==='away'">{{ m.home }}</span> <span class="lsc">{{ m.homeScore ?? '?' }}-{{ m.awayScore ?? '?' }}</span> <span [class.di]="m.pick==='home'">{{ m.away }}</span></span>
+          <span class="lteams"><span [class.di]="m.pick==='away'">{{ m.home }}</span> <span class="lsc">{{ m.homeScore ?? 0 }}-{{ m.awayScore ?? 0 }}</span> <span [class.di]="m.pick==='home'">{{ m.away }}</span></span>
+          <span class="lmin">{{ m.tl }}</span>
           <span class="lmin">{{ m.mn }}'</span>
           <span class="lpick" [class]="'pk' + m.pick">{{ m.pickLabel }}</span>
           <button class="rm" (click)="untrack(m.id)">&times;</button>
@@ -238,23 +240,75 @@ export class MyTrackerPage implements OnInit, OnDestroy {
   lastRefresh = signal('');
   isLiveConnected = signal(false);
   private es: EventSource | null = null;
+  private http = inject(HttpClient);
+  liveScores = signal<any[]>([]);
   private tId: any = null;
 
   ngOnInit() { this.loadTracked(); this.cs(); this.startTimer(); }
   ngOnDestroy() { this.ds(); if (this.tId) clearInterval(this.tId); }
 
-  private startTimer() { this.tId = setInterval(() => this.refreshLive(), 10000); }
+  private startTimer() { this.tId = setInterval(() => this.refreshLive(), 10000); this.fetchLiveScores(); }
 
-  liveMatches = computed(() => this.tracked().filter(m => m.live));
-  upcoming = computed(() => this.tracked().filter(m => m.status === 'upcoming'));
-  finished = computed(() => this.tracked().filter(m => m.status === 'finished'));
+  liveMatches = computed(() => {
+    const live = this.tracked().filter(m => m.live);
+    return live.map(m => {
+      const score = this.findLiveScore(m.home, m.away);
+      if (score) {
+        return {
+          ...m,
+          homeScore: score.homeScore,
+          awayScore: score.awayScore,
+          status: 'live' as const,
+          live: true,
+          tl: this.formatMinute(score),
+          mn: score.minute || m.mn,
+        };
+      }
+      return m;
+    });
+  });
+  upcoming = computed(() => {
+    const up = this.tracked().filter(m => m.status === 'upcoming');
+    return up.map(m => {
+      const score = this.findLiveScore(m.home, m.away);
+      if (score && (score.status === '1H' || score.status === '2H' || score.status === 'LIVE' || score.status === 'HT')) {
+        return {
+          ...m,
+          homeScore: score.homeScore,
+          awayScore: score.awayScore,
+          live: true,
+          tl: this.formatMinute(score),
+          mn: score.minute || 0,
+        };
+      }
+      return m;
+    });
+  });
+  finished = computed(() => {
+    const done = this.tracked().filter(m => m.status === 'finished');
+    return done.map(m => {
+      const score = this.findLiveScore(m.home, m.away);
+      if (score && score.status === 'FT') {
+        const homeWon = score.homeScore > score.awayScore;
+        const draw = score.homeScore === score.awayScore;
+        const pickCorrect = (m.pick === 'h' && homeWon) || (m.pick === 'a' && !homeWon && !draw) || (m.pick === 'd' && draw);
+        return {
+          ...m,
+          homeScore: score.homeScore,
+          awayScore: score.awayScore,
+          correct: pickCorrect,
+        };
+      }
+      return m;
+    });
+  });
   liveCount = computed(() => this.liveMatches().length);
   upCount = computed(() => this.upcoming().length);
   doneCount = computed(() => this.finished().length);
-  totalTracked = computed(() => this.tracked().length);
-  wins = computed(() => this.tracked().filter(m => m.correct).length);
+  totalTracked = computed(() => this.liveMatches().length + this.upcoming().length + this.finished().length);
+  wins = computed(() => this.finished().filter(m => m.correct).length);
   accuracy = computed(() => {
-    const done = this.finished();
+    const done = this.finished().filter(m => m.correct !== undefined);
     if (done.length === 0) return 0;
     return Math.round((done.filter(m => m.correct).length / done.length) * 100);
   });
@@ -288,7 +342,39 @@ export class MyTrackerPage implements OnInit, OnDestroy {
     this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   }
 
-  private refreshLive() { this.loadTracked(); }
+  private refreshLive() {
+    this.loadTracked();
+    this.fetchLiveScores();
+  }
+
+  private fetchLiveScores() {
+    this.http.get('/api/live-scores').subscribe({
+      next: (d: any) => { this.liveScores.set(d.matches || []); },
+      error: () => { this.liveScores.set([]); }
+    });
+  }
+
+  private findLiveScore(home: string, away: string): any {
+    const scores = this.liveScores();
+    return scores.find(s => 
+      s.homeTeam.toLowerCase().includes(home.toLowerCase().substring(0, 4)) &&
+      s.awayTeam.toLowerCase().includes(away.toLowerCase().substring(0, 4))
+    ) || scores.find(s =>
+      home.toLowerCase().includes(s.homeTeam.toLowerCase().substring(0, 4)) &&
+      away.toLowerCase().includes(s.awayTeam.toLowerCase().substring(0, 4))
+    );
+  }
+
+  formatMinute(s: any): string {
+    if (!s) return '';
+    const status = s.status || '';
+    const mn = s.minute;
+    if (mn === null || mn === undefined) return '';
+    if (status === 'FT') return 'FT';
+    if (status === 'HT') return 'HT';
+    if (mn > 90) return `90+${mn - 90}'`;
+    return `${mn}'`;
+  }
 
   untrack(id: string) {
     this.betsService.removeFromSlip(id);
@@ -299,7 +385,7 @@ export class MyTrackerPage implements OnInit, OnDestroy {
     this.ds();
     this.es = new EventSource(window.location.origin + '/api/stream/predictions');
     this.es.onopen = () => this.isLiveConnected.set(true);
-    this.es.addEventListener('predictions', () => this.loadTracked());
+    this.es.addEventListener('predictions', () => this.refreshLive());
     this.es.addEventListener('heartbeat', () => this.isLiveConnected.set(true));
     this.es.onerror = () => {
       this.isLiveConnected.set(false);

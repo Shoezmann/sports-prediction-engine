@@ -162,10 +162,15 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
                     const score = m.scores || {};
 
                     const stage = status.stage || '';
-                    const liveTime = parseInt(status.live_time || '0', 10);
                     const isInProgress = status.is_in_progress || false;
                     const isFinished = status.is_finished || false;
                     const isStarted = status.is_started || false;
+                    const liveTimeStr = status.live_time;
+
+                    // Compute minute from timestamp (FlashScore live_time is null for 2nd half)
+                    const tsMs = (m.timestamp || Math.floor(Date.now() / 1000)) * 1000;
+                    const elapsedMin = Math.floor((Date.now() - tsMs) / 60000);
+                    const htBreak = 15;
 
                     let mappedStatus = 'LIVE';
                     let minute: number | null = null;
@@ -173,22 +178,27 @@ export class LiveScoresScraper implements OnModuleInit, OnModuleDestroy {
                     if (isFinished || stage === 'Finished') {
                         mappedStatus = 'FT';
                         minute = 90;
-                    } else if (stage === 'Halftime' || stage === 'HT') {
+                    } else if (stage === 'Halftime' || stage === 'HT' || liveTimeStr === 'Half Time') {
                         mappedStatus = 'HT';
                         minute = 45;
                     } else if (isInProgress) {
-                        if (stage.includes('1st')) {
+                        if (stage.includes('1st') || elapsedMin < 45 + htBreak) {
                             mappedStatus = '1H';
-                        } else if (stage.includes('2nd')) {
+                            minute = Math.min(elapsedMin, 45);
+                        } else if (stage.includes('2nd') || elapsedMin >= 45 + htBreak) {
                             mappedStatus = '2H';
+                            const shMin = elapsedMin - (45 + htBreak);
+                            minute = Math.min(45 + shMin, 90);
                         } else if (stage.includes('Extra')) {
                             mappedStatus = 'LIVE';
+                            minute = 90 + Math.max(0, elapsedMin - 105);
+                        } else {
+                            mappedStatus = elapsedMin > 60 ? '2H' : '1H';
+                            minute = elapsedMin > 60 ? Math.min(elapsedMin - htBreak, 90) : Math.min(elapsedMin, 45);
                         }
-                        minute = liveTime || null;
                     } else if (isStarted) {
-                        // Started but not in progress yet (e.g. penalty shootout)
-                        mappedStatus = 'LIVE';
-                        minute = liveTime || null;
+                        mappedStatus = elapsedMin > 60 ? '2H' : '1H';
+                        minute = elapsedMin > 60 ? Math.min(elapsedMin - htBreak, 90) : Math.min(elapsedMin, 45);
                     }
 
                     // Only include matches that are actually live or recently finished
