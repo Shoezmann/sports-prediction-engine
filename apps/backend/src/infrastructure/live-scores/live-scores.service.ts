@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Interval } from '@nestjs/schedule';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
 import { LiveScoresScraper, LiveScoreData } from './live-scores.scraper';
+import type { GameRepositoryPort, PredictionRepositoryPort } from '../../domain/ports/output';
+import { GAME_REPOSITORY_PORT, PREDICTION_REPOSITORY_PORT } from '../../domain/ports/output';
 
 export interface LiveMatchData {
     externalId: string;
@@ -48,6 +50,10 @@ export class LiveScoresService {
         private readonly configService: ConfigService,
         private readonly streamService: PredictionStreamService,
         private readonly scraper: LiveScoresScraper,
+        @Inject(GAME_REPOSITORY_PORT)
+        private readonly gameRepo: GameRepositoryPort,
+        @Inject(PREDICTION_REPOSITORY_PORT)
+        private readonly predictionRepo: PredictionRepositoryPort,
     ) { }
 
     /**
@@ -268,6 +274,49 @@ export class LiveScoresService {
             return true;
         });
 
+        // If no live data from APIs, fall back to games currently in progress
+        if (all.length === 0) {
+            const liveFromPredictions = await this.getLiveFromPredictions();
+            all.push(...liveFromPredictions);
+        }
+
         return all;
+    }
+
+    /**
+     * Derive live matches from predictions that are currently in progress.
+     * This is a fallback when external live APIs are unavailable.
+     */
+    private async getLiveFromPredictions(): Promise<LiveMatchData[]> {
+        const predictions = await this.predictionRepo.findPending();
+        const now = Date.now();
+        const live: LiveMatchData[] = [];
+
+        for (const pred of predictions) {
+            const commenceTime = new Date(pred.game.commenceTime).getTime();
+            const elapsedMin = Math.floor((now - commenceTime) / 60000);
+
+            // Game is "live" if it started within the last 120 minutes
+            if (elapsedMin > 0 && elapsedMin < 120) {
+                const status = elapsedMin <= 45 ? '1H' : elapsedMin <= 47 ? 'HT' : '2H';
+                live.push({
+                    externalId: pred.game.id,
+                    sportKey: pred.game.sportKey,
+                    sportTitle: pred.game.sportTitle || pred.game.sportKey,
+                    league: '',
+                    homeTeam: pred.game.homeTeam.name,
+                    awayTeam: pred.game.awayTeam.name,
+                    homeScore: 0,
+                    awayScore: 0,
+                    status: status as any,
+                    minute: Math.min(elapsedMin, 90),
+                    commenceTime: pred.game.commenceTime.toISOString(),
+                });
+            }
+        }
+
+        // Sort by elapsed time (most recent first)
+        live.sort((a, b) => (b.minute || 0) - (a.minute || 0));
+        return live;
     }
 }
