@@ -23,6 +23,30 @@ export interface ModelBreakdownDto {
     elo: ProbabilitySetDto;
     form: ProbabilitySetDto;
     oddsImplied: ProbabilitySetDto;
+    /** ML/XGBoost model — only populated when a trained model exists for the sport */
+    ml?: ProbabilitySetDto;
+}
+
+/**
+ * Goals market predictions.
+ */
+export interface GoalsPredictionDto {
+    /** Probability of over 2.5 goals (0.0 – 1.0) */
+    over2_5: number;
+    /** Probability of under 2.5 goals (0.0 – 1.0) */
+    under2_5: number;
+    /** Expected total goals */
+    expectedGoals?: number;
+}
+
+/**
+ * Both Teams To Score (BTTS) prediction.
+ */
+export interface BttsPredictionDto {
+    /** Probability both teams score (0.0 – 1.0) */
+    yes: number;
+    /** Probability at least one team fails to score (0.0 – 1.0) */
+    no: number;
 }
 
 /**
@@ -49,6 +73,12 @@ export interface PredictionDto {
 
     /** Individual model probability breakdown */
     modelBreakdown: ModelBreakdownDto;
+
+    /** Goals market predictions (soccer only) */
+    goals?: GoalsPredictionDto;
+
+    /** Both Teams To Score prediction (soccer only) */
+    btts?: BttsPredictionDto;
 
     /** Expected value based on best available odds (positive = value bet) */
     expectedValue?: number;

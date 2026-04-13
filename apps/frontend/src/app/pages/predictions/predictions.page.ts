@@ -1,10 +1,10 @@
-import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
-import { PredictionDto } from '@sports-prediction-engine/shared-types';
+import { PredictionDto, formatRelativeTime, formatShortDate, formatLocalTime12h } from '@sports-prediction-engine/shared-types';
 
 const LM: Record<string, [string, string, string]> = {
   'soccer_epl': ['SOCCER', 'ENGLAND', 'EPL'],
@@ -115,9 +115,8 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
       <p class="sb">{{ total() }} MATCHES</p></div></div>
     <div class="hr">
-      <span class="sd" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()"></span>
-      <span class="stx" [class.on]="isLiveConnected()" [class.off]="!isLiveConnected()">{{ isLiveConnected() ? 'LIVE' : 'OFFLINE' }}</span>
       @if (lastRefresh()) { <span class="up">UPDATED {{ lastRefresh() }}</span> }
+      <button class="btn" (click)="refresh()">[ REFRESH ]</button>
     </div>
   </div>
 
@@ -144,7 +143,7 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     <div class="slbl">UPCOMING</div>
     <div class="tw"><table class="tb">
       <thead><tr>
-        <th>TIME</th><th>DATE</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>PICK</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th>
+        <th>TIME</th><th>DATE</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>OUTCOME</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th>
       </tr></thead>
       <tbody>
         @for (m of filt(); track m.p.id) {
@@ -158,7 +157,19 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
               <span class="vs">vs</span>
               <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span>
             </td>
-            <td><span class="pk" [class]="'pk' + pK(m.p)">{{ pL(m.p) }}</span></td>
+            <td class="probs-cell">
+              <span class="probs-h" [class.best]="pS(m.p)==='h'" title="Home win probability">{{ pPct(m.p, 'homeWin') }}%</span>
+              @if (hasDraw(m.p)) {
+                <span class="probs-d" [class.best]="pS(m.p)==='d'" title="Draw probability">{{ pPct(m.p, 'draw') }}%</span>
+              }
+              <span class="probs-a" [class.best]="pS(m.p)==='a'" title="Away win probability">{{ pPct(m.p, 'awayWin') }}%</span>
+              @if (m.p.goals) {
+                <span class="gp" [class.up]="m.p.goals.over2_5 > 0.5" [class.down]="m.p.goals.over2_5 <= 0.5" title="Over/Under 2.5">{{ m.p.goals.over2_5 > 0.5 ? 'O' : 'U' }} {{ (m.p.goals.over2_5 * 100).toFixed(0) }}%</span>
+              }
+              @if (m.p.btts) {
+                <span class="gp" [class.up]="m.p.btts.yes > 0.5" [class.down]="m.p.btts.yes <= 0.5" title="BTTS">{{ m.p.btts.yes > 0.5 ? 'Y' : 'N' }}</span>
+              }
+            </td>
             <td><span class="cf" [class]="m.p.confidenceLevel">{{ m.p.confidenceLevel.toUpperCase() }} {{ (m.p.confidence * 100).toFixed(0) }}%</span></td>
             <td>@if (m.p.expectedValue != null) {
               <span class="ev" [class.po]="m.p.expectedValue > 0" [class.ne]="m.p.expectedValue <= 0">{{ m.p.expectedValue > 0 ? '+' : '' }}{{ (m.p.expectedValue * 100).toFixed(1) }}%</span>
@@ -192,9 +203,8 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     h1{font-family:var(--font-family);font-size:1.375rem;font-weight:700;letter-spacing:0.06em;color:var(--color-text-primary);line-height:1.2;margin:0}
     .sb{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);margin:3px 0 0;letter-spacing:0.02em}
     .hr{display:flex;align-items:center;gap:6px}
-    .sd{width:7px;height:7px;border-radius:50%}.sd.on{background:var(--color-success);box-shadow:0 0 6px var(--color-success);animation:pulse-glow 2s ease-in-out infinite}.sd.off{background:var(--color-text-muted)}
-    .stx{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.06em}.stx.on{color:var(--color-success)}.stx.off{color:var(--color-text-muted)}
     .up{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-muted)}
+    .btn{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:4px 10px;background:transparent;border:1px solid var(--color-accent);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all 0.2s}.btn:hover{background:var(--color-accent);color:#fff}
     .fl{display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap}
     .fg{display:flex;flex-direction:column;gap:3px}.fg label{font-family:var(--font-family);font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em}
     .fg select{font-family:var(--font-family);font-size:0.6875rem;font-weight:500;padding:5px 26px 5px 8px;background:var(--color-bg-input);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-xs);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
@@ -214,12 +224,18 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     .lconf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;color:var(--color-text-muted);min-width:35px;text-align:right}
     .tw{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:var(--radius-xs);overflow-x:auto;-webkit-overflow-scrolling:touch}
     .tw::-webkit-scrollbar{height:5px}.tw::-webkit-scrollbar-track{background:var(--color-bg-secondary)}.tw::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
-    .tb{width:100%;min-width:900px;border-collapse:collapse;font-family:var(--font-family)}
+    .tb{width:100%;min-width:860px;border-collapse:collapse;font-family:var(--font-family)}
     .tb thead th{font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--color-border);background:var(--color-bg-tertiary);white-space:nowrap}
     .tb tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--transition-fast)}.tb tbody tr:hover{background:var(--color-accent-subtle)}.tb tbody tr:last-child{border-bottom:none}
     .tb tbody td{padding:8px 12px;font-size:0.75rem;white-space:nowrap;vertical-align:middle}
     .mo{font-family:var(--font-family)}.di{color:var(--color-text-muted)}.vs{color:var(--color-text-muted);font-size:0.625rem;margin:0 5px}
     .pk{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px}
+    .probs-cell{display:flex;gap:3px;align-items:center;font-family:var(--font-family);font-size:0.625rem;font-weight:600;flex-wrap:wrap}
+    .probs-h,.probs-d,.probs-a,.gp{padding:2px 6px;border-radius:2px;min-width:28px;text-align:center;white-space:nowrap}
+    .probs-h{color:#3b82f6;background:rgba(59,130,246,0.1)}.probs-d{color:#fbbf24;background:rgba(251,191,36,0.1)}.probs-a{color:#a78bfa;background:rgba(167,139,250,0.1)}
+    .probs-h.best,.probs-d.best,.probs-a.best{font-weight:700;box-shadow:0 0 0 1px currentColor}
+    .gp{cursor:help;position:relative}
+    .gp.up{color:#22c55e;background:rgba(34,197,94,0.1)}.gp.down{color:#ef4444;background:rgba(239,68,68,0.1)}
     .cf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.02em}.cf.high{color:var(--color-confidence-high)}.cf.medium{color:var(--color-confidence-medium)}.cf.low{color:var(--color-confidence-low)}
     .ev{font-family:var(--font-family);font-size:0.6875rem;font-weight:600}.ev.po{color:var(--color-success)}.ev.ne{color:var(--color-danger)}
     .ab{font-family:var(--font-family);font-size:0.875rem;font-weight:700;width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--color-border);background:transparent;color:var(--color-text-secondary);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}
@@ -228,45 +244,33 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
     .bclr{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:5px 14px;margin-top:12px;background:transparent;border:1px solid var(--color-accent-border);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.bclr:hover{background:var(--color-accent);color:var(--color-text-on-accent)}
   `],
 })
-export class PredictionsPage implements OnInit, OnDestroy {
+export class PredictionsPage implements OnInit {
   pp = signal<PredictionDto[]>([]);
   loading = signal(true);
   sc = signal<string | null>(null);
   sr = signal<string | null>(null);
   sl = signal<string | null>(null);
   lastRefresh = signal('');
-  isLiveConnected = signal(false);
-  private timer = signal(Date.now());
-  private tId: any = null;
-  private es: EventSource | null = null;
   private api = inject(ApiService);
   authService = inject(AuthService);
   private bs = inject(BetsService);
   private router = inject(Router);
 
-  ngOnInit() { this.loadState(); this.fd(); this.cs(); this.st(); }
-  ngOnDestroy() { this.ds(); if (this.tId) clearInterval(this.tId); }
-
-  private st() { this.tId = setInterval(() => this.timer.set(Date.now()), 10000); }
+  ngOnInit() { this.loadState(); this.fd(); }
+  ngOnDestroy() { /* no timers or SSE to clean up */ }
 
   all = computed<MR[]>(() => {
-    const now = this.timer();
+    const now = Date.now();
     return this.pp()
       .filter(p => { const d = now - new Date(p.game.commenceTime).getTime(); return d < 7200000; })
       .map(p => {
         const [cat, reg, lg] = pk(p.game.sportKey);
-        const ct = new Date(p.game.commenceTime).getTime();
-        const diff = now - ct;
+        const ct = new Date(p.game.commenceTime);
+        const diff = now - ct.getTime();
         const mn = Math.floor(diff / 60000);
         const live = mn > 0 && mn < 120;
-        let tl: string;
-        if (live) tl = mn + "'";
-        else if (mn <= 0 && mn > -60) tl = 'SOON';
-        else if (diff < 0) {
-          const d = Math.floor(-diff / 86400000);
-          tl = d === 1 ? 'TOMORROW' : new Date(p.game.commenceTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else tl = new Date(p.game.commenceTime).toLocaleDateString([], { weekday: 'short' }).toUpperCase();
-        const dt = live ? '' : new Date(p.game.commenceTime).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+        const tl = live ? mn + "'" : formatRelativeTime(ct, now);
+        const dt = live ? '' : formatShortDate(ct);
         return { p, cat, reg, lg, live, tl, dt, mn };
       })
       .sort((a, b) => {
@@ -298,6 +302,8 @@ export class PredictionsPage implements OnInit, OnDestroy {
   pS(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
   pK(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
   pL(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? p.game.homeTeam.name : p.predictedOutcome === 'away_win' ? p.game.awayTeam.name : 'DRAW'; }
+  hasDraw(p: PredictionDto) { return p.probabilities.draw != null; }
+  pPct(p: PredictionDto, key: 'homeWin' | 'awayWin' | 'draw') { return (((key === 'draw' ? p.probabilities.draw : p.probabilities[key]) ?? 0) * 100).toFixed(0); }
   iS(id: string) { return !!this.bs.betSlipPredictions().find(p => p.id === id); }
   tS(p: PredictionDto) { if (this.iS(p.id)) this.bs.removeFromSlip(p.id); else this.bs.addToSlip(p); }
   loadState() { try { const s = JSON.parse(localStorage.getItem('pred-filters') || '{}'); if (s.c) this.sc.set(s.c); if (s.r) this.sr.set(s.r); if (s.l) this.sl.set(s.l); } catch {} }
@@ -305,26 +311,9 @@ export class PredictionsPage implements OnInit, OnDestroy {
   fd() {
     this.loading.set(true);
     this.api.getPendingPredictions().subscribe({
-      next: d => { this.pp.set(d); this.loading.set(false); this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); },
+      next: d => { this.pp.set(d); this.loading.set(false); this.lastRefresh.set(formatLocalTime12h(new Date())); },
       error: () => { this.loading.set(false); }
     });
   }
-  cs() {
-    this.ds(); this.es = new EventSource(window.location.origin + '/api/stream/predictions');
-    this.es.onopen = () => this.isLiveConnected.set(true);
-    this.es.addEventListener('predictions', (e: any) => {
-      try {
-        const d = JSON.parse(e.data);
-        if (d.data?.predictions) this.pp.set(d.data.predictions);
-        this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      } catch {}
-    });
-    this.es.addEventListener('heartbeat', () => this.isLiveConnected.set(true));
-    this.es.onerror = () => {
-      this.isLiveConnected.set(false);
-      setTimeout(() => { if (!this.isLiveConnected()) this.cs(); }, 5000);
-    };
-  }
-
-  ds() { if (this.es) { this.es.close(); this.es = null; this.isLiveConnected.set(false); } }
+  refresh() { this.fd(); }
 }

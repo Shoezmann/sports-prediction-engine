@@ -4,6 +4,7 @@ export { GeneratePredictionsUseCase } from './generate-predictions.use-case';
 export { UpdateResultsUseCase } from './update-results.use-case';
 export { GetAccuracyUseCase } from './get-accuracy.use-case';
 export { GetPendingPredictionsUseCase } from './get-pending-predictions.use-case';
+export { GetResolvedPredictionsUseCase } from './get-resolved-predictions.use-case';
 export { HistoricalBackfillUseCase } from './historical-backfill.use-case';
 export * from './register.use-case';
 export * from './login.use-case';

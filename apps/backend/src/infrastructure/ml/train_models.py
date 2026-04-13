@@ -299,10 +299,17 @@ class FeatureEngineer:
         elif hs == als: h['draws'] += 1
         else: h['losses'] += 1
 
-        # Update ELO-like strength
-        expected = 1 / (1 + 10 ** ((h['strength'] - h['strength']) / 400))
-        actual = 1 if hs > als else (0.5 if hs == als else 0)
-        h['strength'] += 20 * (actual - expected)
+        # Update ELO-like strength (both expected scores calculated from pre-match ratings)
+        h_pre_strength = h['strength']
+        a_pre_strength = team_stats[away]['strength']
+
+        expected_home = 1 / (1 + 10 ** ((a_pre_strength - h_pre_strength) / 400))
+        expected_away = 1 / (1 + 10 ** ((h_pre_strength - a_pre_strength) / 400))
+
+        actual_home = 1 if hs > als else (0.5 if hs == als else 0)
+        actual_away = 1 if als > hs else (0.5 if hs == als else 0)
+
+        h['strength'] += 20 * (actual_home - expected_home)
 
         # Update away team
         a = team_stats[away]
@@ -326,9 +333,7 @@ class FeatureEngineer:
         elif hs == als: a['draws'] += 1
         else: a['losses'] += 1
 
-        expected = 1 / (1 + 10 ** ((a['strength'] - a['strength']) / 400))
-        actual = 1 if als > hs else (0.5 if hs == als else 0)
-        a['strength'] += 20 * (actual - expected)
+        a['strength'] += 20 * (actual_away - expected_away)
 
 
 # ─── Training ────────────────────────────────────────────────────────────────
@@ -365,7 +370,7 @@ def train_model(X, y, task_type='outcome', league_name='global'):
         if task_type == 'outcome':
             model = xgb.XGBClassifier(**XGB_PARAMS)
             model.fit(
-                X_train, y_val,  # Note: eval_set uses y_val for early stopping
+                X_train, y_train,
                 eval_set=[(X_val, y_val)],
                 verbose=False,
             )

@@ -9,6 +9,7 @@ export interface ModelBreakdown {
     elo: ProbabilitySet;
     form: ProbabilitySet;
     oddsImplied: ProbabilitySet;
+    ml?: ProbabilitySet;
 }
 
 /**

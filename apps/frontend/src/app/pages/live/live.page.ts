@@ -55,8 +55,6 @@ function pk(key: string): [string, string, string] {
       <div class="hl"><span class="pr">&gt;</span><div><h1>LIVE NOW</h1>
         <p class="sb">{{ filtered().length }} of {{ matches().length }} matches</p></div></div>
       <div class="hr">
-        <span class="sd" [class.on]="connected()" [class.off]="!connected()"></span>
-        <span class="stx" [class.on]="connected()" [class.off]="!connected()">{{ connected() ? 'LIVE' : 'OFFLINE' }}</span>
         <button class="btn" (click)="refresh()">[ REFRESH ]</button>
       </div>
     </div>
@@ -117,13 +115,10 @@ export class LivePage implements OnInit, OnDestroy {
   private http = inject(HttpClient);
 
   loading = signal(true);
-  connected = signal(false);
   matches = signal<LiveCardData[]>([]);
   sc = signal<string | null>(null);
   sr = signal<string | null>(null);
   sl = signal<string | null>(null);
-  private es: EventSource | null = null;
-  private tId: any = null;
 
   cats = computed(() => [...new Set(this.matches().map(m => m.cat))].sort());
   regs = computed(() => { const c = this.sc(); return [...new Set(this.matches().filter(m => !c || m.cat === c).map(m => m.reg))].sort(); });
@@ -136,9 +131,8 @@ export class LivePage implements OnInit, OnDestroy {
     return f;
   });
 
-  ngOnInit() { this.fetch(); this.cs(); this.startTimer(); }
-  ngOnDestroy() { this.ds(); if (this.tId) clearInterval(this.tId); }
-  private startTimer() { this.tId = setInterval(() => this.fetch(), 15000); }
+  ngOnInit() { this.fetch(); }
+  ngOnDestroy() { /* no timers or SSE to clean up */ }
 
   onCat(v: string | null) { this.sc.set(v); this.sr.set(null); this.sl.set(null); this.sv(); }
   onReg(v: string | null) { this.sr.set(v); this.sl.set(null); this.sv(); }
@@ -159,37 +153,17 @@ export class LivePage implements OnInit, OnDestroy {
             id: m.externalId || `${m.homeTeam}-${m.awayTeam}`,
             cat, reg, lg: m.league || lg,
             home: m.homeTeam, away: m.awayTeam,
-            homeScore: m.homeScore ?? 0, awayScore: m.awayScore ?? 0,
+            homeScore: m.homeScore, awayScore: m.awayScore,
             minute: m.minute, status: m.status || 'LIVE',
+            sportKey: m.sportKey,
           };
         });
         this.matches.set(matches);
-        this.connected.set(true);
         this.loading.set(false);
       },
-      error: () => { this.connected.set(false); this.loading.set(false); }
+      error: () => { this.loading.set(false); }
     });
   }
 
   refresh() { this.fetch(); }
-
-  cs() {
-    this.ds();
-    this.es = new EventSource('http://127.0.0.1:3000/api/stream/predictions');
-    this.es.onopen = () => this.connected.set(true);
-    this.es.addEventListener('live_scores', (e: any) => {
-      try {
-        const d = JSON.parse(e.data);
-        if (d.data?.matches) {
-          const matches = d.data.matches.map((m: any) => {
-            const [cat, reg, lg] = pk(m.sportKey);
-            return { id: m.externalId, cat, reg, lg: m.league || lg, home: m.homeTeam, away: m.awayTeam, homeScore: m.homeScore ?? 0, awayScore: m.awayScore ?? 0, minute: m.minute, status: m.status };
-          });
-          this.matches.set(matches);
-        }
-      } catch {}
-    });
-    this.es.onerror = () => { this.connected.set(false); setTimeout(() => { if (!this.connected()) this.cs(); }, 5000); };
-  }
-  ds() { if (this.es) { this.es.close(); this.es = null; } }
 }

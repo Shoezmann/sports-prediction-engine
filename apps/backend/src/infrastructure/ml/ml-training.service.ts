@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { spawn, exec } from 'child_process';
 import * as path from 'path';
 import { promisify } from 'util';
+import type { GameRepositoryPort } from '../../domain/ports/output';
+import { GAME_REPOSITORY_PORT } from '../../domain/ports/output';
+import type { Game } from '../../domain/entities';
+import { ProbabilitySet } from '../../domain/value-objects';
 
 const execAsync = promisify(exec);
 
@@ -36,7 +40,10 @@ export class MLTrainingService {
     private readonly trainScript: string;
     private readonly predictScript: string;
 
-    constructor() {
+    constructor(
+        @Inject(GAME_REPOSITORY_PORT)
+        private readonly gameRepo: GameRepositoryPort,
+    ) {
         const projectRoot = process.cwd();
         this.pythonPath = 'python3';
         this.trainScript = path.join(projectRoot, 'apps/backend/src/infrastructure/ml', 'train_models.py');
@@ -144,37 +151,39 @@ export class MLTrainingService {
     }
 
     /**
-     * Generate ML prediction for a single match.
-     * Uses historical data + current odds to predict outcome, goals, BTTS.
-     * Returns implied odds from the model probabilities.
+     * Generate ML prediction for a single game.
+     * Uses historical data for feature engineering and runs trained XGBoost model.
+     * Returns probability set or null if no trained model available.
      */
     async predictMatch(
-        game: any,
+        game: Game,
         sportKey: string,
-        currentOdds: any,
+        currentOdds?: { home?: number; draw?: number; away?: number },
     ): Promise<{
-        probabilities: any;
+        probabilities: ProbabilitySet;
         confidence: number;
-        impliedOdds: { home: number; draw: number; away: number };
+        goals?: { over2_5: number; under2_5: number };
+        btts?: { yes: number; no: number };
+        expectedGoals?: number;
     } | null> {
         try {
             // Check if we have trained models for this sport
             const modelPath = path.join(process.cwd(), 'apps/backend/models', `${sportKey}_outcome.json`);
             const { execSync } = await import('child_process');
 
-            // Check if model exists
             try {
                 execSync(`test -f "${modelPath}"`);
             } catch {
-                return null; // No model trained for this sport yet
+                this.logger.debug(`No trained ML model for ${sportKey}`);
+                return null;
             }
 
             // Get historical matches for feature engineering
-            const { Game } = await import('../../domain/entities');
             const historicalMatches = await this.getHistoricalMatches(sportKey);
 
             if (historicalMatches.length < 20) {
-                return null; // Not enough data for reliable prediction
+                this.logger.debug(`Insufficient historical data for ML: ${sportKey} has ${historicalMatches.length} matches (need 20+)`);
+                return null;
             }
 
             // Prepare input for prediction script
@@ -194,39 +203,51 @@ export class MLTrainingService {
             const stdout = await this._runPython(this.predictScript, inputData, 30000);
             const result = JSON.parse(stdout);
 
-            if (!result.predictions?.length) return null;
+            if (!result.predictions?.length) {
+                this.logger.warn(`ML predict.py returned no predictions for ${sportKey}`);
+                return null;
+            }
 
             const pred = result.predictions[0];
 
             // Convert probabilities to ProbabilitySet
-            const { ProbabilitySet } = await import('../../domain/value-objects');
             const homeProb = pred.outcome?.home_win ?? 0.33;
             const drawProb = pred.outcome?.draw ?? 0.33;
             const awayProb = pred.outcome?.away_win ?? 0.34;
 
             const probabilities = ProbabilitySet.threeWay(homeProb, drawProb, awayProb);
 
-            // Generate implied odds from probabilities
-            const margin = 0.05; // 5% bookmaker margin
-            const impliedOdds = {
-                home: parseFloat((1 / (homeProb * (1 + margin))).toFixed(2)),
-                draw: parseFloat((1 / (drawProb * (1 + margin))).toFixed(2)),
-                away: parseFloat((1 / (awayProb * (1 + margin))).toFixed(2)),
-            };
-
-            return {
+            const response: any = {
                 probabilities,
                 confidence: pred.confidence ?? 0.5,
-                impliedOdds,
             };
-        } catch {
+
+            if (pred.goals) {
+                response.goals = {
+                    over2_5: pred.goals.over_2_5,
+                    under2_5: pred.goals.under_2_5,
+                };
+            }
+            if (pred.btts) {
+                response.btts = {
+                    yes: pred.btts.yes,
+                    no: pred.btts.no,
+                };
+            }
+            if (pred.expected_goals != null) {
+                response.expectedGoals = pred.expected_goals;
+            }
+
+            return response;
+        } catch (error) {
+            this.logger.warn(`ML prediction error for ${sportKey}: ${error.message}`);
             return null;
         }
     }
 
     /**
-     * Fetch historical matches for a sport key.
-     * Used for feature engineering in ML predictions.
+     * Fetch historical completed matches for a sport key.
+     * Returns up to 500 most recent completed games for feature engineering.
      */
     private async getHistoricalMatches(sportKey: string): Promise<Array<{
         date: string;
@@ -238,9 +259,21 @@ export class MLTrainingService {
         draw_odds?: number;
         away_odds?: number;
     }>> {
-        // This would query the database for historical results
-        // For now, return empty - will be populated once we have historical data
-        return [];
+        const games = await this.gameRepo.findCompleted(sportKey, 500);
+
+        return games
+            .filter(g => g.homeScore !== null && g.awayScore !== null)
+            .map(g => ({
+                date: g.commenceTime.toISOString(),
+                home_team: g.homeTeam.name,
+                away_team: g.awayTeam.name,
+                home_score: g.homeScore ?? undefined,
+                away_score: g.awayScore ?? undefined,
+                // Odds not stored in Game entity — market features will use neutral defaults
+                home_odds: undefined,
+                draw_odds: undefined,
+                away_odds: undefined,
+            }));
     }
 
     async healthCheck(): Promise<boolean> {

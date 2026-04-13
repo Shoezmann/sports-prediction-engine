@@ -30,6 +30,7 @@ import { MLTrainingService } from './ml/ml-training.service';
 import { EloModelAdapter } from './adapters/prediction-models/elo-model.adapter';
 import { FormModelAdapter } from './adapters/prediction-models/form-model.adapter';
 import { OddsImpliedModelAdapter } from './adapters/prediction-models/odds-implied-model.adapter';
+import { MlModelAdapter } from './adapters/prediction-models/ml-model.adapter';
 
 // In-memory repositories (fallback when no DB)
 import { InMemorySportRepository } from './adapters/repositories/in-memory-sport.repository';
@@ -120,7 +121,6 @@ const logger = new Logger('InfrastructureModule');
         // ── Live Scores ──
         LiveScoresService,
         LiveScoresScraper,
-        LiveScoresScraper,
 
         // ── GT Leagues ──
         GTLeaguesService,
@@ -129,15 +129,15 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
+        SportApiAdapter,
         MLTrainingService,
-        MLTrainingService,
-                SportApiAdapter,
         { provide: SPORTS_DATA_PORT, useExisting: TheOddsApiAdapter },
 
         // ── Prediction Models ──
         EloModelAdapter,
         FormModelAdapter,
         OddsImpliedModelAdapter,
+        MlModelAdapter,
         {
             provide: PREDICTION_MODEL_PORT,
             useFactory: (elo: EloModelAdapter, form: FormModelAdapter, odds: OddsImpliedModelAdapter) => [elo, form, odds],
@@ -167,7 +167,7 @@ const logger = new Logger('InfrastructureModule');
         { provide: BET_REPOSITORY_PORT, useExisting: PgBetRepository },
 
     ],
-    controllers: [StreamController, LiveScoresController, GTLeaguesController, LiveScoresApiController, MLTrainingController],
+    controllers: [StreamController, LiveScoresController, GTLeaguesController, LiveScoresApiController],
     exports: [
         SPORTS_DATA_PORT,
         SPORT_REPOSITORY_PORT,
@@ -180,17 +180,16 @@ const logger = new Logger('InfrastructureModule');
         TheOddsApiAdapter,
         ApiFootballAdapter,
         SportmonksAdapter,
+        SportApiAdapter,
         MLTrainingService,
-        MLTrainingService,
-                SportApiAdapter,
         OddsImpliedModelAdapter,
+        MlModelAdapter,
         JwtStrategy,
         PassportModule,
         JwtModule,
         PredictionStreamService,
         EmailService,
         LiveScoresService,
-        LiveScoresScraper,
         LiveScoresScraper,
         GTLeaguesService,
     ],

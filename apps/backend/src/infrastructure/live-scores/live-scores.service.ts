@@ -2,11 +2,10 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { Interval } from '@nestjs/schedule';
-import { PredictionStreamService } from '../sse/prediction-stream.service';
-import { LiveScoresScraper, LiveScoreData } from './live-scores.scraper';
 import type { GameRepositoryPort, PredictionRepositoryPort } from '../../domain/ports/output';
 import { GAME_REPOSITORY_PORT, PREDICTION_REPOSITORY_PORT } from '../../domain/ports/output';
+import { computeSportMinute } from '../../domain/services/sport-duration.service';
+import { LiveScoresScraper, LiveScoreData } from './live-scores.scraper';
 
 export interface LiveMatchData {
     externalId: string;
@@ -15,40 +14,38 @@ export interface LiveMatchData {
     league: string;
     homeTeam: string;
     awayTeam: string;
-    homeScore: number;
-    awayScore: number;
-    status: '1H' | '2H' | 'HT' | 'FT' | 'LIVE';
+    homeScore: number | null;
+    awayScore: number | null;
+    status: string;
     minute: number | null;
     commenceTime: string;
 }
 
+/** Sports that don't use cumulative home/away scores */
+const NON_SCORING_SPORTS = new Set(['tennis', 'mma', 'mma_mixed_martial_arts', 'boxing']);
+
 /**
  * Live Scores Service
  *
- * Polls SportAPI for live scores every 30 seconds.
- * Broadcasts live score updates via SSE.
+ * Fetches live scores on-demand (no background polling).
+ * Called only when a user explicitly loads the live page.
  */
 @Injectable()
 export class LiveScoresService {
     private readonly logger = new Logger(LiveScoresService.name);
-    private liveMatches: Map<string, LiveMatchData> = new Map();
-    private isPolling = false;
 
-    // SportAPI categories that have live data
     private readonly SPORT_API_CATEGORIES = [
         { id: 1, key: 'soccer_epl', title: 'Soccer - EPL' },
         { id: 2, key: 'basketball_nba', title: 'Basketball - NBA' },
         { id: 3, key: 'tennis_atp', title: 'Tennis - ATP' },
         { id: 52, key: 'soccer_south_africa_psl', title: 'Soccer - PSL' },
         { id: 23114, key: 'soccer_esoccer_gt_leagues_12', title: 'Esoccer GT Leagues' },
-        // African leagues
         { id: 16, key: 'soccer_africa_cup_of_nations', title: 'Soccer - AFCON' },
     ];
 
     constructor(
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
-        private readonly streamService: PredictionStreamService,
         private readonly scraper: LiveScoresScraper,
         @Inject(GAME_REPOSITORY_PORT)
         private readonly gameRepo: GameRepositoryPort,
@@ -57,49 +54,42 @@ export class LiveScoresService {
     ) { }
 
     /**
-     * Poll live scores every 30 seconds
+     * Fetch live matches on-demand (no caching, no polling).
      */
-    @Interval('live-scores-poll', 15_000)
-    async pollLiveScores() {
-        if (this.isPolling) return;
-        this.isPolling = true;
-
+    async getLiveMatches(): Promise<LiveMatchData[]> {
         try {
-            // Get scores from scraper cache
-            const scraperScores = this.scraper.getLiveScores();
-            const newMatches = new Map<string, LiveMatchData>();
+            const scraperScores = await this.scraper.getLiveScores();
+            const seen = new Map<string, LiveMatchData>();
 
             for (const s of scraperScores) {
-                newMatches.set(s.id, this.toLiveMatchData(s));
+                const m = this.toLiveMatchData(s);
+                seen.set(m.externalId, m);
             }
 
-            // Also check SportAPI as additional source
+            // SportAPI as additional source
             const sportApiKey = this.configService.get<string>('SPORT_API_KEY');
             if (sportApiKey && !sportApiKey.includes('your_')) {
-                const sportMatches = await this.fetchAllSportAPILive(sportApiKey);
-                for (const m of sportMatches) {
-                    // Deduplicate — prefer scraper data if same teams
-                    const key = `${m.homeTeam}-${m.awayTeam}`;
-                    if (!Array.from(newMatches.values()).some(nm => nm.homeTeam === m.homeTeam && nm.awayTeam === m.awayTeam)) {
-                        newMatches.set(m.externalId, m);
-                    }
+                for (const cat of this.SPORT_API_CATEGORIES) {
+                    try {
+                        const matches = await this.fetchSportAPILive(cat.id, sportApiKey);
+                        for (const m of matches) {
+                            if (!seen.has(m.externalId)) seen.set(m.externalId, m);
+                        }
+                    } catch { /* skip */ }
                 }
             }
 
-            const changed = this.updateLiveMatches(newMatches);
-            if (changed) {
-                this.streamService.broadcast('live_scores', {
-                    matches: Array.from(newMatches.values()),
-                    count: newMatches.size,
-                });
-                this.logger.log(`📡 Live: ${newMatches.size} matches (${scraperScores.length} scraped, ${newMatches.size - scraperScores.length} SportAPI)`);
+            const all = Array.from(seen.values());
+
+            // Fallback: games currently in progress from our predictions
+            if (all.length === 0) {
+                all.push(...await this.getLiveFromPredictions());
             }
 
-            this.liveMatches = newMatches;
+            return all;
         } catch (error) {
-            this.logger.error('Failed to poll live scores', error);
-        } finally {
-            this.isPolling = false;
+            this.logger.error('Failed to fetch live matches', error);
+            return [];
         }
     }
 
@@ -113,31 +103,16 @@ export class LiveScoresService {
             awayTeam: s.awayTeam,
             homeScore: s.homeScore,
             awayScore: s.awayScore,
-            status: s.status as any,
+            status: s.status,
             minute: s.minute,
             commenceTime: s.commenceTime,
         };
     }
 
-    private async fetchAllSportAPILive(apiKey: string): Promise<LiveMatchData[]> {
-        const allMatches: LiveMatchData[] = [];
-        for (const cat of this.SPORT_API_CATEGORIES) {
-            try {
-                const matches = await this.fetchLiveMatches(cat.id, apiKey);
-                allMatches.push(...matches);
-            } catch { /* skip */ }
-        }
-        return allMatches;
-    }
-
-    /**
-     * Fetch live matches from SportAPI
-     */
-    private async fetchLiveMatches(categoryId: number, apiKey: string): Promise<LiveMatchData[]> {
+    private async fetchSportAPILive(categoryId: number, apiKey: string): Promise<LiveMatchData[]> {
         const baseUrl = this.configService.get<string>('SPORT_API_BASE_URL', 'https://sportapi7.p.rapidapi.com/api/v1');
         const apiHost = this.configService.get<string>('SPORT_API_HOST', 'sportapi7.p.rapidapi.com');
 
-        // Get upcoming/recent events for this category
         const url = `${baseUrl}/events/schedule`;
         const response = await firstValueFrom(
             this.httpService.get(url, {
@@ -158,69 +133,37 @@ export class LiveScoresService {
             .filter((e: any) => {
                 const ct = e.startTimestamp * 1000;
                 const elapsed = (now - ct) / 60000;
-                // Live if started within last 2 hours and has scores or is in progress
                 return elapsed > -5 && elapsed < 120;
             })
             .map((e: any) => {
                 const ct = e.startTimestamp * 1000;
-                const elapsedMin = Math.floor((now - ct) / 60000);
-                const hs = e.homeScore?.current ?? 0;
-                const as_ = e.awayScore?.current ?? 0;
                 const statusType = e.status?.type;
+                const sportKey = this.getSportKey(categoryId);
+                const { minute, status } = computeSportMinute(sportKey, ct, now);
 
-                let status: LiveMatchData['status'] = 'LIVE';
-                let minute: number | null = null;
+                const isScoring = !NON_SCORING_SPORTS.has(sportKey.split('_')[0]);
+                const hs = isScoring ? (e.homeScore?.current ?? null) : null;
+                const as_ = isScoring ? (e.awayScore?.current ?? null) : null;
 
-                if (statusType === 'finished' || statusType === 'ended') {
-                    status = 'FT';
-                    minute = 90;
-                } else if (statusType === 'halftime' || statusType === 'break') {
-                    status = 'HT';
-                    minute = 45;
-                } else if (statusType === 'inprogress' || statusType === 'started') {
-                    // Determine half
-                    if (elapsedMin <= 45) {
-                        status = '1H';
-                        minute = Math.min(elapsedMin, 45);
-                    } else if (elapsedMin <= 47) {
-                        status = 'HT';
-                        minute = 45;
-                    } else if (elapsedMin <= 90) {
-                        status = '2H';
-                        minute = Math.min(elapsedMin - 2, 90);
-                    } else {
-                        status = 'FT';
-                        minute = 90;
-                    }
-                } else if (elapsedMin > 0 && elapsedMin < 120) {
-                    // Has elapsed time but no status - infer from time
-                    if (elapsedMin <= 45) {
-                        status = '1H';
-                        minute = elapsedMin;
-                    } else if (elapsedMin <= 47) {
-                        status = 'HT';
-                        minute = 45;
-                    } else {
-                        status = '2H';
-                        minute = Math.min(elapsedMin - 2, 90);
-                    }
-                }
+                let finalStatus = status;
+                if (statusType === 'finished' || statusType === 'ended') finalStatus = 'FT';
+                else if (statusType === 'halftime' || statusType === 'break') finalStatus = 'HT';
+                else if (statusType === 'inprogress' || statusType === 'started') finalStatus = status;
 
                 return {
-                    externalId: e.id?.toString() || `${categoryId}-${e.homeTeam?.name}-${e.awayTeam?.name}`,
-                    sportKey: this.getSportKey(categoryId),
+                    externalId: e.id?.toString() || `${categoryId}-${e.homeTeam?.name}`,
+                    sportKey,
                     sportTitle: this.getCategoryTitle(categoryId),
                     league: this.getCategoryTitle(categoryId),
                     homeTeam: e.homeTeam?.name || 'Home',
                     awayTeam: e.awayTeam?.name || 'Away',
                     homeScore: hs,
                     awayScore: as_,
-                    status,
+                    status: finalStatus,
                     minute,
                     commenceTime: new Date(ct).toISOString(),
                 };
-            })
-            .filter((m: LiveMatchData) => m.status !== 'FT' || m.minute !== null);
+            });
     }
 
     private getSportKey(categoryId: number): string {
@@ -232,60 +175,7 @@ export class LiveScoresService {
     }
 
     /**
-     * Check if live matches have changed
-     */
-    private updateLiveMatches(newMatches: Map<string, LiveMatchData>): boolean {
-        let changed = false;
-
-        for (const [id, match] of newMatches) {
-            const existing = this.liveMatches.get(id);
-            if (!existing ||
-                existing.homeScore !== match.homeScore ||
-                existing.awayScore !== match.awayScore ||
-                existing.status !== match.status ||
-                existing.minute !== match.minute) {
-                changed = true;
-                this.logger.log(`⚽ LIVE: ${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam} (${match.status}${match.minute ? ` ${match.minute}'` : ''})`);
-            }
-        }
-
-        for (const [id] of this.liveMatches) {
-            if (!newMatches.has(id)) {
-                changed = true;
-            }
-        }
-
-        return changed;
-    }
-
-    /**
-     * Get current live matches
-     */
-    async getLiveMatches(): Promise<LiveMatchData[]> {
-        const liveFromService = Array.from(this.liveMatches.values());
-        const scraperScores = this.scraper.getLiveScores().map(s => this.toLiveMatchData(s));
-
-        // Merge, deduplicating by home+away
-        const seen = new Set<string>();
-        const all = [...liveFromService, ...scraperScores].filter(m => {
-            const key = `${m.homeTeam}-${m.awayTeam}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        // If no live data from APIs, fall back to games currently in progress
-        if (all.length === 0) {
-            const liveFromPredictions = await this.getLiveFromPredictions();
-            all.push(...liveFromPredictions);
-        }
-
-        return all;
-    }
-
-    /**
-     * Derive live matches from predictions that are currently in progress.
-     * This is a fallback when external live APIs are unavailable.
+     * Fallback: derive "live" matches from predictions that are in progress.
      */
     private async getLiveFromPredictions(): Promise<LiveMatchData[]> {
         const predictions = await this.predictionRepo.findPending();
@@ -296,9 +186,9 @@ export class LiveScoresService {
             const commenceTime = new Date(pred.game.commenceTime).getTime();
             const elapsedMin = Math.floor((now - commenceTime) / 60000);
 
-            // Game is "live" if it started within the last 120 minutes
             if (elapsedMin > 0 && elapsedMin < 120) {
-                const status = elapsedMin <= 45 ? '1H' : elapsedMin <= 47 ? 'HT' : '2H';
+                const { minute, status } = computeSportMinute(pred.game.sportKey, commenceTime, now);
+                const isScoring = !NON_SCORING_SPORTS.has(pred.game.sportKey.split('_')[0]);
                 live.push({
                     externalId: pred.game.id,
                     sportKey: pred.game.sportKey,
@@ -306,16 +196,15 @@ export class LiveScoresService {
                     league: '',
                     homeTeam: pred.game.homeTeam.name,
                     awayTeam: pred.game.awayTeam.name,
-                    homeScore: 0,
-                    awayScore: 0,
-                    status: status as any,
-                    minute: Math.min(elapsedMin, 90),
+                    homeScore: isScoring ? 0 : null,
+                    awayScore: isScoring ? 0 : null,
+                    status,
+                    minute: minute ?? Math.min(elapsedMin, 90),
                     commenceTime: pred.game.commenceTime.toISOString(),
                 });
             }
         }
 
-        // Sort by elapsed time (most recent first)
         live.sort((a, b) => (b.minute || 0) - (a.minute || 0));
         return live;
     }

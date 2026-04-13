@@ -5,7 +5,9 @@ export type {
     PredictionDto,
     ProbabilitySetDto,
     ModelBreakdownDto,
+    GoalsPredictionDto,
+    BttsPredictionDto,
 } from './prediction.dto';
 export type { AccuracyDto, AccuracyBucketDto } from './accuracy.dto';
-export { RegisterDto, LoginDto, AuthResponseDto, ForgotPasswordDto, ResetPasswordDto } from './auth.dto';
-export { BetDto, PlaceBetDto } from './bet.dto';
+export type { RegisterDto, LoginDto, AuthResponseDto, ForgotPasswordDto, ResetPasswordDto } from './auth.dto';
+export type { BetDto, PlaceBetDto } from './bet.dto';

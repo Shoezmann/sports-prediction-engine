@@ -48,9 +48,9 @@ import { HttpClient } from '@angular/common/http';
               <span class="live-dot">{{ liveCount() }}</span>
             }
           </a>
-          <a routerLink="/tracker" routerLinkActive="active" class="nav-item">
-            <span class="material-symbols-rounded">receipt_long</span>
-            <span>My Tracker</span>
+          <a routerLink="/performance" routerLinkActive="active" class="nav-item">
+            <span class="material-symbols-rounded">analytics</span>
+            <span>Performance</span>
           </a>
         </div>
       </nav>

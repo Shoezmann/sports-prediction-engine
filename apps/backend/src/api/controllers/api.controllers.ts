@@ -6,13 +6,16 @@ import {
     UpdateResultsUseCase,
     GetAccuracyUseCase,
     GetPendingPredictionsUseCase,
+    GetResolvedPredictionsUseCase,
     HistoricalBackfillUseCase,
     RegisterUseCase,
     LoginUseCase,
     PlaceBetUseCase,
     GetUserBetsUseCase,
+    TrainModelsUseCase,
 } from '../../application/use-cases';
-import { RegisterDto, LoginDto, PlaceBetDto, ForgotPasswordDto, ResetPasswordDto } from '@sports-prediction-engine/shared-types';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from '../dtos/auth.dto';
+import { PlaceBetDto } from '../dtos/bet.dto';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { LiveScoresService } from '../../infrastructure/live-scores/live-scores.service';
@@ -62,6 +65,7 @@ export class PredictionsController {
     constructor(
         private readonly generatePredictions: GeneratePredictionsUseCase,
         private readonly getPendingPredictions: GetPendingPredictionsUseCase,
+        private readonly getResolvedPredictions: GetResolvedPredictionsUseCase,
     ) { }
 
     @Post('generate')
@@ -72,6 +76,75 @@ export class PredictionsController {
     @Get('pending')
     async getPending(@Query('sport') sportKey?: string) {
         return this.getPendingPredictions.execute(sportKey);
+    }
+
+    @Get('resolved')
+    async getResolved(@Query('sport') sportKey?: string) {
+        return this.getResolvedPredictions.execute(sportKey);
+    }
+
+    @Get('stats')
+    async getStats() {
+        const resolved = await this.getResolvedPredictions.execute();
+        const total = resolved.length;
+        const correct = resolved.filter(p => p.isCorrect).length;
+        const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+        // 7-day accuracy
+        const now = Date.now();
+        const sevenDays = resolved.filter(p => (now - new Date(p.game.commenceTime).getTime()) < 7 * 86400000);
+        const sevenCorrect = sevenDays.filter(p => p.isCorrect).length;
+        const last7Accuracy = sevenDays.length > 0 ? Math.round((sevenCorrect / sevenDays.length) * 100) : 0;
+
+        // 30-day accuracy
+        const thirtyDays = resolved.filter(p => (now - new Date(p.game.commenceTime).getTime()) < 30 * 86400000);
+        const thirtyCorrect = thirtyDays.filter(p => p.isCorrect).length;
+        const last30Accuracy = thirtyDays.length > 0 ? Math.round((thirtyCorrect / thirtyDays.length) * 100) : 0;
+
+        // Current streak
+        const sorted = resolved.sort((a, b) => new Date(b.game.commenceTime).getTime() - new Date(a.game.commenceTime).getTime());
+        let streak = 0;
+        for (const p of sorted) {
+            if (p.isCorrect) streak++; else break;
+        }
+
+        // Goals accuracy
+        const withGoals = resolved.filter(p => p.goals?.goalsCorrect !== undefined && p.game.totalGoals !== undefined);
+        const goalsCorrect = withGoals.filter(p => p.goals.goalsCorrect).length;
+        const goalsAccuracy = withGoals.length > 0 ? Math.round((goalsCorrect / withGoals.length) * 100) : 0;
+
+        // BTTS accuracy
+        const bttsCorrect = withGoals.filter(p => p.btts?.bttsCorrect).length;
+        const bttsAccuracy = withGoals.length > 0 ? Math.round((bttsCorrect / withGoals.length) * 100) : 0;
+
+        // Successful = correct on ALL predictions (outcome + goals + btts)
+        const successful = withGoals.filter(p => p.isCorrect && p.goals.goalsCorrect && p.btts.bttsCorrect).length;
+        // Failed = wrong on outcome
+        const failed = resolved.filter(p => !p.isCorrect).length;
+
+        return {
+            resolved: total,
+            resolvedCorrect: correct,
+            accuracy,
+            last7Accuracy,
+            last30Accuracy,
+            streak,
+            goalsAccuracy,
+            bttsAccuracy,
+            successful,
+            failed,
+        };
+    }
+
+    @Get('summary')
+    async getSummary() {
+        const resolved = await this.getResolvedPredictions.execute();
+        const pending = await this.getPendingPredictions.execute();
+        return {
+            total: resolved.length + pending.length,
+            resolved: resolved.length,
+            pending: pending.length,
+        };
     }
 }
 
@@ -247,12 +320,19 @@ export class LiveScoresApiController {
 export class MLTrainingController {
     constructor(
         private readonly mlService: MLTrainingService,
+        private readonly trainModels: TrainModelsUseCase,
     ) { }
 
     @Post('train')
-    @ApiOperation({ summary: 'Trigger ML model training' })
-    async train() {
-        return { message: 'ML training triggered', status: 'ready' };
+    @ApiOperation({ summary: 'Trigger ML model training for all sports with sufficient data' })
+    async train(@Query('sportKey') sportKey?: string) {
+        const result = await this.trainModels.execute(sportKey);
+        return {
+            message: `ML training complete: ${result.trained} trained, ${result.failed} failed`,
+            status: result.trained > 0 ? 'success' : 'insufficient_data',
+            trained: result.trained,
+            failed: result.failed,
+        };
     }
 
     @Get('health')

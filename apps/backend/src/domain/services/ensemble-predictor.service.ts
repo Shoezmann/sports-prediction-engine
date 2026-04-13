@@ -12,9 +12,10 @@ import { PredictionModelPort } from '../ports/output';
 export class EnsemblePredictor {
     /** Default weights for each model (must sum to 1.0) */
     private static readonly DEFAULT_WEIGHTS: Record<string, number> = {
-        elo: 0.3,
-        form: 0.3,
-        oddsImplied: 0.4,
+        elo: 0.25,
+        form: 0.25,
+        oddsImplied: 0.30,
+        ml: 0.20,
     };
 
     constructor(
@@ -87,6 +88,7 @@ export class EnsemblePredictor {
             elo: modelResults.get('elo') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
             form: modelResults.get('form') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
             oddsImplied: modelResults.get('oddsImplied') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
+            ml: modelResults.get('ml'),
         };
 
         return { probabilities, breakdown };

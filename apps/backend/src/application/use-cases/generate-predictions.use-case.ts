@@ -18,7 +18,7 @@ import {
 import { Prediction } from '../../domain/entities';
 import { EnsemblePredictor } from '../../domain/services';
 import { OddsImpliedModelAdapter } from '../../infrastructure/adapters/prediction-models';
-import { MLTrainingService } from '../../infrastructure/ml/ml-training.service';
+import { MlModelAdapter } from '../../infrastructure/adapters/prediction-models/ml-model.adapter';
 
 /**
  * Use Case: Generate Predictions
@@ -43,9 +43,10 @@ export class GeneratePredictionsUseCase {
         @Inject(SPORT_REPOSITORY_PORT)
         private readonly sportRepo: SportRepositoryPort,
         private readonly oddsImpliedModel: OddsImpliedModelAdapter,
-        private readonly mlService: MLTrainingService,
+        private readonly mlModel: MlModelAdapter,
     ) {
-        this.ensemble = new EnsemblePredictor(models);
+        // Combine classical models with ML model
+        this.ensemble = new EnsemblePredictor([...models, mlModel]);
     }
 
     async execute(
@@ -197,7 +198,7 @@ export class GeneratePredictionsUseCase {
         if (sportPredictions.length < 5) return undefined;
 
         const modelAccuracies: Record<string, number> = {};
-        const models = ['elo', 'form', 'oddsImplied'];
+        const models = ['elo', 'form', 'oddsImplied', 'ml'];
 
         for (const model of models) {
             let correct = 0;

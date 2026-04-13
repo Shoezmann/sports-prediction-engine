@@ -24,6 +24,25 @@
         ],
         "styles": [
           "apps/frontend/src/styles.scss"
+        ],
+        "externalDependencies": [
+          "swagger-ui-dist",
+          "express",
+          "swagger-jsdoc",
+          "swagger-ui-express",
+          "multer",
+          "send",
+          "serve-static",
+          "body-parser",
+          "cookie-parser",
+          "cors",
+          "helmet",
+          "jsonwebtoken",
+          "bcrypt",
+          "dotenv",
+          "morgan",
+          "compression",
+          "rate-limiter-flexible"
         ]
       },
       "configurations": {

@@ -50,7 +50,7 @@ export const appRoutes: Route[] = [
             ),
     },
     {
-        path: 'tracker',
+        path: 'performance',
         loadComponent: () =>
             import('./pages/my-tracker/my-tracker.page').then(
                 (m) => m.MyTrackerPage,

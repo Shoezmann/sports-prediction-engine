@@ -15,11 +15,13 @@ export type {
     PredictionDto,
     ProbabilitySetDto,
     ModelBreakdownDto,
+    GoalsPredictionDto,
+    BttsPredictionDto,
     AccuracyDto,
     AccuracyBucketDto,
 } from './lib/dto';
 
-export {
+export type {
     RegisterDto,
     LoginDto,
     AuthResponseDto,
@@ -33,4 +35,17 @@ export {
 export {
     SPORT_GROUP_CATEGORY_MAP,
     getSportCategory,
+    getSportDurationConfig,
+    formatSportMinute,
+    getSportLiveStatus,
+    clampSportMinutes,
+    type SportDurationConfig,
+    formatLocalTime,
+    formatLocalTime12h,
+    formatShortDate,
+    formatWeekday,
+    formatRelativeTime,
+    getElapsedMinutes,
+    isMatchLive,
+    formatLastUpdated,
 } from './lib/utils';

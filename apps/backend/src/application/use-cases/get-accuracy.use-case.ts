@@ -48,6 +48,7 @@ export class GetAccuracyUseCase {
                 elo: this.calculateBrierScoreForModel(resolved, 'elo'),
                 form: this.calculateBrierScoreForModel(resolved, 'form'),
                 oddsImplied: this.calculateBrierScoreForModel(resolved, 'oddsImplied'),
+                ml: this.calculateBrierScoreForModel(resolved, 'ml'),
                 ensemble: this.calculateBrierScore(resolved),
             },
             byConfidenceLevel: {
@@ -59,6 +60,7 @@ export class GetAccuracyUseCase {
                 elo: this.modelAccuracy(resolved, 'elo'),
                 form: this.modelAccuracy(resolved, 'form'),
                 oddsImplied: this.modelAccuracy(resolved, 'oddsImplied'),
+                ml: this.modelAccuracy(resolved, 'ml'),
                 ensemble: accuracy,
             },
             bySport: this.groupBySport(resolved),
@@ -143,7 +145,28 @@ export class GetAccuracyUseCase {
     private groupBySportGroup(
         predictions: Prediction[],
     ): Partial<Record<SportGroup, AccuracyBucketDto>> {
-        return {};
+        const groups: Record<string, Prediction[]> = {};
+        for (const p of predictions) {
+            const group = p.game.sportGroup;
+            if (!group) continue;
+
+            // Map sport group strings to enum values
+            const enumKey = Object.values(SportGroup).find(v => v === group) as SportGroup | undefined;
+            if (!enumKey) continue;
+
+            (groups[enumKey] ??= []).push(p);
+        }
+
+        const result: Partial<Record<SportGroup, AccuracyBucketDto>> = {};
+        for (const [key, preds] of Object.entries(groups)) {
+            const correct = preds.filter((p) => p.isCorrect).length;
+            result[key as SportGroup] = {
+                total: preds.length,
+                correct,
+                accuracy: preds.length > 0 ? correct / preds.length : 0,
+            };
+        }
+        return result;
     }
 
     private rollingAccuracy(

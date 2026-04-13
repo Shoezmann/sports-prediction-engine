@@ -25,6 +25,7 @@ export interface AccuracyDto {
         elo: number | null;
         form: number | null;
         oddsImplied: number | null;
+        ml: number | null;
         ensemble: number | null;
     } | null;
 
@@ -40,6 +41,7 @@ export interface AccuracyDto {
         elo: number;
         form: number;
         oddsImplied: number;
+        ml: number;
         ensemble: number;
     };
 

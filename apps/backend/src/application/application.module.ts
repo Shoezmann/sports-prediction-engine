@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '../infrastructure/infrastructure.module';
+import { MLTrainingController } from '../api/controllers/api.controllers';
+import { GoalsPredictor } from '../domain/services/goals-predictor.service';
 import {
     SyncSportsUseCase,
     SyncGamesUseCase,
@@ -7,6 +9,7 @@ import {
     UpdateResultsUseCase,
     GetAccuracyUseCase,
     GetPendingPredictionsUseCase,
+    GetResolvedPredictionsUseCase,
     HistoricalBackfillUseCase,
     LoginUseCase,
     RegisterUseCase,
@@ -33,13 +36,13 @@ import { PredictionScheduler } from '../infrastructure/scheduling/prediction.sch
         HistoricalBackfillUseCase,
         GetAccuracyUseCase,
         GetPendingPredictionsUseCase,
+        GetResolvedPredictionsUseCase,
+        GoalsPredictor,
         LoginUseCase,
         RegisterUseCase,
         PlaceBetUseCase,
         GetUserBetsUseCase,
         TrainModelsUseCase,
-        TrainModelsUseCase,
-    TrainModelsUseCase,
         PredictionScheduler,
     ],
     exports: [
@@ -50,13 +53,14 @@ import { PredictionScheduler } from '../infrastructure/scheduling/prediction.sch
         HistoricalBackfillUseCase,
         GetAccuracyUseCase,
         GetPendingPredictionsUseCase,
+        GetResolvedPredictionsUseCase,
+        GoalsPredictor,
         LoginUseCase,
         RegisterUseCase,
         PlaceBetUseCase,
         GetUserBetsUseCase,
         TrainModelsUseCase,
-        TrainModelsUseCase,
-    TrainModelsUseCase,
     ],
+    controllers: [MLTrainingController],
 })
 export class ApplicationModule { }
