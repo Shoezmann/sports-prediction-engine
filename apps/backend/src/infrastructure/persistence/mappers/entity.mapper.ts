@@ -1,4 +1,5 @@
 import { Sport, Team, Game, Prediction, User, Bet } from '../../../domain/entities';
+import { GameStatus } from '../../../domain/entities/game.entity';
 import type { ModelBreakdown } from '../../../domain/entities';
 import { Confidence, ProbabilitySet } from '../../../domain/value-objects';
 import { SportEntity } from '../entities/sport.orm-entity';
@@ -105,6 +106,7 @@ export class EntityMapper {
             completed: orm.completed,
             homeScore: orm.homeScore ?? undefined,
             awayScore: orm.awayScore ?? undefined,
+            status: (orm.status as GameStatus) ?? GameStatus.SCHEDULED,
         });
     }
 
@@ -122,6 +124,7 @@ export class EntityMapper {
             completed: domain.completed,
             homeScore: domain.homeScore ?? null,
             awayScore: domain.awayScore ?? null,
+            status: domain.status,
         };
     }
 
@@ -210,6 +213,7 @@ export class EntityMapper {
     ): Record<string, unknown> {
         const result: Record<string, unknown> = {};
         for (const [key, ps] of Object.entries(breakdown)) {
+            if (!ps || typeof ps.homeWin === 'undefined') continue;
             result[key] = {
                 homeWin: ps.homeWin.value,
                 awayWin: ps.awayWin.value,

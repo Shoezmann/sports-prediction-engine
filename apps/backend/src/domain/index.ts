@@ -2,7 +2,7 @@
 export { Probability, Confidence, EloRating, ProbabilitySet } from './value-objects';
 
 // Entities
-export { Sport, Team, Game, Prediction } from './entities';
+export { Sport, Team, Game, GameStatus, Prediction } from './entities';
 export type { ModelBreakdown } from './entities';
 
 // Domain Services

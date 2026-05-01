@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, MoreThan, Between, Repository, IsNull } from 'typeorm';
+import { LessThan, MoreThan, Between, Repository } from 'typeorm';
 import type { GameRepositoryPort } from '../../../domain/ports/output';
 import { Game } from '../../../domain/entities';
 import { GameEntity } from '../entities/game.orm-entity';
@@ -8,92 +8,108 @@ import { EntityMapper } from '../mappers/entity.mapper';
 
 @Injectable()
 export class PgGameRepository implements GameRepositoryPort {
-    constructor(
-        @InjectRepository(GameEntity)
-        private readonly repo: Repository<GameEntity>,
-    ) { }
+  constructor(
+    @InjectRepository(GameEntity)
+    private readonly repo: Repository<GameEntity>,
+  ) {}
 
-    async save(game: Game): Promise<Game> {
-        const orm = EntityMapper.toOrmGame(game);
-        await this.repo.save(orm);
-        return game;
-    }
+  async count(): Promise<number> {
+    return this.repo.count();
+  }
 
-    async saveMany(games: Game[]): Promise<Game[]> {
-        const orms = games.map((g) => EntityMapper.toOrmGame(g));
-        await this.repo.save(orms);
-        return games;
-    }
+  async save(game: Game): Promise<Game> {
+    const orm = EntityMapper.toOrmGame(game);
+    await this.repo.save(orm);
+    return game;
+  }
 
-    async findById(id: string): Promise<Game | null> {
-        const orm = await this.repo.findOneBy({ id });
-        return orm ? EntityMapper.toDomainGame(orm) : null;
-    }
+  async saveMany(games: Game[]): Promise<Game[]> {
+    const orms = games.map((g) => EntityMapper.toOrmGame(g));
+    await this.repo.save(orms);
+    return games;
+  }
 
-    async findByExternalId(externalId: string): Promise<Game | null> {
-        const orm = await this.repo.findOneBy({ externalId });
-        return orm ? EntityMapper.toDomainGame(orm) : null;
-    }
+  async findById(id: string): Promise<Game | null> {
+    const orm = await this.repo.findOneBy({ id });
+    return orm ? EntityMapper.toDomainGame(orm) : null;
+  }
 
-    async findUpcoming(sportKey?: string): Promise<Game[]> {
-        const where: Record<string, unknown> = {
-            completed: false,
-            commenceTime: MoreThan(new Date()),
-        };
-        if (sportKey) where['sportKey'] = sportKey;
+  async findByExternalId(externalId: string): Promise<Game | null> {
+    const orm = await this.repo.findOneBy({ externalId });
+    return orm ? EntityMapper.toDomainGame(orm) : null;
+  }
 
-        const orms = await this.repo.find({
-            where,
-            order: { commenceTime: 'ASC' },
-        });
-        return orms.map(EntityMapper.toDomainGame);
-    }
+  async findUpcoming(sportKey?: string): Promise<Game[]> {
+    const where: Record<string, unknown> = {
+      completed: false,
+      commenceTime: MoreThan(new Date()),
+    };
+    if (sportKey) where['sportKey'] = sportKey;
 
-    async findCompleted(sportKey?: string, limit?: number): Promise<Game[]> {
-        const where: Record<string, unknown> = { completed: true };
-        if (sportKey) where['sportKey'] = sportKey;
+    const orms = await this.repo.find({
+      where,
+      order: { commenceTime: 'ASC' },
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
 
-        const orms = await this.repo.find({
-            where,
-            order: { commenceTime: 'DESC' },
-            take: limit,
-        });
-        return orms.map(EntityMapper.toDomainGame);
-    }
+  async findCompleted(sportKey?: string, limit?: number): Promise<Game[]> {
+    const where: Record<string, unknown> = { completed: true };
+    if (sportKey) where['sportKey'] = sportKey;
 
-    async findByDateRange(from: Date, to: Date, sportKey?: string): Promise<Game[]> {
-        const where: Record<string, unknown> = {
-            commenceTime: Between(from, to),
-        };
-        if (sportKey) where['sportKey'] = sportKey;
+    const orms = await this.repo.find({
+      where,
+      order: { commenceTime: 'DESC' },
+      take: limit,
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
 
-        const orms = await this.repo.find({
-            where,
-            order: { commenceTime: 'ASC' },
-        });
-        return orms.map(EntityMapper.toDomainGame);
-    }
+  async findByDateRange(
+    from: Date,
+    to: Date,
+    sportKey?: string,
+  ): Promise<Game[]> {
+    const where: Record<string, unknown> = {
+      commenceTime: Between(from, to),
+    };
+    if (sportKey) where['sportKey'] = sportKey;
 
-    async findUnresolved(): Promise<Game[]> {
-        const orms = await this.repo.find({
-            where: {
-                completed: false,
-                commenceTime: LessThan(new Date()),
-            },
-            order: { commenceTime: 'ASC' },
-        });
-        return orms.map(EntityMapper.toDomainGame);
-    }
+    const orms = await this.repo.find({
+      where,
+      order: { commenceTime: 'ASC' },
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
 
-    async findRecentByTeam(teamId: string, limit: number = 5): Promise<Game[]> {
-        const orms = await this.repo.find({
-            where: [
-                { homeTeamId: teamId, completed: true },
-                { awayTeamId: teamId, completed: true }
-            ],
-            order: { commenceTime: 'DESC' },
-            take: limit
-        });
-        return orms.map(EntityMapper.toDomainGame);
-    }
+  async findUnresolved(): Promise<Game[]> {
+    const orms = await this.repo.find({
+      where: {
+        completed: false,
+        commenceTime: LessThan(new Date()),
+      },
+      order: { commenceTime: 'ASC' },
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
+
+  async findPostponed(): Promise<Game[]> {
+    const orms = await this.repo.find({
+      where: { status: 'postponed' },
+      order: { commenceTime: 'ASC' },
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
+
+  async findRecentByTeam(teamId: string, limit: number = 5): Promise<Game[]> {
+    const orms = await this.repo.find({
+      where: [
+        { homeTeamId: teamId, completed: true },
+        { awayTeamId: teamId, completed: true },
+      ],
+      order: { commenceTime: 'DESC' },
+      take: limit,
+    });
+    return orms.map(EntityMapper.toDomainGame);
+  }
 }

@@ -16,6 +16,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    profiles:
+      - dev
+      - full
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: sp-backend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sports_prediction}:${POSTGRES_PASSWORD:-sp_dev_password}@postgres:5432/${POSTGRES_DB:-sports_prediction_db}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-fallback-key-for-dev}
+      NODE_ENV: production
+    profiles:
+      - full
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: sp-frontend
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    depends_on:
+      - backend
+    profiles:
+      - full
 
 volumes:
   postgres_data:

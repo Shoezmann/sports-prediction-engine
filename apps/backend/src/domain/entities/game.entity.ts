@@ -5,6 +5,22 @@ import {
 import { Team } from './team.entity';
 
 /**
+ * Represents the status of a game throughout its lifecycle.
+ */
+export enum GameStatus {
+    /** Game is scheduled and awaiting kickoff */
+    SCHEDULED = 'scheduled',
+    /** Game has been postponed by the league/organizer */
+    POSTPONED = 'postponed',
+    /** Game has been cancelled */
+    CANCELLED = 'cancelled',
+    /** Game is currently in progress */
+    IN_PROGRESS = 'in_progress',
+    /** Game has finished */
+    FINISHED = 'finished',
+}
+
+/**
  * Domain Entity: Game
  *
  * Represents a match/event between two teams or competitors.
@@ -24,6 +40,7 @@ export class Game {
         public readonly completed: boolean = false,
         public readonly homeScore?: number,
         public readonly awayScore?: number,
+        public readonly status: GameStatus = GameStatus.SCHEDULED,
     ) { }
 
     static create(props: {
@@ -39,6 +56,7 @@ export class Game {
         completed?: boolean;
         homeScore?: number;
         awayScore?: number;
+        status?: GameStatus;
     }): Game {
         return new Game(
             props.id,
@@ -53,12 +71,16 @@ export class Game {
             props.completed ?? false,
             props.homeScore,
             props.awayScore,
+            props.status ?? GameStatus.SCHEDULED,
         );
     }
 
     /** Whether the game hasn't started yet */
     get isUpcoming(): boolean {
-        return !this.completed && this.commenceTime > new Date();
+        return !this.completed &&
+            this.status !== GameStatus.POSTPONED &&
+            this.status !== GameStatus.CANCELLED &&
+            this.commenceTime > new Date();
     }
 
     /** Whether the game is scheduled for today */
@@ -73,7 +95,16 @@ export class Game {
 
     /** Whether the game is currently in progress */
     get isLive(): boolean {
-        return !this.completed && this.commenceTime <= new Date();
+        return !this.completed &&
+            this.status !== GameStatus.POSTPONED &&
+            this.status !== GameStatus.CANCELLED &&
+            this.commenceTime <= new Date();
+    }
+
+    /** Whether the game is postponed or cancelled */
+    get isUnplayable(): boolean {
+        return this.status === GameStatus.POSTPONED ||
+            this.status === GameStatus.CANCELLED;
     }
 
     /** Whether this sport supports draw outcomes */
@@ -83,7 +114,11 @@ export class Game {
 
     /** Determine the actual outcome based on final scores */
     getOutcome(): PredictionOutcome {
-        if (!this.completed || this.homeScore === undefined || this.awayScore === undefined) {
+        if (!this.completed ||
+            this.status === GameStatus.POSTPONED ||
+            this.status === GameStatus.CANCELLED ||
+            this.homeScore === undefined ||
+            this.awayScore === undefined) {
             return PredictionOutcome.PENDING;
         }
 
@@ -111,6 +146,64 @@ export class Game {
             true,
             homeScore,
             awayScore,
+            GameStatus.FINISHED,
+        );
+    }
+
+    /** Mark game as postponed with a new commenceTime (reschedule) */
+    withPostponed(newCommenceTime?: Date): Game {
+        return new Game(
+            this.id,
+            this.externalId,
+            this.sportKey,
+            this.sportTitle,
+            this.sportGroup,
+            this.sportCategory,
+            this.homeTeam,
+            this.awayTeam,
+            newCommenceTime ?? this.commenceTime,
+            false,
+            this.homeScore,
+            this.awayScore,
+            GameStatus.POSTPONED,
+        );
+    }
+
+    /** Mark game as cancelled */
+    withCancelled(): Game {
+        return new Game(
+            this.id,
+            this.externalId,
+            this.sportKey,
+            this.sportTitle,
+            this.sportGroup,
+            this.sportCategory,
+            this.homeTeam,
+            this.awayTeam,
+            this.commenceTime,
+            false,
+            this.homeScore,
+            this.awayScore,
+            GameStatus.CANCELLED,
+        );
+    }
+
+    /** Update game commenceTime (for rescheduled games) */
+    withRescheduledTime(newCommenceTime: Date): Game {
+        return new Game(
+            this.id,
+            this.externalId,
+            this.sportKey,
+            this.sportTitle,
+            this.sportGroup,
+            this.sportCategory,
+            this.homeTeam,
+            this.awayTeam,
+            newCommenceTime,
+            this.completed,
+            this.homeScore,
+            this.awayScore,
+            this.status === GameStatus.POSTPONED ? GameStatus.SCHEDULED : this.status,
         );
     }
 

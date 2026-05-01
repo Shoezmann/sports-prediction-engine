@@ -13,24 +13,26 @@ import { PredictionOutcome } from '@sports-prediction-engine/shared-types';
  * Form is expressed as a win rate for each team, then adjusted to
  * produce a probability distribution.
  *
- * Phase 1: Uses a simple home-advantage adjusted baseline.
- * Phase 2: Will incorporate actual historical data from the database.
+ * NOTE: Home advantage is handled by the ELO model only.
+ * This model works with raw team strength — no venue multiplier —
+ * to avoid double-counting home advantage.
  */
 @Injectable()
 export class FormModelAdapter implements PredictionModelPort {
-    /** Sport-specific home advantage factors */
+    /** No home advantage multiplier here — ELO model handles venue.
+     * All set to 1.0 (neutral) to prevent double-counting. */
     private static readonly HOME_ADVANTAGE: Record<string, number> = {
-        Soccer: 1.12,             // Strong home advantage in soccer
-        'Ice Hockey': 1.06,       // Moderate home ice advantage
-        Basketball: 1.06,         // Moderate home court advantage
-        'American Football': 1.03, // Slight home field advantage
-        MMA: 1.0,                 // Neutral (octagon is octagon)
-        Boxing: 1.0,              // Neutral venue
-        Tennis: 1.0,              // Neutral venue
+        Soccer: 1.0,              // Neutral — ELO model handles home advantage
+        'Ice Hockey': 1.0,        // Neutral
+        Basketball: 1.0,          // Neutral
+        'American Football': 1.0, // Neutral
+        MMA: 1.0,                 // Neutral
+        Boxing: 1.0,              // Neutral
+        Tennis: 1.0,              // Neutral
     };
 
-    /** Default home advantage for unknown sports */
-    private static readonly DEFAULT_HOME_ADVANTAGE = 1.08;
+    /** Default home advantage for unknown sports — neutral */
+    private static readonly DEFAULT_HOME_ADVANTAGE = 1.0;
 
     constructor(
         @Optional() @Inject(GAME_REPOSITORY_PORT)

@@ -5,6 +5,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { BetsService } from '../../services/bets.service';
 import { PredictionDto, formatRelativeTime, formatShortDate, formatLocalTime12h } from '@sports-prediction-engine/shared-types';
+import { ToastService } from '../../components/toast/toast.service';
 
 const LM: Record<string, [string, string, string]> = {
   'soccer_epl': ['SOCCER', 'ENGLAND', 'EPL'],
@@ -105,144 +106,8 @@ interface MR { p: PredictionDto; cat: string; reg: string; lg: string; live: boo
   selector: 'sp-predictions-page',
   standalone: true,
   imports: [CommonModule],
-  template: `
-@if (loading()) {
-<div class="pg"><div class="ldr"><span class="spin"></span><p>Loading predictions...</p></div></div>
-}
-@if (!loading()) {
-<div class="pg">
-  <div class="hd">
-    <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
-      <p class="sb">{{ total() }} MATCHES</p></div></div>
-    <div class="hr">
-      @if (lastRefresh()) { <span class="up">UPDATED {{ lastRefresh() }}</span> }
-      <button class="btn" (click)="refresh()">[ REFRESH ]</button>
-    </div>
-  </div>
-
-  <div class="fl">
-    <div class="fg"><label>SPORT</label>
-      <select [value]="sc() ?? ''" (change)="onCat($any($event.target).value || null)">
-        <option value="">ALL</option>
-        @for (c of cats(); track c) { <option [value]="c">{{ c }}</option> }
-      </select></div>
-    <div class="fg"><label>REGION</label>
-      <select [value]="sr() ?? ''" (change)="onReg($any($event.target).value || null)">
-        <option value="">ALL</option>
-        @for (r of regs(); track r) { <option [value]="r">{{ r }}</option> }
-      </select></div>
-    <div class="fg"><label>LEAGUE</label>
-      <select [value]="sl() ?? ''" (change)="onLg($any($event.target).value || null)">
-        <option value="">ALL</option>
-        @for (l of lgs(); track l) { <option [value]="l">{{ l }}</option> }
-      </select></div>
-    @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
-  </div>
-
-  @if (filt().length > 0) {
-    <div class="slbl">UPCOMING</div>
-    <div class="tw"><table class="tb">
-      <thead><tr>
-        <th>TIME</th><th>DATE</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>OUTCOME</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th>
-      </tr></thead>
-      <tbody>
-        @for (m of filt(); track m.p.id) {
-          <tr>
-            <td class="mo">{{ m.tl }}</td>
-            <td class="mo di">{{ m.dt }}</td>
-            <td class="mo di">{{ m.cat }}</td>
-            <td class="mo di">{{ m.lg || '\u2014' }}</td>
-            <td>
-              <span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span>
-              <span class="vs">vs</span>
-              <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span>
-            </td>
-            <td class="probs-cell">
-              <span class="probs-h" [class.best]="pS(m.p)==='h'" title="Home win probability">{{ pPct(m.p, 'homeWin') }}%</span>
-              @if (hasDraw(m.p)) {
-                <span class="probs-d" [class.best]="pS(m.p)==='d'" title="Draw probability">{{ pPct(m.p, 'draw') }}%</span>
-              }
-              <span class="probs-a" [class.best]="pS(m.p)==='a'" title="Away win probability">{{ pPct(m.p, 'awayWin') }}%</span>
-              @if (m.p.goals) {
-                <span class="gp" [class.up]="m.p.goals.over2_5 > 0.5" [class.down]="m.p.goals.over2_5 <= 0.5" title="Over/Under 2.5">{{ m.p.goals.over2_5 > 0.5 ? 'O' : 'U' }} {{ (m.p.goals.over2_5 * 100).toFixed(0) }}%</span>
-              }
-              @if (m.p.btts) {
-                <span class="gp" [class.up]="m.p.btts.yes > 0.5" [class.down]="m.p.btts.yes <= 0.5" title="BTTS">{{ m.p.btts.yes > 0.5 ? 'Y' : 'N' }}</span>
-              }
-            </td>
-            <td><span class="cf" [class]="m.p.confidenceLevel">{{ m.p.confidenceLevel.toUpperCase() }} {{ (m.p.confidence * 100).toFixed(0) }}%</span></td>
-            <td>@if (m.p.expectedValue != null) {
-              <span class="ev" [class.po]="m.p.expectedValue > 0" [class.ne]="m.p.expectedValue <= 0">{{ m.p.expectedValue > 0 ? '+' : '' }}{{ (m.p.expectedValue * 100).toFixed(1) }}%</span>
-            } @else { <span class="di">\u2014</span> }</td>
-            <td class="mo">{{ m.p.odds ? m.p.odds.toFixed(2) : '\u2014' }}</td>
-            <td><button class="ab" [class.in]="iS(m.p.id)" (click)="tS(m.p)">{{ iS(m.p.id) ? '\u2713' : '+' }}</button></td>
-          </tr>
-        }
-      </tbody>
-    </table></div>
-  }
-
-  @if (total() > 0 && filt().length === 0) {
-    <div class="em"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES FOR THIS FILTER  \u2502\n\u2502  Clear filters to view all   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre>
-      <button class="bclr" (click)="clr()">[ CLEAR FILTERS ]</button></div>
-  }
-  @if (total() === 0) {
-    <div class="em"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES IN SYSTEM        \u2502\n\u2502  Pipeline runs every 5 min   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre></div>
-  }
-</div>
-}`,
-  styles: [`
-    .pg{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
-    .ldr{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;gap:12px}
-    .spin{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .ldr p{color:var(--color-text-muted);font-family:var(--font-family);font-size:0.8125rem}
-    .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
-    .hl{display:flex;align-items:flex-start;gap:8px}
-    .pr{font-family:var(--font-family);font-size:1.25rem;color:var(--color-accent);font-weight:700;line-height:1}
-    h1{font-family:var(--font-family);font-size:1.375rem;font-weight:700;letter-spacing:0.06em;color:var(--color-text-primary);line-height:1.2;margin:0}
-    .sb{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);margin:3px 0 0;letter-spacing:0.02em}
-    .hr{display:flex;align-items:center;gap:6px}
-    .up{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-muted)}
-    .btn{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:4px 10px;background:transparent;border:1px solid var(--color-accent);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all 0.2s}.btn:hover{background:var(--color-accent);color:#fff}
-    .fl{display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-    .fg{display:flex;flex-direction:column;gap:3px}.fg label{font-family:var(--font-family);font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em}
-    .fg select{font-family:var(--font-family);font-size:0.6875rem;font-weight:500;padding:5px 26px 5px 8px;background:var(--color-bg-input);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-xs);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
-    .fg select:focus{outline:none;border-color:var(--color-accent)}
-    .clr{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:5px 10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.clr:hover{border-color:var(--color-accent);color:var(--color-accent)}
-    .slbl{display:flex;align-items:center;gap:6px;font-family:var(--font-family);font-size:0.6875rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;margin-bottom:10px}.slbl--click{cursor:pointer;user-select:none}.slbl--click:hover{color:var(--color-text-primary)}.arr{font-size:0.625rem;transition:transform 0.2s;display:inline-block}.arr.open{transform:rotate(180deg)}.slbl--click{cursor:pointer;user-select:none}.slbl--click:hover{color:var(--color-text-primary)}.arr{font-size:0.625rem;transition:transform 0.2s;display:inline-block}.arr.open{transform:rotate(180deg)}
-    .pd{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 5px rgba(239,68,68,0.5);animation:pulse-glow 1.5s ease-in-out infinite}
-    .ls{background:linear-gradient(180deg,rgba(239,68,68,0.03),transparent);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xs);padding:12px;margin-bottom:20px;transition:all 0.2s}
-    .lr{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--color-border-subtle)}.lr:last-child{border-bottom:none}
-    .lcat{font-family:var(--font-family);font-size:0.5625rem;color:var(--color-text-muted);min-width:80px}
-    .llg{font-family:var(--font-family);font-size:0.625rem;color:var(--color-text-secondary);min-width:110px}
-    .lteams{font-family:var(--font-family);font-size:0.75rem;color:var(--color-text-primary);flex:1}
-    .lvs{color:var(--color-text-muted);font-size:0.625rem;margin:0 4px}
-    .lmin{font-family:var(--font-family);font-size:0.8125rem;font-weight:700;color:#ef4444;min-width:45px;text-align:right}
-    .lpick{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px;white-space:nowrap}
-    .pkh{color:#3b82f6;background:rgba(59,130,246,0.1)}.pka{color:#a78bfa;background:rgba(167,139,250,0.1)}.pkd{color:#fbbf24;background:rgba(251,191,36,0.1)}
-    .lconf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;color:var(--color-text-muted);min-width:35px;text-align:right}
-    .tw{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:var(--radius-xs);overflow-x:auto;-webkit-overflow-scrolling:touch}
-    .tw::-webkit-scrollbar{height:5px}.tw::-webkit-scrollbar-track{background:var(--color-bg-secondary)}.tw::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
-    .tb{width:100%;min-width:860px;border-collapse:collapse;font-family:var(--font-family)}
-    .tb thead th{font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--color-border);background:var(--color-bg-tertiary);white-space:nowrap}
-    .tb tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--transition-fast)}.tb tbody tr:hover{background:var(--color-accent-subtle)}.tb tbody tr:last-child{border-bottom:none}
-    .tb tbody td{padding:8px 12px;font-size:0.75rem;white-space:nowrap;vertical-align:middle}
-    .mo{font-family:var(--font-family)}.di{color:var(--color-text-muted)}.vs{color:var(--color-text-muted);font-size:0.625rem;margin:0 5px}
-    .pk{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:2px 6px;border-radius:2px}
-    .probs-cell{display:flex;gap:3px;align-items:center;font-family:var(--font-family);font-size:0.625rem;font-weight:600;flex-wrap:wrap}
-    .probs-h,.probs-d,.probs-a,.gp{padding:2px 6px;border-radius:2px;min-width:28px;text-align:center;white-space:nowrap}
-    .probs-h{color:#3b82f6;background:rgba(59,130,246,0.1)}.probs-d{color:#fbbf24;background:rgba(251,191,36,0.1)}.probs-a{color:#a78bfa;background:rgba(167,139,250,0.1)}
-    .probs-h.best,.probs-d.best,.probs-a.best{font-weight:700;box-shadow:0 0 0 1px currentColor}
-    .gp{cursor:help;position:relative}
-    .gp.up{color:#22c55e;background:rgba(34,197,94,0.1)}.gp.down{color:#ef4444;background:rgba(239,68,68,0.1)}
-    .cf{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.02em}.cf.high{color:var(--color-confidence-high)}.cf.medium{color:var(--color-confidence-medium)}.cf.low{color:var(--color-confidence-low)}
-    .ev{font-family:var(--font-family);font-size:0.6875rem;font-weight:600}.ev.po{color:var(--color-success)}.ev.ne{color:var(--color-danger)}
-    .ab{font-family:var(--font-family);font-size:0.875rem;font-weight:700;width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--color-border);background:transparent;color:var(--color-text-secondary);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}
-    .ab:hover{border-color:var(--color-accent);color:var(--color-accent);background:var(--color-accent-subtle)}.ab.in{border-color:var(--color-accent-border);background:var(--color-accent-subtle);color:var(--color-accent);cursor:default}
-    .em{text-align:center;padding:48px 20px}.em pre{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);line-height:1.5;display:inline-block}
-    .bclr{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:5px 14px;margin-top:12px;background:transparent;border:1px solid var(--color-accent-border);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all var(--transition-fast)}.bclr:hover{background:var(--color-accent);color:var(--color-text-on-accent)}
-  `],
+  templateUrl: './predictions.page.html',
+  styleUrl: './predictions.page.scss'
 })
 export class PredictionsPage implements OnInit {
   pp = signal<PredictionDto[]>([]);
@@ -255,6 +120,7 @@ export class PredictionsPage implements OnInit {
   authService = inject(AuthService);
   private bs = inject(BetsService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   ngOnInit() { this.loadState(); this.fd(); }
   ngOnDestroy() { /* no timers or SSE to clean up */ }
@@ -299,9 +165,12 @@ export class PredictionsPage implements OnInit {
   onReg(v: string | null) { this.sr.set(v); this.sl.set(null); this.sv(); }
   onLg(v: string | null) { this.sl.set(v); this.sv(); }
   clr() { this.sc.set(null); this.sr.set(null); this.sl.set(null); this.sv(); }
+  expandedId = signal<string | null>(null);
   pS(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
   pK(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? 'h' : p.predictedOutcome === 'away_win' ? 'a' : 'd'; }
   pL(p: PredictionDto) { return p.predictedOutcome === 'home_win' ? p.game.homeTeam.name : p.predictedOutcome === 'away_win' ? p.game.awayTeam.name : 'DRAW'; }
+  toggleExpand(id: string) { this.expandedId.set(this.expandedId() === id ? null : id); }
+  isExpanded(id: string) { return this.expandedId() === id; }
   hasDraw(p: PredictionDto) { return p.probabilities.draw != null; }
   pPct(p: PredictionDto, key: 'homeWin' | 'awayWin' | 'draw') { return (((key === 'draw' ? p.probabilities.draw : p.probabilities[key]) ?? 0) * 100).toFixed(0); }
   iS(id: string) { return !!this.bs.betSlipPredictions().find(p => p.id === id); }
@@ -312,8 +181,8 @@ export class PredictionsPage implements OnInit {
     this.loading.set(true);
     this.api.getPendingPredictions().subscribe({
       next: d => { this.pp.set(d); this.loading.set(false); this.lastRefresh.set(formatLocalTime12h(new Date())); },
-      error: () => { this.loading.set(false); }
+      error: () => { this.loading.set(false); this.toast.error('Could not load predictions'); }
     });
   }
-  refresh() { this.fd(); }
+  refresh() { this.toast.info('Refreshing predictions...'); this.fd(); }
 }

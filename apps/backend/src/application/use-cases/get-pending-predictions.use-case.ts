@@ -14,8 +14,22 @@ export class GetPendingPredictionsUseCase {
     async execute(sportKey?: string): Promise<any[]> {
         const pendingPredictions = await this.predictionRepo.findPending(sportKey);
 
-        const output = pendingPredictions.map(prediction => {
-            const goals = this.goalsPredictor.predictGoals(prediction.game.sportKey);
+        const output = await Promise.all(pendingPredictions.map(async prediction => {
+            // Use full Poisson goals prediction when game context is available
+            const goalsFull = await this.goalsPredictor.predictGoalsFull(
+                prediction.game.sportKey,
+                prediction.game,
+            ).catch(() => null);
+
+            // Fallback to static league averages
+            const goalsStatic = this.goalsPredictor.predictGoals(prediction.game.sportKey);
+            const goals = goalsFull ?? goalsStatic;
+
+            const probToObj = (ps: any) => ps ? ({
+                homeWin: ps.homeWin.value,
+                awayWin: ps.awayWin.value,
+                draw: ps.draw?.value,
+            }) : undefined;
 
             return {
                 id: prediction.id,
@@ -43,46 +57,36 @@ export class GetPendingPredictionsUseCase {
                     draw: prediction.probabilities.draw?.value,
                 },
                 modelBreakdown: {
-                    elo: {
-                        homeWin: prediction.modelBreakdown.elo.homeWin.value,
-                        awayWin: prediction.modelBreakdown.elo.awayWin.value,
-                        draw: prediction.modelBreakdown.elo.draw?.value,
-                    },
-                    form: {
-                        homeWin: prediction.modelBreakdown.form.homeWin.value,
-                        awayWin: prediction.modelBreakdown.form.awayWin.value,
-                        draw: prediction.modelBreakdown.form.draw?.value,
-                    },
-                    oddsImplied: {
-                        homeWin: prediction.modelBreakdown.oddsImplied.homeWin.value,
-                        awayWin: prediction.modelBreakdown.oddsImplied.awayWin.value,
-                        draw: prediction.modelBreakdown.oddsImplied.draw?.value,
-                    },
-                    ml: prediction.modelBreakdown.ml ? {
-                        homeWin: prediction.modelBreakdown.ml.homeWin.value,
-                        awayWin: prediction.modelBreakdown.ml.awayWin.value,
-                        draw: prediction.modelBreakdown.ml.draw?.value,
-                    } : undefined,
+                    elo:         probToObj(prediction.modelBreakdown.elo),
+                    form:        probToObj(prediction.modelBreakdown.form),
+                    oddsImplied: probToObj(prediction.modelBreakdown.oddsImplied),
+                    ml:          probToObj(prediction.modelBreakdown.ml),
+                    poisson:     probToObj(prediction.modelBreakdown.poisson),
+                    h2h:         probToObj(prediction.modelBreakdown.h2h),
                 },
                 goals: goals ? {
-                    over2_5: goals.over2_5,
-                    under2_5: goals.under2_5,
-                    expectedGoals: goals.expectedGoals,
+                    over2_5: 'over2_5' in goals ? goals.over2_5 : goalsStatic?.over2_5,
+                    under2_5: 'under2_5' in goals ? goals.under2_5 : goalsStatic?.under2_5,
+                    over1_5: 'over1_5' in goals ? (goals as any).over1_5 : undefined,
+                    over3_5: 'over3_5' in goals ? (goals as any).over3_5 : undefined,
+                    expectedGoals: 'expectedTotalGoals' in goals
+                        ? (goals as any).expectedTotalGoals
+                        : goalsStatic?.expectedGoals,
+                    expectedGoalsHome: 'expectedGoalsHome' in goals ? (goals as any).expectedGoalsHome : undefined,
+                    expectedGoalsAway: 'expectedGoalsAway' in goals ? (goals as any).expectedGoalsAway : undefined,
                 } : undefined,
                 btts: goals ? {
-                    yes: goals.bttsYes,
-                    no: goals.bttsNo,
+                    yes: 'bttsYes' in goals ? goals.bttsYes : goalsStatic?.bttsYes,
+                    no: 'bttsNo' in goals ? goals.bttsNo : goalsStatic?.bttsNo,
                 } : undefined,
                 expectedValue: prediction.expectedValue,
                 recommendedStake: prediction.recommendedStake,
                 odds: prediction.odds,
                 createdAt: prediction.createdAt.toISOString(),
             };
-        });
+        }));
 
-        // Sort by commence time
         output.sort((a, b) => new Date(a.game.commenceTime).getTime() - new Date(b.game.commenceTime).getTime());
-
         return output;
     }
 }

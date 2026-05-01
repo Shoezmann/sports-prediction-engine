@@ -1,193 +1,164 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression, Interval } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { SyncSportsUseCase } from '../../application/use-cases/sync-sports.use-case';
-import { SyncGamesUseCase } from '../../application/use-cases/sync-games.use-case';
+import { DataIngestionService } from '../../data-ingestion/data-ingestion.service';
+import { SofaScoreScraperService } from '../../data-ingestion/sofascore-scraper.service';
 import { GeneratePredictionsUseCase } from '../../application/use-cases/generate-predictions.use-case';
 import { UpdateResultsUseCase } from '../../application/use-cases/update-results.use-case';
-import { HistoricalBackfillUseCase } from '../../application/use-cases/historical-backfill.use-case';
 import { GetPendingPredictionsUseCase } from '../../application/use-cases/get-pending-predictions.use-case';
-import { TrainModelsUseCase } from '../../application/use-cases/train-models.use-case';
 import { GetAccuracyUseCase } from '../../application/use-cases/get-accuracy.use-case';
+import { TrainModelsUseCase } from '../../application/use-cases/train-models.use-case';
 import { PredictionStreamService } from '../sse/prediction-stream.service';
 import { LiveScoresService } from '../live-scores/live-scores.service';
+import { EloSeederService } from '../services/elo-seeder.service';
 
 /**
- * Production-ready Prediction Pipeline Scheduler
+ * Prediction Scheduler
  *
- * The pipeline runs automatically in a staggered, realistic cadence:
+ * Self-contained prediction pipeline with SofaScore data ingestion.
+ * Zero external paid API dependency.
  *
- *   03:00 UTC daily    → Sync sports catalog (free, no quota)
- *   06:00 UTC daily    → Sync upcoming games (costs API quota)
- *   06:05 UTC daily    → Generate predictions (fetches odds, costs API quota)
- *   Every 4 hours      → Update results (fetch scores, resolve predictions, update ELO)
- *
- * The 5-minute gap between games sync and prediction generation ensures the DB
- * is committed before predictions try to read it.
- *
- * Results update every 4 hours (not 2) to conserve API quota while still
- * catching finished games within a reasonable window.
- *
- * All errors are caught and logged — a single failed step never blocks the next cycle.
+ * Cron schedule:
+ *   - Every 4h:    SofaScore fixture sync + result updates
+ *   - Every 5min:  Dev-mode prediction regeneration
+ *   - Every 2h:    Fetch recent results from SofaScore
+ *   - Weekly:      Retrain ML models (Sunday 05:00 UTC)
+ *   - Every 1min:  SSE broadcast of live data
  */
 @Injectable()
-export class PredictionScheduler {
+export class PredictionScheduler implements OnModuleInit {
     private readonly logger = new Logger(PredictionScheduler.name);
     private readonly isProd: boolean;
 
     constructor(
-        private readonly syncSports: SyncSportsUseCase,
-        private readonly syncGames: SyncGamesUseCase,
+        private readonly dataIngestion: DataIngestionService,
+        private readonly sofascore: SofaScoreScraperService,
         private readonly generatePredictions: GeneratePredictionsUseCase,
         private readonly updateResults: UpdateResultsUseCase,
-        private readonly historicalBackfill: HistoricalBackfillUseCase,
         private readonly getPendingPredictions: GetPendingPredictionsUseCase,
         private readonly getAccuracy: GetAccuracyUseCase,
         private readonly trainModels: TrainModelsUseCase,
         private readonly streamService: PredictionStreamService,
         private readonly liveScoresService: LiveScoresService,
         private readonly configService: ConfigService,
+        private readonly eloSeeder: EloSeederService,
     ) {
         this.isProd = this.configService.get<string>('NODE_ENV') === 'production';
-        this.logger.log(`Scheduler initialized — isProd: ${this.isProd}, env: ${this.configService.get<string>('NODE_ENV')}`);
+        this.logger.log(`Scheduler initialized — isProd: ${this.isProd}`);
     }
 
-    // ─── Daily: Sync Sports Catalog ──────────────────────────
-    // Runs at 03:00 UTC — free endpoint, no API quota cost.
-    // Discovers new sports/leagues and updates active status.
-    // ─── Development: Auto-sync every 30 minutes ─────────────
-    @Cron('*/5 * * * *', { name: 'auto-sync-dev' })
-    async handleAutoSyncDev() {
-        if (this.isProd) return; // Only in development
-        this.logger.log('[CRON */5min] Auto-syncing sports, games, and predictions...');
+    async onModuleInit() {
+        if (this.isProd) return;
+        this.logger.log('[STARTUP] Initialising prediction pipeline...');
         try {
-            await this.syncSports.execute();
-            const games = await this.syncGames.execute();
-            if (games.synced > 0) {
-                await this.generatePredictions.execute();
+            // 1. Seed core data (sports, teams, seed fixtures)
+            const seedResult = await this.dataIngestion.seedAll();
+            this.logger.log(
+                `[STARTUP] Seeded: ${seedResult.sports} sports, ${seedResult.teams} teams, ${seedResult.fixtures} fixtures`,
+            );
+
+            // 2. SofaScore sync — pull next 7 days of fixtures
+            try {
+                const sofaResult = await this.sofascore.syncUpcomingFixtures(7);
+                this.logger.log(
+                    `[STARTUP] SofaScore: ${sofaResult.saved} fixtures saved across ${sofaResult.sports.length} leagues`,
+                );
+            } catch (err) {
+                this.logger.warn(`[STARTUP] SofaScore sync failed (non-critical): ${err.message}`);
             }
-            this.logger.log('[CRON */5min] Auto-sync complete');
-        } catch (error) {
-            this.logger.error('[CRON */5min] Auto-sync failed', error);
-        }
-    }
 
-    @Cron('0 3 * * *', { name: 'sync-sports-daily' })
-    async handleSyncSports() {
-        this.logger.log('[CRON 03:00] Syncing sports catalog...');
-        try {
-            const result = await this.syncSports.execute();
+            // 3. Generate predictions for all upcoming fixtures
+            this.logger.log('[STARTUP] Generating predictions...');
+            const predictions = await this.generatePredictions.execute();
             this.logger.log(
-                `[CRON 03:00] Sports synced: ${result.total} total, ${result.active} active, ${result.new} new`,
+                `[STARTUP] Predictions: ${predictions.generated} generated, ${predictions.skipped} skipped`,
             );
+
+            this.logger.log('[STARTUP] System ready — SofaScore scraper active, 6-model ensemble online');
         } catch (error) {
-            this.logger.error('[CRON 03:00] Sports sync failed', error);
+            this.logger.error('[STARTUP] Initial setup failed', error);
         }
     }
 
-    // ─── Daily: Sync Upcoming Games ──────────────────────────
-    // Runs at 06:00 UTC — costs 1 API request per active sport.
-    // Fetches upcoming matches for all active sports.
-    @Cron('0 6 * * *', { name: 'sync-games-daily' })
-    async handleSyncGames() {
-        this.logger.log('[CRON 06:00] Syncing upcoming games...');
+    // ─── Every 4 Hours: SofaScore fixture sync ───────────
+    @Cron('0 */4 * * *', { name: 'sofascore-sync-4h' })
+    async handleSofaScoreSync() {
+        this.logger.log('[CRON */4h] Syncing upcoming fixtures from SofaScore...');
         try {
-            const result = await this.syncGames.execute();
-            this.logger.log(
-                `[CRON 06:00] Games synced: ${result.synced} new across ${result.sports} sports`,
-            );
+            const result = await this.sofascore.syncUpcomingFixtures(7);
+            if (result.saved > 0) {
+                this.logger.log(
+                    `[CRON */4h] SofaScore: ${result.saved} fixtures saved | Leagues: ${result.sports.join(', ')}`,
+                );
+                // Generate predictions for newly synced games
+                const predictions = await this.generatePredictions.execute();
+                this.logger.log(`[CRON */4h] Predictions: ${predictions.generated} generated`);
+            }
         } catch (error) {
-            this.logger.error('[CRON 06:00] Game sync failed', error);
+            this.logger.error('[CRON */4h] SofaScore sync failed', error);
         }
     }
 
-    // ─── Daily: Generate Predictions ─────────────────────────
-    // Runs at 06:05 UTC — costs 1 API request per sport (odds fetch).
-    // 5-minute delay after game sync ensures DB commit.
-    @Cron('5 6 * * *', { name: 'generate-predictions-daily' })
-    async handleGeneratePredictions() {
-        this.logger.log('[CRON 06:05] Generating predictions...');
-        try {
-            const result = await this.generatePredictions.execute();
-            this.logger.log(
-                `[CRON 06:05] Predictions: ${result.generated} generated, ${result.skipped} skipped`,
-            );
-        } catch (error) {
-            this.logger.error('[CRON 06:05] Prediction generation failed', error);
-        }
-    }
-
-    // ─── Every 4 Hours: Update Results ───────────────────────
-    // Fetches scores for unresolved games, resolves predictions, updates ELO.
-    // Costs 1 API request per sport with unresolved games.
-    @Cron('0 */4 * * *', { name: 'update-results-4h' })
-    async handleUpdateResults() {
-        this.logger.log('[CRON */4h] Updating results...');
+    // ─── Every 2 Hours: Fetch recent results from SofaScore ──
+    @Cron('30 */2 * * *', { name: 'sofascore-results-2h' })
+    async handleResultsFetch() {
+        this.logger.log('[CRON */2h] Fetching recent results from SofaScore...');
         try {
             const result = await this.updateResults.execute();
-            this.logger.log(
-                `[CRON */4h] Results: ${result.updated} games, ${result.predictionsResolved} predictions resolved, ${result.eloUpdated} ELO updates`,
-            );
+            if (result.updated > 0 || result.predictionsResolved > 0) {
+                this.logger.log(
+                    `[CRON */2h] Results: ${result.updated} games, ${result.predictionsResolved} predictions resolved, ${result.eloUpdated} ELO updates`,
+                );
+            }
         } catch (error) {
-            this.logger.error('[CRON */4h] Results update failed', error);
+            this.logger.error('[CRON */2h] Results fetch failed', error);
         }
     }
 
-    // ─── Weekly: Historical Backfill (Sunday 04:00 UTC) ─────
-    // Backfills results for the past 7 days to catch any missed games.
-    // ─── Weekly: Retrain ML Models ────────────────────
-    // Runs every Sunday at 5:00 UTC — retrains models on latest results.
+    // ─── Every 5 min (dev): regenerate predictions ───────
+    @Cron('*/5 * * * *', { name: 'auto-predictions-dev' })
+    async handleAutoPredictionsDev() {
+        if (this.isProd) return;
+        try {
+            const result = await this.generatePredictions.execute();
+            if (result.generated > 0) {
+                this.logger.log(`[CRON */5min] Generated ${result.generated} new predictions`);
+            }
+        } catch (error) {
+            this.logger.error('[CRON */5min] Prediction generation failed', error);
+        }
+    }
+
+    // ─── Weekly: Retrain ML Models (Sunday 05:00 UTC) ────
     @Cron('0 5 * * 0', { name: 'train-models-weekly' })
     async handleTrainModels() {
         this.logger.log('[CRON Weekly] Retraining ML models...');
         try {
             const result = await this.trainModels.execute();
             this.logger.log(
-                `[CRON Weekly] Training complete: ${result.trained} trained, ${result.failed} failed`,
+                `[CRON Weekly] Training: ${result.trained} trained, ${result.failed} failed`,
             );
         } catch (error) {
             this.logger.error('[CRON Weekly] Model training failed', error);
         }
     }
 
-    @Cron('0 4 * * 0', { name: 'backfill-weekly' })
-    async handleWeeklyBackfill() {
-        this.logger.log('[CRON SUN 04:00] Running weekly backfill...');
-        try {
-            const result = await this.historicalBackfill.execute(7);
-            this.logger.log(
-                `[CRON SUN 04:00] Backfill: ${result.backfilled} games backfilled, ${result.eloUpdated} ELO updates`,
-            );
-        } catch (error) {
-            this.logger.error('[CRON SUN 04:00] Weekly backfill failed', error);
-        }
-    }
-
-    // ─── Real-Time: Broadcast Live Updates Every 60s ─────────
-    // Fetches fresh predictions and broadcasts to all SSE clients.
-    // This gives clients real-time updates without page refresh.
-    @Interval('live-broadcast', 60_000)
+    // ─── Real-Time: Broadcast Live Updates Every 60s ─────
+    @Cron('*/1 * * * *', { name: 'live-broadcast' })
     async handleLiveBroadcast() {
-        // Always broadcast to connected clients
-
         try {
             const predictions = await this.getPendingPredictions.execute();
             const accuracy = await this.getAccuracy.execute();
-
             const liveMatches = await this.liveScoresService.getLiveMatches();
             this.streamService.broadcast('predictions', {
                 count: predictions.length,
-                liveCount: predictions.filter(p => {
-                    const diff = new Date(p.game.commenceTime).getTime() - Date.now();
-                    const mins = Math.floor(-diff / 60000);
-                    return mins > 0 && mins < 120;
-                }).length,
+                liveCount: liveMatches.length,
                 predictions,
                 accuracy,
                 liveMatches,
             });
         } catch (error) {
-            this.logger.error('[SSE] Failed to broadcast predictions', error);
+            this.logger.error('[SSE] Failed to broadcast', error);
         }
     }
 }

@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './components/sidebar/sidebar.component';
+import { ToastContainerComponent } from './components/toast/toast.component';
 
 @Component({
   selector: 'sp-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent],
+  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent],
   template: `
     <div class="app-layout">
       <sp-sidebar />
@@ -13,6 +14,7 @@ import { SidebarComponent } from './components/sidebar/sidebar.component';
         <router-outlet />
       </main>
     </div>
+    <sp-toast-container />
   `,
   styles: [`
     .app-layout {

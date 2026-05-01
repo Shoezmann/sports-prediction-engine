@@ -4,27 +4,28 @@ import type {
     GameRepositoryPort,
     PredictionRepositoryPort,
     PredictionModelPort,
-    SportsDataPort,
     SportRepositoryPort,
 } from '../../domain/ports/output';
 import {
     GAME_REPOSITORY_PORT,
     PREDICTION_REPOSITORY_PORT,
     PREDICTION_MODEL_PORT,
-    SPORTS_DATA_PORT,
     SPORT_REPOSITORY_PORT,
-    RawOddsData,
 } from '../../domain/ports/output';
-import { Prediction } from '../../domain/entities';
+import { Prediction, GameStatus } from '../../domain/entities';
 import { EnsemblePredictor } from '../../domain/services';
+import { GoalsPredictor } from '../../domain/services/goals-predictor.service';
 import { OddsImpliedModelAdapter } from '../../infrastructure/adapters/prediction-models';
 import { MlModelAdapter } from '../../infrastructure/adapters/prediction-models/ml-model.adapter';
+import { SyntheticOddsAdapter } from '../../infrastructure/odds-scraper/synthetic-odds.adapter';
+import { OddsApiService } from '../../data-ingestion/odds-api.service';
 
 /**
  * Use Case: Generate Predictions
  *
- * Generates predictions for all upcoming games that don't yet have one.
- * Uses the ensemble predictor to combine multiple model outputs.
+ * 6-model ensemble: ELO, Form, OddsImplied, Poisson, H2H, ML.
+ * Goals predictions via Poisson with team-specific attack/defense.
+ * Zero external API dependency — odds generated synthetically from ELO.
  */
 @Injectable()
 export class GeneratePredictionsUseCase {
@@ -38,14 +39,14 @@ export class GeneratePredictionsUseCase {
         private readonly predictionRepo: PredictionRepositoryPort,
         @Inject(PREDICTION_MODEL_PORT)
         private readonly models: PredictionModelPort[],
-        @Inject(SPORTS_DATA_PORT)
-        private readonly sportsData: SportsDataPort,
         @Inject(SPORT_REPOSITORY_PORT)
         private readonly sportRepo: SportRepositoryPort,
         private readonly oddsImpliedModel: OddsImpliedModelAdapter,
         private readonly mlModel: MlModelAdapter,
+        private readonly syntheticOdds: SyntheticOddsAdapter,
+        private readonly oddsApi: OddsApiService,
+        private readonly goalsPredictor: GoalsPredictor,
     ) {
-        // Combine classical models with ML model
         this.ensemble = new EnsemblePredictor([...models, mlModel]);
     }
 
@@ -60,24 +61,49 @@ export class GeneratePredictionsUseCase {
         let generated = 0;
         let skipped = 0;
 
-        // Pre-fetch odds for all relevant sports
-        const sportKeys = [...new Set(games.map((g) => g.sportKey))];
-        const allOdds = new Map<string, RawOddsData[]>();
+        // Try to fetch real odds from The Odds API for active leagues
+        const oddsSportKeys = [...new Set(games.map(g => g.sportKey))];
+        const realOddsMap = await this.oddsApi.fetchOddsForLeagues(oddsSportKeys).catch(() => new Map());
+        const realOddsCount = [...realOddsMap.values()].reduce((sum, arr) => sum + arr.length, 0);
+        if (realOddsCount > 0) {
+            this.logger.log(`Fetched real odds for ${realOddsCount} games (quota: ${this.oddsApi.getQuotaRemaining()} remaining)`);
+        }
 
-        for (const key of sportKeys) {
-            try {
-                const odds = await this.sportsData.fetchOdds(key);
-                this.oddsImpliedModel.setOddsData(odds);
-                allOdds.set(key, odds);
-            } catch (error) {
-                this.logger.warn(`Could not fetch odds for ${key}, skipping odds model`);
+        // Build odds per game: real odds first, synthetic fallback
+        const gameOdds = new Map<string, ReturnType<typeof this.syntheticOdds.generateOddsFromElo>>();
+        for (const game of games) {
+            // Check if we have real odds for this game
+            const leagueRealOdds = realOddsMap.get(game.sportKey) || [];
+            const realOdd = leagueRealOdds.find(o =>
+                o.homeTeam === game.homeTeam.name || o.awayTeam === game.awayTeam.name,
+            );
+
+            if (realOdd) {
+                gameOdds.set(game.externalId, { ...realOdd, externalId: game.externalId } as any);
+            } else {
+                // Synthetic fallback
+                const isThreeWay = game.sportCategory === 'three_way';
+                const odds = this.syntheticOdds.generateOddsFromElo(
+                    game.homeTeam.eloRating.value,
+                    game.awayTeam.eloRating.value,
+                    game.sportKey,
+                    isThreeWay,
+                    game.homeTeam.name,
+                    game.awayTeam.name,
+                );
+                // Override externalId to match game's ID (synthetic uses generic 'synthetic_sportKey')
+                gameOdds.set(game.externalId, { ...odds, externalId: game.externalId });
             }
         }
+
+        // Feed odds into OddsImplied model
+        this.oddsImpliedModel.setOddsData([...gameOdds.values()]);
 
         // Fetch all resolved predictions to calculate dynamic weights per sport
         const resolvedPredictions = await this.predictionRepo.findResolved(sportKey);
         const dynamicWeightsBySport = new Map<string, Record<string, number>>();
 
+        const sportKeys = [...new Set(games.map((g) => g.sportKey))];
         for (const key of sportKeys) {
             const weights = this.calculateDynamicWeights(key, resolvedPredictions);
             if (weights) {
@@ -94,26 +120,25 @@ export class GeneratePredictionsUseCase {
                 }
                 const predictionId = existing ? existing.id : uuidv4();
 
-                // If no dynamic weights exist for this sport (too little data), undefined uses defaults
                 const customWeights = dynamicWeightsBySport.get(game.sportKey);
 
                 const { probabilities, breakdown } = await this.ensemble.predict(
                     game,
                     game.sportCategory,
-                    customWeights
+                    customWeights,
                 );
 
-                // Need prediction outcome to calculate EV against the best odds
+                // Determine predicted outcome
                 const pHome = probabilities.homeWin.value;
                 const pAway = probabilities.awayWin.value;
                 const pDraw = probabilities.draw?.value ?? 0;
                 let predictedTeam = '';
                 let predictedProb = 0;
 
-                if (pHome >= pAway && pHome >= pDraw) {
+                if (pHome > pAway && pHome > pDraw) {
                     predictedTeam = game.homeTeam.name;
                     predictedProb = pHome;
-                } else if (pAway >= pHome && pAway >= pDraw) {
+                } else if (pAway > pHome && pAway > pDraw) {
                     predictedTeam = game.awayTeam.name;
                     predictedProb = pAway;
                 } else {
@@ -121,9 +146,9 @@ export class GeneratePredictionsUseCase {
                     predictedProb = pDraw;
                 }
 
-                // Extract best bookmaker odds for the predicted outcome
+                // Extract best odds from our synthetic odds
+                const matchOdds = gameOdds.get(game.externalId);
                 let bestOdds: number | undefined;
-                const matchOdds = allOdds.get(game.sportKey)?.find(o => o.externalId === game.externalId);
 
                 if (matchOdds && matchOdds.bookmakers.length > 0) {
                     let maxPrice = 0;
@@ -144,14 +169,9 @@ export class GeneratePredictionsUseCase {
                 let recommendedStake: number | undefined;
 
                 if (bestOdds && bestOdds > 1.0) {
-                    // EV = (Probability * Decimal Odds) - 1
                     expectedValue = (predictedProb * bestOdds) - 1.0;
-
-                    // Kelly Criterion: optimal stake = (p * odds - 1) / (odds - 1)
-                    // Only recommend stake when EV is positive
                     if (expectedValue > 0 && bestOdds > 1) {
                         const kellyFraction = (predictedProb * bestOdds - 1) / (bestOdds - 1);
-                        // Cap at 5% of bankroll for risk management (quarter-Kelly)
                         recommendedStake = Math.min(0.05, Math.max(0, kellyFraction * 0.25));
                     }
                 }
@@ -184,59 +204,50 @@ export class GeneratePredictionsUseCase {
         return { generated, skipped };
     }
 
-    /**
-     * Calculates dynamic model weights based on the historical accuracy of each model for the specific sport.
-     * Normalizes the accuracy into proportional weights.
-     */
     private calculateDynamicWeights(
         sportKey: string,
         resolvedPredictions: Prediction[],
     ): Record<string, number> | undefined {
         const sportPredictions = resolvedPredictions.filter((p) => p.sportKey === sportKey);
-
-        // Require at least 5 resolved games to establish a meaningful statistical baseline
         if (sportPredictions.length < 5) return undefined;
 
         const modelAccuracies: Record<string, number> = {};
-        const models = ['elo', 'form', 'oddsImplied', 'ml'];
+        const allModels = ['elo', 'form', 'oddsImplied', 'poisson', 'h2h', 'ml'];
 
-        for (const model of models) {
+        for (const model of allModels) {
             let correct = 0;
             let total = 0;
             for (const p of sportPredictions) {
                 if (!p.actualOutcome || !p.modelBreakdown) continue;
-
                 const modelProbs = p.modelBreakdown[model as keyof typeof p.modelBreakdown];
                 if (!modelProbs) continue;
-
                 total++;
                 const homeWin = modelProbs.homeWin.value;
                 const awayWin = modelProbs.awayWin.value;
                 const draw = modelProbs.draw?.value ?? 0;
-
                 let predicted: string;
                 if (homeWin >= awayWin && homeWin >= draw) predicted = 'home_win';
                 else if (awayWin >= homeWin && awayWin >= draw) predicted = 'away_win';
                 else predicted = 'draw';
-
                 if (predicted === p.actualOutcome) correct++;
             }
-            // Use minimum 0.05 weighting baseline for active models even if they failed historically
-            modelAccuracies[model] = total > 0 ? correct / total : 0;
+            if (total > 0) {
+                modelAccuracies[model] = correct / total;
+            }
         }
 
         const totalAccuracy = Object.values(modelAccuracies).reduce((sum, acc) => sum + Math.max(acc, 0.05), 0);
-
         if (totalAccuracy === 0) return undefined;
 
         const dynamicWeights: Record<string, number> = {};
-        for (const model of models) {
-            dynamicWeights[model] = Math.max(modelAccuracies[model], 0.05) / totalAccuracy;
+        for (const [model, acc] of Object.entries(modelAccuracies)) {
+            dynamicWeights[model] = Math.max(acc, 0.05) / totalAccuracy;
         }
 
-        this.logger.log(
-            `Dynamic Weights applied for ${sportKey} | ELO: ${(dynamicWeights.elo * 100).toFixed(1)}%, FORM: ${(dynamicWeights.form * 100).toFixed(1)}%, ODDS: ${(dynamicWeights.oddsImplied * 100).toFixed(1)}%`
-        );
+        const parts = Object.entries(dynamicWeights)
+            .map(([m, w]) => `${m.toUpperCase()}: ${(w * 100).toFixed(1)}%`)
+            .join(', ');
+        this.logger.log(`Dynamic Weights [${sportKey}] ${parts}`);
 
         return dynamicWeights;
     }

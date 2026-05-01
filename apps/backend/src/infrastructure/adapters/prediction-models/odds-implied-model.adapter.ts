@@ -48,7 +48,6 @@ export class OddsImpliedModelAdapter implements PredictionModelPort {
         const oddsData = this.oddsCache.get(game.externalId);
 
         if (!oddsData || oddsData.bookmakers.length === 0) {
-            // No odds available — return uniform distribution
             this.logger.debug(
                 `No odds data for game ${game.externalId}, using uniform distribution`,
             );
@@ -118,7 +117,7 @@ export class OddsImpliedModelAdapter implements PredictionModelPort {
             );
 
             if (!homeOutcome || !awayOutcome) {
-                 this.logger.debug(`Could not cleanly match teams for odds: ${homeTeamName} vs ${awayTeamName} against market options. Proceeding to next bookie.`);
+                 this.logger.debug(`Could not match teams for odds: ${homeTeamName} vs ${awayTeamName}. Proceeding to next bookie.`);
                  continue;
             }
 

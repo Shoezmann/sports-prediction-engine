@@ -1,6 +1,7 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('teams')
+@Index(['name', 'sportKey'], { unique: true })
 export class TeamEntity {
     @PrimaryColumn({ type: 'uuid' })
     id!: string;

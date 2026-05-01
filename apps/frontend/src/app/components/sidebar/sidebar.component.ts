@@ -1,8 +1,7 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
-import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'sp-sidebar',
@@ -33,6 +32,11 @@ import { HttpClient } from '@angular/common/http';
             <span class="material-symbols-rounded">auto_awesome</span>
             <span>Predictions</span>
           </a>
+          <a routerLink="/live" routerLinkActive="active" class="nav-item nav-item--live">
+            <span class="material-symbols-rounded">sports_score</span>
+            <span>Live</span>
+            <span class="live-dot">LIVE</span>
+          </a>
           <a routerLink="/system" routerLinkActive="active" class="nav-item">
             <span class="material-symbols-rounded">monitoring</span>
             <span>System</span>
@@ -41,13 +45,6 @@ import { HttpClient } from '@angular/common/http';
 
         <div class="nav-group">
           <span class="nav-label">Activity</span>
-          <a routerLink="/live" routerLinkActive="active" class="nav-item nav-item--live">
-            <span class="material-symbols-rounded">sports_soccer</span>
-            <span>Live Now</span>
-            @if (liveCount() > 0) {
-              <span class="live-dot">{{ liveCount() }}</span>
-            }
-          </a>
           <a routerLink="/performance" routerLinkActive="active" class="nav-item">
             <span class="material-symbols-rounded">analytics</span>
             <span>Performance</span>
@@ -397,30 +394,10 @@ import { HttpClient } from '@angular/common/http';
     }
   `]
 })
-export class SidebarComponent implements OnInit, OnDestroy {
+export class SidebarComponent {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
   private router = inject(Router);
-  private http = inject(HttpClient);
-
-  liveCount = signal(0);
-  private pollInterval: any = null;
-
-  ngOnInit() {
-    this.fetchLiveCount();
-    this.pollInterval = setInterval(() => this.fetchLiveCount(), 15000);
-  }
-
-  ngOnDestroy() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
-  }
-
-  private fetchLiveCount() {
-    this.http.get<any>('http://127.0.0.1:3000/api/live-scores').subscribe({
-      next: (d) => this.liveCount.set(d.live || 0),
-      error: () => this.liveCount.set(0),
-    });
-  }
 
   userName() {
     const user = this.authService.currentUser();

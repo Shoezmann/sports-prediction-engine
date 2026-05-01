@@ -23,6 +23,10 @@ export interface ModelBreakdownDto {
     elo: ProbabilitySetDto;
     form: ProbabilitySetDto;
     oddsImplied: ProbabilitySetDto;
+    /** Dixon-Coles Poisson model — soccer only */
+    poisson?: ProbabilitySetDto;
+    /** Head-to-head historical model */
+    h2h?: ProbabilitySetDto;
     /** ML/XGBoost model — only populated when a trained model exists for the sport */
     ml?: ProbabilitySetDto;
 }
@@ -35,8 +39,16 @@ export interface GoalsPredictionDto {
     over2_5: number;
     /** Probability of under 2.5 goals (0.0 – 1.0) */
     under2_5: number;
+    /** Probability of over 1.5 goals */
+    over1_5?: number;
+    /** Probability of over 3.5 goals */
+    over3_5?: number;
     /** Expected total goals */
     expectedGoals?: number;
+    /** Expected goals for home team */
+    expectedGoalsHome?: number;
+    /** Expected goals for away team */
+    expectedGoalsAway?: number;
 }
 
 /**

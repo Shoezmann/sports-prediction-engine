@@ -29,15 +29,18 @@ export class EloModelAdapter implements PredictionModelPort {
         Tennis: 0,
     };
 
-    /** Home advantage expressed as ELO rating bonus points */
+    /** Home advantage expressed as ELO rating bonus points.
+     * Reduced values — home advantage is already partially encoded in
+     * ELO ratings through historical results, so we only add a small
+     * venue-specific bump rather than the full empirical advantage. */
     private static readonly HOME_ADVANTAGE_ELO: Record<string, number> = {
-        Soccer: 65,              // ~home wins 45%, typical in EPL/PSL
-        'Ice Hockey': 35,        // moderate home ice advantage
-        Basketball: 40,          // moderate home court advantage
-        'American Football': 25, // slight home field advantage
-        MMA: 0,                  // neutral venue
-        Boxing: 0,               // neutral venue
-        Tennis: 0,               // neutral venue
+        Soccer: 40,              // Reduced from 65 — ELO already encodes home wins
+        'Ice Hockey': 20,        // Reduced from 35
+        Basketball: 25,          // Reduced from 40
+        'American Football': 15, // Reduced from 25
+        MMA: 0,                  // Neutral venue
+        Boxing: 0,               // Neutral venue
+        Tennis: 0,               // Neutral venue
     };
 
     private static readonly DEFAULT_HOME_ADVANTAGE_ELO = 50;

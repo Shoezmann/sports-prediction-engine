@@ -486,3 +486,85 @@ a {
   background: var(--color-accent);
   color: var(--color-text-on-accent);
 }
+
+// ─── Tooltip Enhancements ──────────────────────────────────
+// Elements with title attribute get help cursor and better interaction
+[title] {
+  cursor: help;
+}
+
+// Table cells with tooltip data should be clearly interactive
+td [title], th [title] {
+  position: relative;
+}
+
+// Custom tooltip for probability cells (CSS-only, theme-aware)
+.probs-h[title]:hover::after,
+.probs-d[title]:hover::after,
+.probs-a[title]:hover::after,
+.gp[title]:hover::after,
+.ev[title]:hover::after,
+.cf[title]:hover::after,
+.badge[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--color-bg-elevated, #1a1a1f);
+  color: var(--color-text-primary, #fafafa);
+  border: 1px solid var(--color-border-strong, rgba(255,255,255,0.1));
+  border-radius: var(--radius-xs, 6px);
+  font-size: 0.6875rem;
+  font-family: var(--font-family);
+  font-weight: 400;
+  white-space: pre-line;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.5));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  line-height: 1.4;
+}
+
+.probs-h[title]:hover::after,
+.probs-d[title]:hover::after,
+.probs-a[title]:hover::after,
+.gp[title]:hover::after,
+.ev[title]:hover::after,
+.cf[title]:hover::after,
+.badge[title]:hover::after {
+  opacity: 1;
+}
+
+// Arrow for custom tooltips
+.probs-h[title]:hover::before,
+.probs-d[title]:hover::before,
+.probs-a[title]:hover::before,
+.gp[title]:hover::before,
+.ev[title]:hover::before,
+.cf[title]:hover::before,
+.badge[title]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--color-border-strong, rgba(255,255,255,0.1));
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.probs-h[title]:hover::before,
+.probs-d[title]:hover::before,
+.probs-a[title]:hover::before,
+.gp[title]:hover::before,
+.ev[title]:hover::before,
+.cf[title]:hover::before,
+.badge[title]:hover::before {
+  opacity: 1;
+}

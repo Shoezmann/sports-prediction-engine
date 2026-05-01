@@ -1,21 +1,8 @@
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { ApiService, LiveScoresResponse } from '../../services/api.service';
 import { LiveCardComponent, LiveCardData } from '../../components/live-card/live-card.component';
-
-interface LiveMatch {
-  externalId: string;
-  sportKey: string;
-  sportTitle: string;
-  league?: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  status: string;
-  minute: number | null;
-  commenceTime: string;
-}
+import { ToastService } from '../../components/toast/toast.service';
 
 const LM: Record<string, [string, string, string]> = {
   'soccer_epl': ['SOCCER', 'ENGLAND', 'EPL'],
@@ -45,80 +32,22 @@ function pk(key: string): [string, string, string] {
   selector: 'sp-live-page',
   standalone: true,
   imports: [CommonModule, LiveCardComponent],
-  template: `
-<div class="pg">
-  @if (loading()) {
-    <div class="loader"><span class="spin"></span><p>Loading live matches...</p></div>
-  }
-  @if (!loading()) {
-    <div class="hd">
-      <div class="hl"><span class="pr">&gt;</span><div><h1>LIVE NOW</h1>
-        <p class="sb">{{ filtered().length }} of {{ matches().length }} matches</p></div></div>
-      <div class="hr">
-        <button class="btn" (click)="refresh()">[ REFRESH ]</button>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="fl">
-      <div class="fg"><label>SPORT</label>
-        <select [value]="sc() ?? ''" (change)="onCat($any($event.target).value || null)">
-          <option value="">ALL</option>
-          @for (c of cats(); track c) { <option [value]="c">{{ c }}</option> }
-        </select></div>
-      <div class="fg"><label>REGION</label>
-        <select [value]="sr() ?? ''" (change)="onReg($any($event.target).value || null)">
-          <option value="">ALL</option>
-          @for (r of regs(); track r) { <option [value]="r">{{ r }}</option> }
-        </select></div>
-      <div class="fg"><label>LEAGUE</label>
-        <select [value]="sl() ?? ''" (change)="onLg($any($event.target).value || null)">
-          <option value="">ALL</option>
-          @for (l of lgs(); track l) { <option [value]="l">{{ l }}</option> }
-        </select></div>
-      @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
-    </div>
-
-    @if (filtered().length > 0) {
-      <div class="ls">
-        @for (m of filtered(); track m.id) {
-          <sp-live-card [data]="m"></sp-live-card>
-        }
-      </div>
-    }
-
-    @if (matches().length === 0) {
-      <div class="empty"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO LIVE MATCHES RIGHT NOW  \u2502\n\u2502  Check back during games    \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre></div>
-    }
-    @if (matches().length > 0 && filtered().length === 0) {
-      <div class="empty"><pre>\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  NO MATCHES FOR THIS FILTER  \u2502\n\u2502  Clear filters to view all   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518</pre>
-        <button class="bclr" (click)="clr()">[ CLEAR FILTERS ]</button></div>
-    }
-  }
-</div>
-  `,
-  styles: [`
-    .pg{max-width:1200px;margin:0 auto;padding:20px}
-    .loader{text-align:center;padding:60px 20px}.spin{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}.loader p{color:var(--color-text-muted);font-family:var(--font-family);margin-top:8px}
-    .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}.hl{display:flex;align-items:flex-start;gap:8px}.pr{font-family:var(--font-family);font-size:1.25rem;color:var(--color-accent);font-weight:700;line-height:1}h1{font-family:var(--font-family);font-size:1.375rem;font-weight:700;letter-spacing:0.06em;color:var(--color-text-primary);line-height:1.2;margin:0}.sb{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);margin:3px 0 0}.hr{display:flex;align-items:center;gap:6px}
-    .sd{width:7px;height:7px;border-radius:50%}.sd.on{background:var(--color-success);box-shadow:0 0 6px var(--color-success);animation:pulse-glow 2s ease-in-out infinite}.sd.off{background:var(--color-text-muted)}
-    .stx{font-family:var(--font-family);font-size:0.625rem;font-weight:700;letter-spacing:0.06em}.stx.on{color:var(--color-success)}.stx.off{color:var(--color-text-muted)}
-    .btn{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:4px 10px;background:transparent;border:1px solid var(--color-accent);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all 0.2s}.btn:hover{background:var(--color-accent);color:#fff}
-    .fl{display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap}.fg{display:flex;flex-direction:column;gap:3px}.fg label{font-family:var(--font-family);font-size:0.5625rem;font-weight:700;color:var(--color-text-muted);letter-spacing:0.06em}
-    .fg select{font-family:var(--font-family);font-size:0.6875rem;font-weight:500;padding:5px 26px 5px 8px;background:var(--color-bg-input);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-xs);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}.fg select:focus{outline:none;border-color:var(--color-accent)}
-    .clr{font-family:var(--font-family);font-size:0.625rem;font-weight:600;padding:5px 10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-xs);cursor:pointer;transition:all 0.2s}.clr:hover{border-color:var(--color-accent);color:var(--color-accent)}
-    .ls{background:linear-gradient(180deg,rgba(239,68,68,0.03),transparent);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xs);padding:12px 16px}
-    .empty{text-align:center;padding:64px 20px}.empty pre{font-family:var(--font-family);font-size:0.6875rem;color:var(--color-text-muted);line-height:1.5;display:inline-block}.bclr{font-family:var(--font-family);font-size:0.6875rem;font-weight:600;padding:5px 14px;margin-top:12px;background:transparent;border:1px solid var(--color-accent-border);color:var(--color-accent);border-radius:var(--radius-xs);cursor:pointer;transition:all 0.2s}.bclr:hover{background:var(--color-accent);color:#fff}
-  `],
+  templateUrl: './live.page.html',
+  styleUrl: './live.page.scss'
 })
 export class LivePage implements OnInit, OnDestroy {
-  private http = inject(HttpClient);
+  private api = inject(ApiService);
+  private toast = inject(ToastService);
 
   loading = signal(true);
   matches = signal<LiveCardData[]>([]);
+  error = signal<string | null>(null);
+  lastRefresh = signal('');
   sc = signal<string | null>(null);
   sr = signal<string | null>(null);
   sl = signal<string | null>(null);
+
+  private pollInterval: any = null;
 
   cats = computed(() => [...new Set(this.matches().map(m => m.cat))].sort());
   regs = computed(() => { const c = this.sc(); return [...new Set(this.matches().filter(m => !c || m.cat === c).map(m => m.reg))].sort(); });
@@ -131,8 +60,18 @@ export class LivePage implements OnInit, OnDestroy {
     return f;
   });
 
-  ngOnInit() { this.fetch(); }
-  ngOnDestroy() { /* no timers or SSE to clean up */ }
+  ngOnInit() {
+    this.loadState();
+    this.fetch();
+    // Auto-refresh every 30 seconds
+    this.pollInterval = setInterval(() => this.fetch(), 30000);
+  }
+
+  ngOnDestroy() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+    }
+  }
 
   onCat(v: string | null) { this.sc.set(v); this.sr.set(null); this.sl.set(null); this.sv(); }
   onReg(v: string | null) { this.sr.set(v); this.sl.set(null); this.sv(); }
@@ -145,25 +84,40 @@ export class LivePage implements OnInit, OnDestroy {
   private sv() { try { localStorage.setItem('live-filters', JSON.stringify({ c: this.sc(), r: this.sr(), l: this.sl() })); } catch {} }
 
   fetch() {
-    this.http.get<any>('http://127.0.0.1:3000/api/live-scores').subscribe({
-      next: (d) => {
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.getLiveScores().subscribe({
+      next: (d: LiveScoresResponse) => {
         const matches = (d.matches || []).map((m: any) => {
-          const [cat, reg, lg] = pk(m.sportKey || m.sportTitle?.toLowerCase().replace(/\s+/g, '_') || 'soccer_flashscore');
+          const [cat, reg, lg] = pk(m.sportKey || m.sportTitle?.toLowerCase().replace(/\s+/g, '_') || 'soccer');
           return {
             id: m.externalId || `${m.homeTeam}-${m.awayTeam}`,
             cat, reg, lg: m.league || lg,
             home: m.homeTeam, away: m.awayTeam,
-            homeScore: m.homeScore, awayScore: m.awayScore,
+            homeScore: m.homeScore ?? null, awayScore: m.awayScore ?? null,
             minute: m.minute, status: m.status || 'LIVE',
             sportKey: m.sportKey,
           };
         });
         this.matches.set(matches);
         this.loading.set(false);
+        this.lastRefresh.set(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        if (matches.length > 0) {
+          this.toast.success(`${matches.length} live match${matches.length > 1 ? 'es' : ''} found`);
+        }
       },
-      error: () => { this.loading.set(false); }
+      error: (err) => {
+        this.error.set('API unavailable');
+        this.matches.set([]);
+        this.loading.set(false);
+        this.toast.error('Could not fetch live scores');
+        console.error('Live scores fetch error:', err);
+      }
     });
   }
 
-  refresh() { this.fetch(); }
+  refresh() {
+    this.toast.info('Refreshing live scores...');
+    this.fetch();
+  }
 }

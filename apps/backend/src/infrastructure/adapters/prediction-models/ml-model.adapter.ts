@@ -88,15 +88,16 @@ export class MlModelAdapter implements PredictionModelPort {
     /**
      * Return a neutral probability distribution to avoid
      * polluting the ensemble when ML is unavailable.
-     * Includes realistic home advantage bias for soccer (45% home win).
+     * Home advantage is handled by the ELO model — this returns
+     * a flat distribution to avoid double-counting venue bias.
      */
     private neutralProbs(category: SportCategory): ProbabilitySet {
         if (category === SportCategory.THREE_WAY) {
-            // Realistic soccer baseline: home ~45%, draw ~27%, away ~28%
-            return ProbabilitySet.threeWay(0.45, 0.27, 0.28);
+            // Neutral baseline: ~33% each — home advantage comes from ELO model
+            return ProbabilitySet.threeWay(0.34, 0.33, 0.33);
         }
-        // TWO_WAY sports: slight home advantage
-        return ProbabilitySet.twoWay(0.53, 0.47);
+        // TWO_WAY sports: even split — ELO handles home advantage
+        return ProbabilitySet.twoWay(0.50, 0.50);
     }
 
     /**

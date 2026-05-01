@@ -1,0 +1,165 @@
+@if (loading()) {
+<div class="pg"><div class="ldr"><span class="spin"></span><p>Loading predictions...</p></div></div>
+}
+@if (!loading()) {
+<div class="pg">
+  <div class="hd">
+    <div class="hl"><span class="pr">&gt;</span><div><h1>PREDICTIONS</h1>
+      <p class="sb">{{ total() }} MATCHES</p></div></div>
+    <div class="hr">
+      @if (lastRefresh()) { <span class="up">UPDATED {{ lastRefresh() }}</span> }
+      <button class="btn" (click)="refresh()">[ REFRESH ]</button>
+    </div>
+  </div>
+
+  <div class="fl">
+    <div class="fg"><label>SPORT</label>
+      <select [value]="sc() ?? ''" (change)="onCat($any($event.target).value || null)">
+        <option value="">ALL</option>
+        @for (c of cats(); track c) { <option [value]="c">{{ c }}</option> }
+      </select></div>
+    <div class="fg"><label>REGION</label>
+      <select [value]="sr() ?? ''" (change)="onReg($any($event.target).value || null)">
+        <option value="">ALL</option>
+        @for (r of regs(); track r) { <option [value]="r">{{ r }}</option> }
+      </select></div>
+    <div class="fg"><label>LEAGUE</label>
+      <select [value]="sl() ?? ''" (change)="onLg($any($event.target).value || null)">
+        <option value="">ALL</option>
+        @for (l of lgs(); track l) { <option [value]="l">{{ l }}</option> }
+      </select></div>
+    @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
+  </div>
+
+  @if (filt().length > 0) {
+    <div class="slbl">UPCOMING</div>
+
+    <!-- Goals Probability Legend -->
+    <div class="legend">
+      <span class="legend__title">GOALS</span>
+      <span class="legend__item"><span class="badge badge--over">O</span> Over 2.5 goals (≥ 3 total goals)</span>
+      <span class="legend__item"><span class="badge badge--under">U</span> Under 2.5 goals (≤ 2 total goals)</span>
+      <span class="legend__item"><span class="badge badge--btts-yes">Y</span> Both teams score</span>
+      <span class="legend__item"><span class="badge badge--btts-no">N</span> One or both fail to score</span>
+      <span class="legend__note">Percentage = model probability for that outcome</span>
+    </div>
+
+    <div class="tw"><table class="tb">
+      <thead><tr>
+        <th>TIME</th><th>DATE</th><th>SPORT</th><th>LEAGUE</th><th>MATCH</th><th>OUTCOME</th><th>CONF</th><th>EV</th><th>ODDS</th><th></th>
+      </tr></thead>
+      <tbody>
+        @for (m of filt(); track m.p.id) {
+          <tr class="clickable" [class.expanded]="isExpanded(m.p.id)" (click)="toggleExpand(m.p.id)">
+            <td class="mo">{{ m.tl }}</td>
+            <td class="mo di">{{ m.dt }}</td>
+            <td class="mo di">{{ m.cat }}</td>
+            <td class="mo di">{{ m.lg || '—' }}</td>
+            <td>
+              <span [class.di]="pS(m.p)==='a'">{{ m.p.game.homeTeam.name }}</span>
+              <span class="vs">vs</span>
+              <span [class.di]="pS(m.p)==='h'">{{ m.p.game.awayTeam.name }}</span>
+            </td>
+            <td class="probs-cell">
+              <span class="probs-h" [class.best]="pS(m.p)==='h'" [title]="'Home win: ' + pPct(m.p, 'homeWin') + '%'">{{ pPct(m.p, 'homeWin') }}%</span>
+              @if (hasDraw(m.p)) {
+                <span class="probs-d" [class.best]="pS(m.p)==='d'" [title]="'Draw: ' + pPct(m.p, 'draw') + '%'">{{ pPct(m.p, 'draw') }}%</span>
+              }
+              <span class="probs-a" [class.best]="pS(m.p)==='a'" [title]="'Away win: ' + pPct(m.p, 'awayWin') + '%'">{{ pPct(m.p, 'awayWin') }}%</span>
+              @if (m.p.goals) {
+                <span class="gp" [class.up]="m.p.goals.over2_5 > 0.5" [class.down]="m.p.goals.over2_5 <= 0.5">{{ m.p.goals.over2_5 > 0.5 ? 'O' : 'U' }} {{ (m.p.goals.over2_5 * 100).toFixed(0) }}%</span>
+              }
+              @if (m.p.btts) {
+                <span class="gp" [class.up]="m.p.btts.yes > 0.5" [class.down]="m.p.btts.yes <= 0.5">{{ m.p.btts.yes > 0.5 ? 'Y' : 'N' }}</span>
+              }
+            </td>
+            <td><span class="cf" [class]="m.p.confidenceLevel" [title]="'Confidence: ' + (m.p.confidence * 100).toFixed(1) + '%\nLevel: ' + m.p.confidenceLevel.toUpperCase()">{{ m.p.confidenceLevel.toUpperCase() }} {{ (m.p.confidence * 100).toFixed(0) }}%</span></td>
+            <td>@if (m.p.expectedValue != null) {
+              <span class="ev" [class.po]="m.p.expectedValue > 0" [class.ne]="m.p.expectedValue <= 0" [title]="'Expected Value: ' + (m.p.expectedValue * 100).toFixed(1) + '%\n' + (m.p.expectedValue > 0 ? 'Value bet detected' : 'No value')">{{ m.p.expectedValue > 0 ? '+' : '' }}{{ (m.p.expectedValue * 100).toFixed(1) }}%</span>
+            } @else { <span class="di">—</span> }</td>
+            <td class="mo">{{ m.p.odds ? m.p.odds.toFixed(2) : '—' }}</td>
+            <td><button class="ab" [class.in]="iS(m.p.id)" (click)="tS(m.p); $event.stopPropagation()">{{ iS(m.p.id) ? '✓' : '+' }}</button></td>
+          </tr>
+          @if (isExpanded(m.p.id)) {
+            <tr class="detail-row">
+              <td colspan="10">
+                <div class="detail-panel">
+                  <div class="detail-section">
+                    <h4>MODEL BREAKDOWN</h4>
+                    <div class="model-bars">
+                      @if (m.p.modelBreakdown?.elo) {
+                        <div class="model-bar"><span class="model-bar__label">ELO (15%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--elo" [style.width.%]="(m.p.modelBreakdown.elo.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.elo.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.elo.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.elo.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                      @if (m.p.modelBreakdown?.form) {
+                        <div class="model-bar"><span class="model-bar__label">Form (15%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--form" [style.width.%]="(m.p.modelBreakdown.form.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.form.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.form.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.form.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                      @if (m.p.modelBreakdown?.oddsImplied) {
+                        <div class="model-bar"><span class="model-bar__label">Odds (25%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--odds" [style.width.%]="(m.p.modelBreakdown.oddsImplied.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.oddsImplied.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.oddsImplied.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.oddsImplied.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                      @if (m.p.modelBreakdown?.poisson) {
+                        <div class="model-bar"><span class="model-bar__label">Poisson (25%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--poisson" [style.width.%]="(m.p.modelBreakdown.poisson?.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.poisson?.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.poisson?.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.poisson?.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                      @if (m.p.modelBreakdown?.h2h) {
+                        <div class="model-bar"><span class="model-bar__label">H2H (10%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--h2h" [style.width.%]="(m.p.modelBreakdown.h2h?.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.h2h?.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.h2h?.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.h2h?.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                      @if (m.p.modelBreakdown?.ml) {
+                        <div class="model-bar"><span class="model-bar__label">ML (10%)</span><div class="model-bar__track"><div class="model-bar__fill model-bar--ml" [style.width.%]="(m.p.modelBreakdown.ml?.homeWin ?? 0) * 100"></div></div><span class="model-bar__pct">H{{ ((m.p.modelBreakdown.ml?.homeWin ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">D{{ ((m.p.modelBreakdown.ml?.draw ?? 0) * 100).toFixed(0) }}%</span><span class="model-bar__pct">A{{ ((m.p.modelBreakdown.ml?.awayWin ?? 0) * 100).toFixed(0) }}%</span></div>
+                      }
+                    </div>
+                  </div>
+                  @if (m.p.goals) {
+                    <div class="detail-section">
+                      <h4>GOALS MARKETS</h4>
+                      <div class="goals-grid">
+                        @if (m.p.goals.expectedGoalsHome != null) {
+                          <div class="goals-stat"><span class="goals-stat__val">{{ m.p.goals.expectedGoalsHome.toFixed(2) }}</span><span class="goals-stat__label">xG Home</span></div>
+                        }
+                        @if (m.p.goals.expectedGoalsAway != null) {
+                          <div class="goals-stat"><span class="goals-stat__val">{{ m.p.goals.expectedGoalsAway.toFixed(2) }}</span><span class="goals-stat__label">xG Away</span></div>
+                        }
+                        @if (m.p.goals.expectedGoals != null) {
+                          <div class="goals-stat"><span class="goals-stat__val">{{ m.p.goals.expectedGoals.toFixed(2) }}</span><span class="goals-stat__label">xG Total</span></div>
+                        }
+                        @if (m.p.goals.over1_5 != null) {
+                          <div class="goals-stat"><span class="goals-stat__val">{{ (m.p.goals.over1_5 * 100).toFixed(0) }}%</span><span class="goals-stat__label">Over 1.5</span></div>
+                        }
+                        <div class="goals-stat"><span class="goals-stat__val">{{ (m.p.goals.over2_5 * 100).toFixed(0) }}%</span><span class="goals-stat__label">Over 2.5</span></div>
+                        @if (m.p.goals.over3_5 != null) {
+                          <div class="goals-stat"><span class="goals-stat__val">{{ (m.p.goals.over3_5 * 100).toFixed(0) }}%</span><span class="goals-stat__label">Over 3.5</span></div>
+                        }
+                      </div>
+                    </div>
+                  }
+                  @if (m.p.btts) {
+                    <div class="detail-section">
+                      <h4>BTTS</h4>
+                      <div class="goals-grid">
+                        <div class="goals-stat"><span class="goals-stat__val" [class.up]="m.p.btts.yes > 0.5">{{ (m.p.btts.yes * 100).toFixed(0) }}%</span><span class="goals-stat__label">Yes</span></div>
+                        <div class="goals-stat"><span class="goals-stat__val" [class.up]="m.p.btts.no > 0.5">{{ (m.p.btts.no * 100).toFixed(0) }}%</span><span class="goals-stat__label">No</span></div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table></div>
+  }
+
+  @if (total() > 0 && filt().length === 0) {
+    <div class="em"><pre>┌─────────────────────────┐
+│  NO MATCHES FOR THIS FILTER  │
+│  Clear filters to view all   │
+└─────────────────────────┘</pre>
+      <button class="bclr" (click)="clr()">[ CLEAR FILTERS ]</button></div>
+  }
+  @if (total() === 0) {
+    <div class="em"><pre>┌─────────────────────────┐
+│  NO MATCHES IN SYSTEM        │
+│  Pipeline runs every 5 min   │
+└─────────────────────────┘</pre></div>
+  }
+</div>
+}

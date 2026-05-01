@@ -7,15 +7,17 @@ import { Game } from '../../entities';
  * Implemented by infrastructure adapters (e.g., TypeORM repository).
  */
 export interface GameRepositoryPort {
-    save(game: Game): Promise<Game>;
-    saveMany(games: Game[]): Promise<Game[]>;
-    findById(id: string): Promise<Game | null>;
-    findByExternalId(externalId: string): Promise<Game | null>;
-    findUpcoming(sportKey?: string): Promise<Game[]>;
-    findCompleted(sportKey?: string, limit?: number): Promise<Game[]>;
-    findByDateRange(from: Date, to: Date, sportKey?: string): Promise<Game[]>;
-    findUnresolved(): Promise<Game[]>;
-    findRecentByTeam(teamId: string, limit?: number): Promise<Game[]>;
+  count(): Promise<number>;
+  save(game: Game): Promise<Game>;
+  saveMany(games: Game[]): Promise<Game[]>;
+  findById(id: string): Promise<Game | null>;
+  findByExternalId(externalId: string): Promise<Game | null>;
+  findUpcoming(sportKey?: string): Promise<Game[]>;
+  findCompleted(sportKey?: string, limit?: number): Promise<Game[]>;
+  findByDateRange(from: Date, to: Date, sportKey?: string): Promise<Game[]>;
+  findUnresolved(): Promise<Game[]>;
+  findPostponed(): Promise<Game[]>;
+  findRecentByTeam(teamId: string, limit?: number): Promise<Game[]>;
 }
 
 export const GAME_REPOSITORY_PORT = Symbol('GameRepositoryPort');

@@ -344,6 +344,9 @@ def train_model(X, y, task_type='outcome', league_name='global'):
 
     task_type: 'outcome' (1X2), 'goals' (over/under 2.5), 'btts'
     """
+    # Convert y to numpy array for proper comparison
+    y = np.array(y)
+    
     # Drop rows with no target
     mask = y != -1
     X_valid = X[mask].copy()

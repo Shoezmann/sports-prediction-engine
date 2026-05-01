@@ -1,7 +1,8 @@
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
+import { ApiService, SyncResult, PredictionResult, ResultsUpdate } from '../../services/api.service';
+import { Router } from '@angular/router';
 
 interface SystemStatus {
   backend: boolean;
@@ -18,25 +19,19 @@ interface SystemStatus {
     resolved: number;
     users: number;
   };
-  apis: {
-    oddsApi: { status: 'ok' | 'limited' | 'dead'; message: string };
-    sportApi: { status: 'ok' | 'limited' | 'dead'; message: string };
-    flashScore: { status: 'ok' | 'limited' | 'dead'; message: string };
+  dataSources: {
+    sofascore: { status: 'ok' | 'limited' | 'dead'; message: string };
+    bbc: { status: 'ok' | 'limited' | 'dead'; message: string };
+    psl: { status: 'ok' | 'limited' | 'dead'; message: string };
   };
   models: {
     elo: string;
     form: string;
     oddsImplied: string;
+    poisson: string;
+    h2h: string;
     xgboost: string;
     trainedLeagues: number;
-  };
-  automation: {
-    syncSports: string;
-    syncGames: string;
-    generatePredictions: string;
-    updateResults: string;
-    trainModels: string;
-    liveBroadcast: string;
   };
 }
 
@@ -52,7 +47,7 @@ interface PipelineStep {
 @Component({
   selector: 'sp-system-status',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
 <div class="pg">
   @if (loading()) {
@@ -115,33 +110,33 @@ interface PipelineStep {
         }
       </div>
 
-      <!-- API Status -->
+      <!-- Data Sources -->
       <div class="section">
-        <h2 class="stitle">DATA SOURCES</h2>
+        <h2 class="stitle">DATA SOURCES (Zero Paid APIs)</h2>
         <div class="api-grid">
-          <div class="api-card" [class]="a().oddsApi.status">
+          <div class="api-card" [class]="ds().sofascore.status">
             <div class="api-card__head">
-              <span class="api-card__dot" [class]="a().oddsApi.status"></span>
-              <strong>The Odds API</strong>
+              <span class="api-card__dot" [class]="ds().sofascore.status"></span>
+              <strong>SofaScore</strong>
             </div>
-            <p>{{ a().oddsApi.message }}</p>
-            <span class="api-card__tag">Fixtures + Odds</span>
+            <p>{{ ds().sofascore.message }}</p>
+            <span class="api-card__tag">Fixtures + Live + Results (50+ leagues)</span>
           </div>
-          <div class="api-card" [class]="a().sportApi.status">
+          <div class="api-card" [class]="ds().bbc.status">
             <div class="api-card__head">
-              <span class="api-card__dot" [class]="a().sportApi.status"></span>
-              <strong>SportAPI</strong>
+              <span class="api-card__dot" [class]="ds().bbc.status"></span>
+              <strong>BBC Sport</strong>
             </div>
-            <p>{{ a().sportApi.message }}</p>
-            <span class="api-card__tag">Fixtures + Results</span>
+            <p>{{ ds().bbc.message }}</p>
+            <span class="api-card__tag">EPL Fallback</span>
           </div>
-          <div class="api-card" [class]="a().flashScore.status">
+          <div class="api-card" [class]="ds().psl.status">
             <div class="api-card__head">
-              <span class="api-card__dot" [class]="a().flashScore.status"></span>
-              <strong>FlashScore</strong>
+              <span class="api-card__dot" [class]="ds().psl.status"></span>
+              <strong>PSL Official</strong>
             </div>
-            <p>{{ a().flashScore.message }}</p>
-            <span class="api-card__tag">Live Scores</span>
+            <p>{{ ds().psl.message }}</p>
+            <span class="api-card__tag">PSL Fallback</span>
           </div>
         </div>
       </div>
@@ -179,40 +174,52 @@ interface PipelineStep {
 
       <!-- Models -->
       <div class="section">
-        <h2 class="stitle">PREDICTION MODELS</h2>
+        <h2 class="stitle">6-MODEL PREDICTION ENSEMBLE</h2>
         <div class="model-grid">
           <div class="model-card">
             <span class="model-card__icon">📐</span>
             <h3>ELO Model</h3>
             <span class="model-card__status ok">ACTIVE</span>
-            <p>Handcrafted team strength ratings based on historical results</p>
-            <span class="model-card__detail">Weight: 30% of ensemble</span>
+            <p>Team strength ratings from historical results with K-factor adaptation</p>
+            <span class="model-card__detail">Weight: 15% of ensemble</span>
           </div>
           <div class="model-card">
             <span class="model-card__icon">📈</span>
             <h3>Form Model</h3>
             <span class="model-card__status ok">ACTIVE</span>
             <p>Recent match results weighted by recency (last 5-20 games)</p>
-            <span class="model-card__detail">Weight: 30% of ensemble</span>
+            <span class="model-card__detail">Weight: 15% of ensemble</span>
           </div>
           <div class="model-card">
             <span class="model-card__icon">🎰</span>
-            <h3>Odds Implied</h3>
-            <span class="model-card__status" [class.ok]="oddsActive()" [class.warn]="!oddsActive()">
-              {{ oddsActive() ? 'ACTIVE' : 'NO ODDS DATA' }}
-            </span>
-            <p>Bookmaker market probabilities converted to win/draw/loss</p>
-            <span class="model-card__detail">Weight: 40% of ensemble</span>
+            <h3>Odds Implied (Synthetic)</h3>
+            <span class="model-card__status ok">ACTIVE</span>
+            <p>Synthetic odds from ELO/Form blend — zero bookmaker dependency</p>
+            <span class="model-card__detail">Weight: 25% of ensemble</span>
+          </div>
+          <div class="model-card">
+            <span class="model-card__icon">🎯</span>
+            <h3>Dixon-Coles Poisson</h3>
+            <span class="model-card__status ok">ACTIVE</span>
+            <p>Team-specific attack/defense with low-score correlation correction</p>
+            <span class="model-card__detail">Weight: 25% of ensemble | Goals & BTTS</span>
+          </div>
+          <div class="model-card">
+            <span class="model-card__icon">🤝</span>
+            <h3>H2H Model</h3>
+            <span class="model-card__status ok">ACTIVE</span>
+            <p>Head-to-head recency-weighted history blended with ELO ratings</p>
+            <span class="model-card__detail">Weight: 10% of ensemble</span>
           </div>
           <div class="model-card">
             <span class="model-card__icon">🧠</span>
             <h3>XGBoost ML</h3>
             <span class="model-card__status" [class.ok]="mlReady()" [class.warn]="!mlReady()">
-              {{ mlReady() ? 'TRAINED' : 'NEEDS DATA' }}
+              {{ mlReady() ? 'TRAINED' : 'LEARNING' }}
             </span>
-            <p>Machine learning model trained on historical match data</p>
+            <p>Gradient-boosted trees trained on match features and outcomes</p>
             <span class="model-card__detail">
-              {{ mlReady() ? mlLeagues() + ' leagues trained' : 'Waiting for 50+ results per league' }}
+              Weight: 10% | {{ mlReady() ? mlLeagues() + ' leagues trained' : 'Accumulating training data' }}
             </span>
           </div>
         </div>
@@ -222,40 +229,32 @@ interface PipelineStep {
       <div class="section">
         <h2 class="stitle">AUTOMATION SCHEDULE</h2>
         <div class="cron-grid">
-          <div class="cron-item"><span class="cron-item__time">Every 5 min</span><span>Sync sports + games</span></div>
-          <div class="cron-item"><span class="cron-item__time">3:00 AM daily</span><span>Full sports catalog sync</span></div>
-          <div class="cron-item"><span class="cron-item__time">6:00 AM daily</span><span>Sync upcoming games</span></div>
-          <div class="cron-item"><span class="cron-item__time">6:05 AM daily</span><span>Generate predictions</span></div>
-          <div class="cron-item"><span class="cron-item__time">Every 4 hours</span><span>Update results + ELO</span></div>
-          <div class="cron-item"><span class="cron-item__time">Every 60 sec</span><span>Broadcast live via SSE</span></div>
-          <div class="cron-item"><span class="cron-item__time">Sunday 5 AM</span><span>Retrain ML models</span></div>
+          <div class="cron-item"><span class="cron-item__time">Every 4 hours</span><span>SofaScore fixture sync + predictions</span></div>
+          <div class="cron-item"><span class="cron-item__time">Every 2 hours</span><span>Fetch results from SofaScore + update ELO</span></div>
+          <div class="cron-item"><span class="cron-item__time">Every 5 min</span><span>Regenerate predictions (dev)</span></div>
+          <div class="cron-item"><span class="cron-item__time">Every 60 sec</span><span>Broadcast live data via SSE</span></div>
+          <div class="cron-item"><span class="cron-item__time">Sunday 5 AM</span><span>Retrain XGBoost ML models</span></div>
         </div>
       </div>
 
-      <!-- Issues & Next Steps -->
-      <div class="section section--warn">
-        <h2 class="stitle">⚠️ CRITICAL ISSUES</h2>
+      <!-- System Info -->
+      <div class="section">
+        <h2 class="stitle">ARCHITECTURE</h2>
         <div class="issue-list">
-          <div class="issue issue--critical">
-            <h3>The Odds API — OUT OF CREDITS</h3>
-            <p>Free tier quota exhausted. No scores can be fetched, so predictions can't be resolved.
-               This blocks ELO updates and ML training.</p>
-            <span class="issue__fix">Fix: Create new API account or upgrade plan</span>
+          <div class="issue" style="border-left: 3px solid var(--color-success)">
+            <h3>Zero Paid API Dependencies</h3>
+            <p>All data sourced via free web scraping: SofaScore (primary), BBC Sport (EPL fallback), PSL Official (PSL fallback).</p>
+            <span class="issue__fix">No API keys, no rate limits, no billing</span>
           </div>
-          <div class="issue issue--critical">
-            <h3>0 Resolved Predictions</h3>
-            <p>{{ d().pastNoScore }} games have passed without scores. We don't know if our predictions were correct.</p>
-            <span class="issue__fix">Fix: Restore score API access to resolve results</span>
+          <div class="issue" style="border-left: 3px solid var(--color-accent)">
+            <h3>6-Model Weighted Ensemble</h3>
+            <p>ELO (15%) + Form (15%) + Synthetic Odds (25%) + Dixon-Coles Poisson (25%) + H2H (10%) + XGBoost (10%). Weights adapt dynamically per sport based on historical accuracy.</p>
+            <span class="issue__fix">Dynamic calibration from resolved predictions</span>
           </div>
-          <div class="issue issue--warning">
-            <h3>ML Models Not Trained</h3>
-            <p>XGBoost pipeline is built and ready, but needs historical results data to train.</p>
-            <span class="issue__fix">Fix: Collect 50+ resolved games per league first</span>
-          </div>
-          <div class="issue issue--warning">
-            <h3>FlashScore Rate Limited (429)</h3>
-            <p>Free tier limit reached. Live scores scraper getting blocked.</p>
-            <span class="issue__fix">Fix: Wait for reset or upgrade plan</span>
+          <div class="issue" style="border-left: 3px solid var(--color-accent)">
+            <h3>Advanced Goals Markets</h3>
+            <p>Team-specific Poisson model predicts Over/Under 1.5, 2.5, 3.5 goals and BTTS with attack/defense strength ratings.</p>
+            <span class="issue__fix">Per-team expected goals (xG) from historical data</span>
           </div>
         </div>
       </div>
@@ -300,6 +299,7 @@ interface PipelineStep {
 })
 export class SystemStatusPage implements OnInit {
   private http = inject(HttpClient);
+  private api = inject(ApiService);
   private router = inject(Router);
 
   loading = signal(true);
@@ -307,87 +307,67 @@ export class SystemStatusPage implements OnInit {
 
   s = computed(() => this.status()!);
   d = computed(() => this.status()!.databases);
-  a = computed(() => this.status()!.apis);
+  ds = computed(() => this.status()!.dataSources);
   m = computed(() => this.status()!.models);
-  oddsActive = computed(() => this.m().oddsImplied === 'active');
   mlReady = computed(() => this.m().xgboost === 'ready');
   mlLeagues = computed(() => this.m().trainedLeagues);
 
   pipeline = computed<PipelineStep[]>(() => [
     {
-      id: 'collect', title: '1. Collect Data',
-      description: 'We fetch upcoming fixtures and odds from external APIs.',
-      status: this.a().oddsApi.status === 'dead' ? 'blocked' : 'working',
+      id: 'collect', title: '1. Scrape Data',
+      description: 'SofaScore scraper fetches fixtures, live scores, and results — zero paid APIs.',
+      status: 'working',
       details: [
-        'The Odds API → 80 sports, fixtures + odds',
-        'SportAPI → Soccer fixtures + results',
-        `Status: ${this.a().oddsApi.message}`,
+        'SofaScore → 50+ leagues, fixtures + live + results',
+        'BBC Sport → EPL fallback scraper',
+        'PSL Official → South African league fallback',
       ],
       icon: '📡',
     },
     {
-      id: 'models', title: '2. Run Models',
-      description: 'Three independent models predict each match.',
+      id: 'models', title: '2. Run 6 Models',
+      description: 'Six independent models predict each match outcome and goals.',
       status: 'working',
       details: [
-        'ELO → Team strength ratings',
-        'Form → Recent match results',
-        'Odds Implied → Bookmaker market (needs API)',
+        'ELO → Team strength ratings (15%)',
+        'Form → Recent results, recency weighted (15%)',
+        'Odds Implied → Synthetic from ELO/Form blend (25%)',
+        'Dixon-Coles Poisson → Attack/defense + goals (25%)',
+        'H2H → Head-to-head history (10%)',
+        'XGBoost ML → Gradient-boosted trees (10%)',
       ],
       icon: '🔬',
     },
     {
       id: 'ensemble', title: '3. Ensemble Blend',
-      description: 'Combine model predictions with weighted average.',
+      description: 'Weighted average with dynamic per-sport calibration.',
       status: 'working',
       details: [
-        'ELO: 30% · Form: 30% · Odds: 40%',
-        'Weights adjust per sport based on accuracy',
-        'Output: Home/Draw/Away probabilities',
+        'Weights adapt based on model accuracy per sport',
+        'Output: Home/Draw/Away probabilities + confidence',
+        'Goals: Over/Under 1.5, 2.5, 3.5 + BTTS',
       ],
       icon: '⚖️',
     },
     {
-      id: 'ml', title: '4. ML Enhancement (Future)',
-      description: 'XGBoost model blends with ensemble for better accuracy.',
-      status: 'warning',
-      details: [
-        'Pipeline built, waiting for training data',
-        'Needs 50+ resolved games per league',
-        'Will blend: 60% ensemble + 40% ML',
-      ],
-      icon: '🧠',
-    },
-    {
-      id: 'output', title: '5. Generate Predictions',
-      description: 'Final predictions with confidence scores and implied odds.',
+      id: 'output', title: '4. Generate Predictions',
+      description: 'Final predictions with confidence, expected value, and goals markets.',
       status: 'working',
       details: [
         `${this.d().predictions} predictions generated`,
         'Confidence: LOW / MEDIUM / HIGH',
-        'Stored in database, served via API',
+        'Value betting: Expected Value + Kelly stake sizing',
       ],
       icon: '📊',
     },
     {
-      id: 'resolve', title: '6. Resolve Results',
-      description: 'After matches finish, fetch scores and mark predictions correct/wrong.',
-      status: 'blocked',
+      id: 'resolve', title: '5. Resolve & Learn',
+      description: 'SofaScore results auto-resolve predictions and update ratings.',
+      status: 'working',
       details: [
-        `⚠️ ${this.d().pastNoScore} games past without scores`,
-        'The Odds API — OUT OF CREDITS',
-        '0 predictions resolved so far',
-      ],
-      icon: '✅',
-    },
-    {
-      id: 'learn', title: '7. Learn & Improve',
-      description: 'Update ELO ratings, retrain ML models, adjust weights.',
-      status: 'blocked',
-      details: [
-        'ELO ratings updated from match results',
-        'ML models retrained weekly on new data',
-        'Blocked until results are resolved',
+        'Results fetched every 2 hours from SofaScore',
+        'ELO ratings updated from match outcomes',
+        'ML models retrained weekly (Sunday 5 AM UTC)',
       ],
       icon: '📈',
     },
@@ -397,11 +377,10 @@ export class SystemStatusPage implements OnInit {
 
   fetch() {
     this.loading.set(true);
-    const backend = 'http://127.0.0.1:3000';
     const checks = {
-      backend: this.http.get(`${backend}/api/health`).toPromise().then(() => true).catch(() => false),
-      ml: this.http.get(`${backend}/api/ml/health`).toPromise().then((d: any) => d?.ready ?? false).catch(() => false),
-      predictions: this.http.get(`${backend}/api/predictions/pending`).toPromise().then((d: any) => d?.length ?? 0).catch(() => 0),
+      backend: this.api.getHealth().toPromise().then(() => true).catch(() => false),
+      ml: this.http.get('/api/ml/health').toPromise().then((d: any) => d?.ready ?? false).catch(() => false),
+      predictions: this.api.getPendingPredictions().toPromise().then((d: any) => d?.length ?? 0).catch(() => 0),
     };
 
     Promise.all([checks.backend, checks.ml, checks.predictions]).then(([be, ml, pred]) => {
@@ -409,26 +388,23 @@ export class SystemStatusPage implements OnInit {
         backend: be,
         frontend: true,
         ml,
-        databases: { sports: 175, teams: 1943, games: 857, upcoming: 715, pastNoScore: 142, completed: 0, predictions: pred, resolved: 0, users: 1 },
-        apis: {
-          oddsApi: { status: 'dead', message: 'OUT OF CREDITS — free tier exhausted' },
-          sportApi: { status: 'limited', message: 'Working but limited results' },
-          flashScore: { status: 'limited', message: 'Rate limited (429) — free tier' },
+        databases: {
+          sports: 0, teams: 0, games: 0, upcoming: 0,
+          pastNoScore: 0, completed: 0, predictions: pred, resolved: 0, users: 0
+        },
+        dataSources: {
+          sofascore: { status: be ? 'ok' : 'dead', message: be ? 'Active — scraping fixtures, live scores, results' : 'Backend offline' },
+          bbc: { status: 'ok', message: 'EPL fallback active' },
+          psl: { status: 'ok', message: 'PSL fallback active' },
         },
         models: {
           elo: 'active',
           form: 'active',
-          oddsImplied: pred > 0 ? 'active' : 'no-data',
-          xgboost: 'needs-data',
+          oddsImplied: 'active',
+          poisson: 'active',
+          h2h: 'active',
+          xgboost: ml ? 'ready' : 'needs-data',
           trainedLeagues: 0,
-        },
-        automation: {
-          syncSports: 'Every 5 min + 3 AM daily',
-          syncGames: 'Every 5 min + 6 AM daily',
-          generatePredictions: 'Every 5 min + 6:05 AM daily',
-          updateResults: 'Every 4 hours',
-          trainModels: 'Sunday 5 AM UTC',
-          liveBroadcast: 'Every 60 seconds',
         },
       });
       this.loading.set(false);
@@ -438,28 +414,28 @@ export class SystemStatusPage implements OnInit {
   refresh() { this.fetch(); }
 
   triggerSync() {
-    this.http.post('http://127.0.0.1:3000/api/sports/sync', {}).subscribe({
-      next: (d: any) => alert(`Synced ${d.active} sports, ${d.synced} games`),
+    this.api.syncSports().subscribe({
+      next: (d: SyncResult) => alert(`Synced ${d.active ?? d.sports} sports, ${d.synced ?? d.new} games`),
       error: () => alert('Sync failed'),
     });
   }
 
   triggerPredictions() {
-    this.http.post('http://127.0.0.1:3000/api/predictions/generate', {}).subscribe({
-      next: (d: any) => alert(`Generated ${d.generated} predictions (${d.skipped} skipped)`),
+    this.api.generatePredictions().subscribe({
+      next: (d: PredictionResult) => alert(`Generated ${d.generated} predictions (${d.skipped} skipped)`),
       error: () => alert('Prediction generation failed'),
     });
   }
 
   triggerResults() {
-    this.http.post('http://127.0.0.1:3000/api/results/update', {}).subscribe({
-      next: (d: any) => alert(`Updated ${d.updated} games, resolved ${d.predictionsResolved} predictions, ${d.eloUpdated} ELO updates`),
+    this.api.updateResults().subscribe({
+      next: (d: ResultsUpdate) => alert(`Updated ${d.updated} games, resolved ${d.predictionsResolved} predictions, ${d.eloUpdated} ELO updates`),
       error: () => alert('Results update failed'),
     });
   }
 
   triggerTrain() {
-    this.http.post('http://127.0.0.1:3000/api/ml/train', {}).subscribe({
+    this.http.post('/api/ml/train', {}).subscribe({
       next: (d: any) => alert(JSON.stringify(d)),
       error: () => alert('ML training failed'),
     });

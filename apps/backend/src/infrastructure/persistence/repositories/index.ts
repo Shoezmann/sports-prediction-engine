@@ -4,3 +4,6 @@ export { PgGameRepository } from './pg-game.repository';
 export { PgPredictionRepository } from './pg-prediction.repository';
 export { PgUserRepository } from './pg-user.repository';
 export { PgBetRepository } from './pg-bet.repository';
+export { PgMatchStatisticsRepository } from './pg-match-statistics.repository';
+export { PgPlayerRepository } from './pg-player.repository';
+export { PgCoachRepository } from './pg-coach.repository';

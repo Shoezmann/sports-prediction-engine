@@ -10,6 +10,8 @@ export interface ModelBreakdown {
     form: ProbabilitySet;
     oddsImplied: ProbabilitySet;
     ml?: ProbabilitySet;
+    poisson?: ProbabilitySet;
+    h2h?: ProbabilitySet;
 }
 
 /**
@@ -68,6 +70,8 @@ export class Prediction {
     /**
      * Derive the predicted outcome from the probability distribution.
      * Picks the outcome with the highest probability.
+     * In case of a tie (home == away), defaults to DRAW rather than
+     * always favoring home — avoids systematic home-team bias.
      */
     private static derivePredictedOutcome(
         probabilities: ProbabilitySet,
@@ -76,12 +80,15 @@ export class Prediction {
         const awayWin = probabilities.awayWin.value;
         const draw = probabilities.draw?.value ?? 0;
 
-        if (homeWin >= awayWin && homeWin >= draw) {
+        // Use strict > to avoid always picking home on ties
+        if (homeWin > awayWin && homeWin > draw) {
             return PredictionOutcome.HOME_WIN;
         }
-        if (awayWin >= homeWin && awayWin >= draw) {
+        if (awayWin > homeWin && awayWin > draw) {
             return PredictionOutcome.AWAY_WIN;
         }
+        // Tie between home and away → call it a draw
+        // This reflects genuine uncertainty rather than home bias
         return PredictionOutcome.DRAW;
     }
 

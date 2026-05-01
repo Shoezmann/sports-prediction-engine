@@ -4,3 +4,6 @@ export { GameEntity } from './game.orm-entity';
 export { PredictionEntity } from './prediction.orm-entity';
 export { UserEntity } from './user.orm-entity';
 export { BetEntity } from './bet.orm-entity';
+export { MatchStatisticsEntity } from './match-statistics.orm-entity';
+export { PlayerEntity } from './player.orm-entity';
+export { CoachEntity } from './coach.orm-entity';

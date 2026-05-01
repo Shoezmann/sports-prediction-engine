@@ -1,0 +1,49 @@
+<div class="auth-wrap">
+  <div class="card">
+    <div class="brand">
+      <span class="prompt">&gt;</span>
+      <h1>Predict<span class="accent">Engine</span></h1>
+    </div>
+    <h2 class="title">Create your account</h2>
+    <p class="sub">Join to start tracking predictions and performance.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+      <div class="field">
+        <label for="name">First Name <span class="opt">(optional)</span></label>
+        <input id="name" type="text" formControlName="firstName" placeholder="John" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" formControlName="email" placeholder="you@example.com"
+          [class.err]="email?.invalid && email?.touched" autocomplete="email" />
+        @if (email?.invalid && email?.touched) {
+          <span class="ferr">{{ email?.hasError('required') ? 'Email is required' : 'Enter a valid email' }}</span>
+        }
+      </div>
+
+      <div class="field">
+        <label for="pw">Password</label>
+        <input id="pw" type="password" formControlName="password" placeholder="Min 8 characters"
+          [class.err]="password?.invalid && password?.touched" autocomplete="new-password" />
+        @if (password?.invalid && password?.touched) {
+          <span class="ferr">{{ password?.hasError('minlength') ? 'Must be at least 8 characters' : 'Password is required' }}</span>
+        }
+        @if (passwordStrength() > 0) {
+          <div class="bar"><div class="fill" [class.weak]="passwordStrength()===1" [class.ok]="passwordStrength()===2" [class.strong]="passwordStrength()===3" [style.width.%]="passwordStrength()*33"></div></div>
+        }
+      </div>
+
+      @if (err()) {
+        <div class="ebox"><span class="eico">!</span> {{ err() }}</div>
+      }
+
+      <button type="submit" class="btn" [disabled]="loading()">
+        @if (loading()) { <span class="dot"></span> Creating account... }
+        @else { Create Account }
+      </button>
+
+      <p class="foot">Already have an account? <a routerLink="/login">Sign in</a></p>
+    </form>
+  </div>
+</div>

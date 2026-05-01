@@ -52,8 +52,8 @@ export const appRoutes: Route[] = [
     {
         path: 'performance',
         loadComponent: () =>
-            import('./pages/my-tracker/my-tracker.page').then(
-                (m) => m.MyTrackerPage,
+            import('./pages/performance/performance.page').then(
+                (m) => m.PerformancePage,
             ),
     },
     {

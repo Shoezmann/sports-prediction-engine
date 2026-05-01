@@ -40,9 +40,17 @@ export class SyncSportsUseCase {
 
         await this.sportRepo.saveMany(apiSports);
 
-        // Filter to only useful leagues with betting value
+        // ─── South African Football Focus ─────────────────────
+        // SA leagues + CAF competitions where SA teams compete
+        // + top European leagues for context/comparison
         const ALLOWED_KEYS = new Set([
-            // Top tier soccer (quality leagues with good data)
+            // ── South African leagues ──
+            'soccer_south_africa_psl',       // Premier Soccer League
+            // ── CAF competitions (SA teams participate) ──
+            'soccer_caf_champions_league',    // Mamelodi Sundowns
+            'soccer_caf_confederation_cup',   // Pirates, Chiefs
+            'soccer_africa_cup_of_nations',   // Bafana Bafana
+            // ── Top European leagues ──
             'soccer_epl',
             'soccer_efl_champ',
             'soccer_england_league1',
@@ -66,17 +74,6 @@ export class SyncSportsUseCase {
             'soccer_portugal_primeira_liga',
             'soccer_belgium_first_div',
             'soccer_turkey_super_league',
-            'soccer_brazil_campeonato',
-            'soccer_brazil_serie_b',
-            'soccer_argentina_primera_division',
-            'soccer_mexico_ligamx',
-            'soccer_usa_mls',
-            'soccer_australia_aleague',
-            'soccer_japan_j_league',
-            'soccer_korea_kleague1',
-            'soccer_china_superleague',
-            'soccer_saudi_arabia_pro_league',
-            'soccer_south_africa_psl',
             'soccer_poland_ekstraklasa',
             'soccer_sweden_allsvenskan',
             'soccer_sweden_superettan',
@@ -89,10 +86,23 @@ export class SyncSportsUseCase {
             'soccer_finland_veikkausliiga',
             'soccer_league_of_ireland',
             'soccer_spl',
-            'soccer_chile_campeonato',
             'soccer_uefa_champs_league',
             'soccer_uefa_europa_league',
             'soccer_uefa_europa_conference_league',
+            // ── Americas ──
+            'soccer_brazil_campeonato',
+            'soccer_brazil_serie_b',
+            'soccer_argentina_primera_division',
+            'soccer_mexico_ligamx',
+            'soccer_usa_mls',
+            'soccer_chile_campeonato',
+            // ── Asia/Oceania ──
+            'soccer_australia_aleague',
+            'soccer_japan_j_league',
+            'soccer_korea_kleague1',
+            'soccer_china_superleague',
+            'soccer_saudi_arabia_pro_league',
+            // ── International ──
             'soccer_conmebol_copa_libertadores',
             'soccer_conmebol_copa_sudamericana',
             'soccer_fifa_world_cup',
@@ -100,18 +110,13 @@ export class SyncSportsUseCase {
             'soccer_fifa_world_cup_qualifiers_south_america',
             'soccer_uefa_nations_league',
             'soccer_uefa_euro_qualification',
-            'soccer_esoccer_gt_leagues_12',
-            'soccer_esoccer_gt_leagues_10',
-            'soccer_africa_cup_of_nations',
-                        'soccer_concacaf_gold_cup',
+            'soccer_concacaf_gold_cup',
             'soccer_concacaf_leagues_cup',
-            // Basketball
+            // ── Basketball ──
             'basketball_nba',
             'basketball_euroleague',
             'basketball_ncaab',
-            'basketball_wnba',
-            'basketball_nbl',
-            // Tennis
+            // ── Tennis ──
             'tennis_atp_french_open',
             'tennis_atp_wimbledon',
             'tennis_atp_us_open',
@@ -123,21 +128,44 @@ export class SyncSportsUseCase {
             'tennis_wta_wimbledon',
             'tennis_wta_us_open',
             'tennis_wta_australian_open',
-            // American Football
+            // ── American Football ──
             'americanfootball_nfl',
             'americanfootball_ncaaf',
-            // Baseball
+            // ── Baseball ──
             'baseball_mlb',
-            // Ice Hockey
+            // ── Ice Hockey ──
             'icehockey_nhl',
-            // MMA
+            // ── MMA ──
             'mma_ufc',
             'mma_mixed_martial_arts',
-            // Boxing
+            // ── Boxing ──
             'boxing_boxing',
-            // Rugby
+            // ── Rugby ──
             'rugbyleague_nrl',
             'rugbyunion_six_nations',
+            // ── Esports ──
+            'soccer_esoccer_gt_leagues_12',
+            'soccer_esoccer_gt_leagues_10',
+            // ── Cricket ──
+            'cricket_ipl',
+            'cricket_psl',
+            'cricket_international_t20',
+            // ── Handball ──
+            'handball_germany_bundesliga',
+            // ── Lacrosse ──
+            'lacrosse_ncaa',
+            // ── Aussie Rules ──
+            'aussierules_afl',
+            // ── UFL / NFL ──
+            'americanfootball_ufl',
+            // ── Other hockey ──
+            'icehockey_ahl',
+            'icehockey_liiga',
+            'icehockey_sweden_hockey_league',
+            'icehockey_sweden_allsvenskan',
+            // ── Other baseball ──
+            'baseball_ncaa',
+            'baseball_npb',
         ]);
 
         const activeSports = apiSports.filter((s) => s.active && ALLOWED_KEYS.has(s.key));

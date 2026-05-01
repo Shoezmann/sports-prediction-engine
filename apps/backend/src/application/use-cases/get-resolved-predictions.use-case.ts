@@ -25,6 +25,12 @@ export class GetResolvedPredictionsUseCase {
             const predictedOver2_5 = goals ? (goals.over2_5 > 0.5) : null;
             const predictedBtts = goals ? (goals.bttsYes > 0.5) : null;
 
+            const probToObj = (ps: any) => ps ? ({
+                homeWin: ps.homeWin.value,
+                awayWin: ps.awayWin.value,
+                draw: ps.draw?.value,
+            }) : undefined;
+
             return {
                 id: p.id,
                 game: {
@@ -48,6 +54,14 @@ export class GetResolvedPredictionsUseCase {
                     homeWin: p.probabilities.homeWin.value,
                     awayWin: p.probabilities.awayWin.value,
                     draw: p.probabilities.draw?.value,
+                },
+                modelBreakdown: {
+                    elo:         probToObj(p.modelBreakdown.elo),
+                    form:        probToObj(p.modelBreakdown.form),
+                    oddsImplied: probToObj(p.modelBreakdown.oddsImplied),
+                    ml:          probToObj(p.modelBreakdown.ml),
+                    poisson:     probToObj(p.modelBreakdown.poisson),
+                    h2h:         probToObj(p.modelBreakdown.h2h),
                 },
                 goals: goals ? {
                     over2_5: goals.over2_5,

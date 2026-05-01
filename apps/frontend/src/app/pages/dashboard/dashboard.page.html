@@ -1,0 +1,84 @@
+<div class="page">
+  <!-- Hero -->
+  <section class="hero animate-in">
+    <div class="hero__content">
+      <h1 class="hero__title">
+        Sports Prediction <span class="hero__title-accent">Engine</span>
+      </h1>
+      <p class="hero__subtitle">
+        6-model ensemble prediction engine: ELO, Form, Synthetic Odds, Dixon-Coles Poisson, H2H, and XGBoost ML. Zero paid API dependencies.
+      </p>
+      <div class="hero__status">
+        <span class="status-dot"></span>
+        <span class="status-text">SofaScore scraper active · 50+ leagues · Predictions every 4h</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Status Toast -->
+  @if (statusMessage()) {
+    <div class="toast animate-in" [class.toast--success]="!statusError()" [class.toast--error]="statusError()">
+      <span class="material-symbols-rounded">{{ statusError() ? 'error_outline' : 'check_circle' }}</span>
+      <span>{{ statusMessage() }}</span>
+    </div>
+  }
+
+  <!-- Stats Grid -->
+  <section class="stats animate-in" style="animation-delay: 100ms">
+    <sp-stat-card
+      label="Resolved"
+      [value]="accuracy()?.totalPredictions?.toString() ?? '-'"
+      subtitle="All time"
+    />
+    <sp-stat-card
+      label="Pending"
+      [value]="accuracy()?.pendingPredictions?.toString() ?? '-'"
+      subtitle="Games not yet played"
+    />
+    <sp-stat-card
+      label="Accuracy"
+      [value]="accuracy() ? (accuracy()!.accuracy * 100).toFixed(1) + '%' : '-'"
+      subtitle="Overall hit rate"
+    />
+    <sp-stat-card
+      label="Last 7 Days"
+      [value]="accuracy() ? (accuracy()!.last7Days * 100).toFixed(1) + '%' : '-'"
+      subtitle="Recent performance"
+    />
+    <sp-stat-card
+      label="Last 30 Days"
+      [value]="accuracy() ? (accuracy()!.last30Days * 100).toFixed(1) + '%' : '-'"
+      subtitle="Monthly window"
+    />
+  </section>
+
+  <!-- Chart -->
+  <section class="card animate-in" style="animation-delay: 200ms">
+    <sp-accuracy-chart [data]="accuracy()" />
+  </section>
+
+  <!-- Pipeline Log -->
+  @if (log().length > 0) {
+    <section class="card animate-in" style="animation-delay: 300ms">
+      <div class="log">
+        <div class="log__header">
+          <h3 class="log__title">
+            <span class="material-symbols-rounded">terminal</span>
+            Pipeline Log
+          </h3>
+          <button class="btn-ghost" (click)="log.set([])">
+            <span class="material-symbols-rounded">delete_sweep</span>
+          </button>
+        </div>
+        <div class="log__entries">
+          @for (entry of log(); track $index) {
+            <div class="log__entry">
+              <span class="log__time">{{ entry.time }}</span>
+              <span class="log__message">{{ entry.message }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+  }
+</div>

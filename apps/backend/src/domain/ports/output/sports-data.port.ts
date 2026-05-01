@@ -27,6 +27,8 @@ export interface RawGameData {
     commenceTime: string;
     homeTeam: string;
     awayTeam: string;
+    /** Optional status from the API: 'scheduled', 'postponed', 'cancelled', 'in_progress', 'finished' */
+    status?: string;
 }
 
 /** Raw score data from external API */
@@ -39,6 +41,8 @@ export interface RawScoreData {
     homeScore: number | null;
     awayScore: number | null;
     lastUpdate: string;
+    /** Optional status from the API: 'postponed', 'cancelled', etc. */
+    status?: string;
 }
 
 /** Raw odds data from external API */

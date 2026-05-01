@@ -1,0 +1,58 @@
+<div class="pg">
+  @if (loading()) {
+    <div class="loader"><span class="spin"></span><p>Loading live matches...</p></div>
+  }
+  @if (!loading()) {
+    <div class="hd">
+      <div class="hl"><span class="pr">&gt;</span><div><h1>LIVE NOW</h1>
+        <p class="sb">{{ filtered().length }} of {{ matches().length }} matches</p></div></div>
+      <div class="hr">
+        @if (error()) { <span class="err">{{ error() }}</span> }
+        @if (lastRefresh()) { <span class="up">UPDATED {{ lastRefresh() }}</span> }
+        <button class="btn" (click)="refresh()" [disabled]="loading()">[ REFRESH ]</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="fl">
+      <div class="fg"><label>SPORT</label>
+        <select [value]="sc() ?? ''" (change)="onCat($any($event.target).value || null)">
+          <option value="">ALL</option>
+          @for (c of cats(); track c) { <option [value]="c">{{ c }}</option> }
+        </select></div>
+      <div class="fg"><label>REGION</label>
+        <select [value]="sr() ?? ''" (change)="onReg($any($event.target).value || null)">
+          <option value="">ALL</option>
+          @for (r of regs(); track r) { <option [value]="r">{{ r }}</option> }
+        </select></div>
+      <div class="fg"><label>LEAGUE</label>
+        <select [value]="sl() ?? ''" (change)="onLg($any($event.target).value || null)">
+          <option value="">ALL</option>
+          @for (l of lgs(); track l) { <option [value]="l">{{ l }}</option> }
+        </select></div>
+      @if (sc() || sr() || sl()) { <button class="clr" (click)="clr()">[ CLEAR ]</button> }
+    </div>
+
+    @if (filtered().length > 0) {
+      <div class="ls">
+        @for (m of filtered(); track m.id) {
+          <sp-live-card [data]="m"></sp-live-card>
+        }
+      </div>
+    }
+
+    @if (matches().length === 0 && !error()) {
+      <div class="empty"><pre>┌──────────────────────┐
+│  NO LIVE MATCHES RIGHT NOW  │
+│  Check back during games    │
+└──────────────────────┘</pre></div>
+    }
+    @if (matches().length > 0 && filtered().length === 0) {
+      <div class="empty"><pre>┌──────────────────────┐
+│  NO MATCHES FOR THIS FILTER  │
+│  Clear filters to view all   │
+└──────────────────────┘</pre>
+        <button class="bclr" (click)="clr()">[ CLEAR FILTERS ]</button></div>
+    }
+  }
+</div>

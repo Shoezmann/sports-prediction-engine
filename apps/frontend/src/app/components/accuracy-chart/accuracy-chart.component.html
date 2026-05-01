@@ -1,0 +1,34 @@
+<div class="chart">
+  <h3 class="chart__title">Model Accuracy Breakdown</h3>
+  <div class="chart__bars">
+    @for (bar of bars(); track bar.label) {
+      <div class="chart__bar-row">
+        <div class="chart__bar-label">{{ bar.label }}</div>
+        <div class="chart__bar-track">
+          <div
+            class="chart__bar-fill"
+            [style.width.%]="bar.value * 100"
+            [style.background]="bar.color"
+          >
+          </div>
+        </div>
+        <div class="chart__bar-value">{{ (bar.value * 100).toFixed(1) }}%</div>
+      </div>
+    }
+  </div>
+
+  <div class="chart__confidence">
+    <h4 class="chart__subtitle">By Confidence Level</h4>
+    <div class="chart__confidence-grid">
+      @for (bucket of confidenceBuckets(); track bucket.label) {
+        <div class="chart__bucket">
+          <div class="chart__bucket-ring" [style.--progress]="bucket.accuracy">
+            <span class="chart__bucket-pct">{{ (bucket.accuracy * 100).toFixed(0) }}%</span>
+          </div>
+          <span class="chart__bucket-label" [style.color]="bucket.color">{{ bucket.label }}</span>
+          <span class="chart__bucket-count">{{ bucket.total }} predictions</span>
+        </div>
+      }
+    </div>
+  </div>
+</div>

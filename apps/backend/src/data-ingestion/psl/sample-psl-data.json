@@ -1,0 +1,58 @@
+[
+  {
+    "date": "1996-08-10",
+    "homeTeam": "Mamelodi Sundowns",
+    "awayTeam": "Orlando Pirates",
+    "homeScore": 2,
+    "awayScore": 1,
+    "htHomeScore": 1,
+    "htAwayScore": 0,
+    "season": "1996/1997",
+    "round": "Round 1",
+    "venue": "Loftus Versfeld Stadium",
+    "attendance": 25000,
+    "referee": "John Doe"
+  },
+  {
+    "date": "1996-08-10",
+    "homeTeam": "Kaizer Chiefs",
+    "awayTeam": "SuperSport United",
+    "homeScore": 1,
+    "awayScore": 1,
+    "htHomeScore": 0,
+    "htAwayScore": 1,
+    "season": "1996/1997",
+    "round": "Round 1",
+    "venue": "FNB Stadium",
+    "attendance": 35000
+  },
+  {
+    "date": "1996-08-17",
+    "homeTeam": "Orlando Pirates",
+    "awayTeam": "Kaizer Chiefs",
+    "homeScore": 3,
+    "awayScore": 2,
+    "htHomeScore": 2,
+    "htAwayScore": 1,
+    "season": "1996/1997",
+    "round": "Round 2",
+    "venue": "Orlando Stadium",
+    "attendance": 40000,
+    "stats": {
+      "homeXg": 2.3,
+      "awayXg": 1.8,
+      "homeShots": 15,
+      "awayShots": 12,
+      "homeShotsOnTarget": 7,
+      "awayShotsOnTarget": 6,
+      "homePossession": 52,
+      "awayPossession": 48,
+      "homeCorners": 6,
+      "awayCorners": 4,
+      "homeFouls": 12,
+      "awayFouls": 14,
+      "homeYellowCards": 2,
+      "awayYellowCards": 3
+    }
+  }
+]

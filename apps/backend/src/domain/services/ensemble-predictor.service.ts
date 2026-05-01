@@ -10,12 +10,19 @@ import { PredictionModelPort } from '../ports/output';
  * ensemble probability distribution using weighted averaging.
  */
 export class EnsemblePredictor {
-    /** Default weights for each model (must sum to 1.0) */
+    /**
+     * Default ensemble weights.
+     * The EnsemblePredictor normalises by supported models, so weights
+     * for unsupported categories (e.g. poisson on TWO_WAY) are excluded
+     * and the remaining weights are re-normalised automatically.
+     */
     private static readonly DEFAULT_WEIGHTS: Record<string, number> = {
-        elo: 0.25,
-        form: 0.25,
-        oddsImplied: 0.30,
-        ml: 0.20,
+        elo:          0.15,  // Baseline ELO strength
+        form:         0.15,  // Recent form
+        oddsImplied:  0.25,  // Market consensus — strong predictor
+        poisson:      0.25,  // Dixon-Coles goals model — strongest for soccer
+        h2h:          0.10,  // Head-to-head matchup history
+        ml:           0.10,  // XGBoost model (when trained)
     };
 
     constructor(
@@ -84,11 +91,16 @@ export class EnsemblePredictor {
         );
 
         // Build the model breakdown
+        const neutral = (cat: SportCategory) =>
+            ProbabilitySet.forCategory(cat, 0.5, 0.5, cat === SportCategory.THREE_WAY ? 0 : undefined);
+
         const breakdown: ModelBreakdown = {
-            elo: modelResults.get('elo') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
-            form: modelResults.get('form') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
-            oddsImplied: modelResults.get('oddsImplied') ?? ProbabilitySet.forCategory(category, 0.5, 0.5, category === SportCategory.THREE_WAY ? 0 : undefined),
-            ml: modelResults.get('ml'),
+            elo:         modelResults.get('elo')          ?? neutral(category),
+            form:        modelResults.get('form')         ?? neutral(category),
+            oddsImplied: modelResults.get('oddsImplied')  ?? neutral(category),
+            ml:          modelResults.get('ml'),
+            poisson:     modelResults.get('poisson'),
+            h2h:         modelResults.get('h2h'),
         };
 
         return { probabilities, breakdown };

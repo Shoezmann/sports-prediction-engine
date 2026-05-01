@@ -5,6 +5,8 @@ import { TeamEntity } from './team.orm-entity';
 @Index('idx_games_sport_key_completed', ['sportKey', 'completed'])
 @Index('idx_games_sport_key_commence_time', ['sportKey', 'commenceTime'])
 @Index('idx_games_completed_commence_time', ['completed', 'commenceTime'])
+@Index('idx_games_status', ['status'])
+@Index('idx_games_sport_key_status', ['sportKey', 'status'])
 export class GameEntity {
     @PrimaryColumn({ type: 'uuid' })
     id!: string;
@@ -52,6 +54,10 @@ export class GameEntity {
 
     @Column({ name: 'away_score', type: 'int', nullable: true })
     awayScore!: number | null;
+
+    @Column({ type: 'varchar', length: 20, default: 'scheduled' })
+    @Index()
+    status!: string;
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;

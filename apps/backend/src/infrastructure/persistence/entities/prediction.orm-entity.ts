@@ -57,6 +57,16 @@ export class PredictionEntity {
     @Column({ name: 'odds', type: 'float', nullable: true })
     odds!: number | null;
 
+    // Poisson expected goals (team-specific, from GoalsPredictor)
+    @Column({ name: 'expected_goals_home', type: 'float', nullable: true })
+    expectedGoalsHome!: number | null;
+
+    @Column({ name: 'expected_goals_away', type: 'float', nullable: true })
+    expectedGoalsAway!: number | null;
+
+    @Column({ name: 'expected_total_goals', type: 'float', nullable: true })
+    expectedTotalGoals!: number | null;
+
     // Actual result
     @Column({ name: 'actual_outcome', type: 'varchar', length: 32, nullable: true })
     actualOutcome!: string | null;
